@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+google_token.json
+google_credentials.json
+attom_assessment.json
+attom_sales.json
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.MOV
+.video_frames/
+media_review.csv

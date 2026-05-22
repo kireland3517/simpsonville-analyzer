@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>130 Kingfisher Dr — Property Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink:     '#1a1a1a',
+            surface: '#ffffff',
+            card:    '#ffffff',
+            edge:    '#dddddd',
+            blue:    '#d6e4f0',
+            'blue-border': '#b8cfe4',
+            prose:   '#1a1a1a',
+            muted:   '#666666',
+          },
+          fontFamily: {
+            head: ['Georgia', '"Times New Roman"', 'serif'],
+            ui:   ['system-ui', '-apple-system', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      background: #ffffff;
+      color: #1a1a1a;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      min-height: 100vh;
+    }
+
+    /* ── header ── */
+    #app-header {
+      border-bottom: 2px solid #1a1a1a;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 4.25rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    #app-header .address {
+      font-family: Georgia, serif;
+      font-size: 1.15rem;
+      font-weight: bold;
+      letter-spacing: 0.02em;
+      color: #1a1a1a;
+      text-transform: uppercase;
+    }
+    #app-header .subtitle {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #666666;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #cccccc;
+      transition: background 0.4s;
+    }
+    .status-dot.auth { background: #22aa22; }
+
+    /* ── tabs ── */
+    #tab-nav {
+      background: #ffffff;
+      border-bottom: 1px solid #dddddd;
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    #tab-nav::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888888;
+      padding: 1rem 1.75rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: #1a1a1a;
+      transform: scaleX(0);
+      transition: transform 0.2s;
+    }
+    .tab-btn:hover { color: #1a1a1a; }
+    .tab-btn.active { color: #1a1a1a; }
+    .tab-btn.active::after { transform: scaleX(1); }
+
+    /* ── panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── cards ── */
+    .card {
+      background: #ffffff;
+      border: 1px solid #dddddd;
+    }
+    .card-inner {
+      background: #ffffff;
+      border: 1px solid #dddddd;
+    }
+
+    /* ── buttons ── */
+    .btn-primary {
+      background: #1a1a1a;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.4rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { background: #333333; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { background: #aaaaaa; color: #ffffff; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: #1a1a1a;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.55rem 1rem;
+      border: 1px solid #1a1a1a;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #f0f4f8; }
+
+    .btn-ghost {
+      background: #ffffff;
+      color: #555555;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.45rem 0.85rem;
+      border: 1px solid #cccccc;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-ghost:hover { border-color: #1a1a1a; color: #1a1a1a; }
+
+    /* ── label / value ── */
+    .label {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #555555;
+      text-transform: uppercase;
+    }
+    .value {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+
+    /* ── input ── */
+    .field {
+      background: #ffffff;
+      border: 1px solid #cccccc;
+      color: #1a1a1a;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.9rem;
+      padding: 0.55rem 0.8rem;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+    .field:focus { border-color: #1a1a1a; }
+    .field::placeholder { color: #aaaaaa; }
+
+    /* ── photo grid ── */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 2px;
+      background: #dddddd;
+    }
+    .photo-card {
+      background: #f8f9fa;
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .photo-card:hover .photo-overlay { opacity: 1; }
+    .photo-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: #e8ecf0;
+      transition: opacity 0.3s;
+    }
+    .photo-thumb.loading {
+      opacity: 0;
+      background: #e8ecf0;
+    }
+    .photo-skeleton {
+      width: 100%;
+      aspect-ratio: 1;
+      background: linear-gradient(90deg, #f0f4f8 25%, #e0e8f0 50%, #f0f4f8 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .photo-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.3);
+      opacity: 0;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-select {
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 18px; height: 18px;
+      accent-color: #1a1a1a;
+      cursor: pointer;
+    }
+    .photo-card.selected { outline: 3px solid #1a1a1a; outline-offset: -3px; }
+    .photo-name {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: #555555;
+      padding: 0.3rem 0.4rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: #ffffff;
+      border-top: 1px solid #eeeeee;
+    }
+
+    /* ── badges ── */
+    .badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.55rem;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    .badge-green  { background: #2d6a2d; }
+    .badge-blue   { background: #1a4a8a; }
+    .badge-yellow { background: #7a6010; }
+    .badge-red    { background: #8a1a1a; }
+    .badge-gray   { background: #555555; }
+
+    /* ── metric cards ── */
+    .metric-card {
+      background: #d6e4f0;
+      border: 1px solid #b8cfe4;
+      padding: 1.4rem 1.75rem;
+    }
+    .metric-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #3a5a70;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .metric-value {
+      font-family: Georgia, serif;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #1a1a1a;
+    }
+
+    /* ── tables ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 0.7rem 0.9rem;
+      background: #d6e4f0;
+      border-bottom: 2px solid #b8cfe4;
+      white-space: nowrap;
+    }
+    .data-table td {
+      font-size: 0.88rem;
+      color: #1a1a1a;
+      padding: 0.65rem 0.9rem;
+      border-bottom: 1px solid #dddddd;
+    }
+    .data-table tbody tr:nth-child(even) td { background: #f8f9fa; }
+    .data-table tr:hover td { background: #edf3f8; }
+    .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* ── property grid ── */
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid #eeeeee;
+    }
+    .prop-row:last-child { border-bottom: none; }
+
+    /* ── spinner ── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid #dddddd;
+      border-top-color: #1a1a1a;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── section headers ── */
+    .section-head {
+      font-family: Georgia, serif;
+      font-size: 1.35rem;
+      font-weight: bold;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.2rem;
+    }
+    .section-sub {
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      color: #666666;
+      text-transform: uppercase;
+    }
+
+    /* ── analysis cards ── */
+    .analysis-card {
+      background: #ffffff;
+      border: 1px solid #dddddd;
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+    @media (max-width: 480px) {
+      .analysis-card { grid-template-columns: 1fr; }
+    }
+    .analysis-thumb {
+      width: 110px;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: #e8ecf0;
+    }
+    @media (max-width: 480px) {
+      .analysis-thumb { width: 100%; aspect-ratio: 16/7; }
+    }
+
+    /* ── toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem; right: 1.5rem;
+      background: #1a1a1a;
+      color: #ffffff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      padding: 0.65rem 1.1rem;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.25s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f5f5f5; }
+    ::-webkit-scrollbar-thumb { background: #cccccc; }
+    ::-webkit-scrollbar-thumb:hover { background: #888888; }
+
+    /* ── connect screen ── */
+    .connect-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 40vh;
+      gap: 1rem;
+      text-align: center;
+    }
+    .connect-icon {
+      width: 56px; height: 56px;
+      border: 2px solid #dddddd;
+      background: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── priority inline colors (used from JS) ── */
+    .p-critical { color: #8a1a1a; font-weight: 700; }
+    .p-high     { color: #8a3a10; font-weight: 700; }
+    .p-medium   { color: #7a6010; font-weight: 700; }
+    .p-low      { color: #2d6a2d; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ HEADER ════════════════════════════════ -->
+<header id="app-header">
+  <div>
+    <div class="address">130 KINGFISHER DR</div>
+    <div class="subtitle">SIMPSONVILLE, SC 29680 &nbsp;·&nbsp; RIVER RIDGE</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.6rem;">
+    <span class="label" id="auth-label">NOT CONNECTED</span>
+    <div class="status-dot" id="auth-dot"></div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════ TAB NAV ════════════════════════════════ -->
+<nav id="tab-nav">
+  <button class="tab-btn active" data-tab="photos">PHOTOS</button>
+  <button class="tab-btn" data-tab="analysis">ANALYSIS</button>
+  <button class="tab-btn" data-tab="report">ROI REPORT</button>
+  <button class="tab-btn" data-tab="property">PROPERTY</button>
+</nav>
+
+<!-- ══════════════════════════════════ PANELS ════════════════════════════════ -->
+<main style="max-width:1400px;margin:0 auto;padding:1.5rem;">
+
+  <!-- ── PHOTOS TAB ─────────────────────────────────────────────────────────── -->
+  <section id="tab-photos" class="tab-panel active">
+
+    <div id="auth-gate" class="connect-screen" style="display:none;">
+      <div class="connect-icon">📷</div>
+      <h2 class="section-head">Connect Google Photos</h2>
+      <p class="section-sub" style="max-width:320px;">
+        Authenticate with Google to load photos from your shared album.
+      </p>
+      <button class="btn-primary" id="connect-btn">CONNECT GOOGLE PHOTOS</button>
+    </div>
+
+    <div id="album-ui" style="display:none;">
+      <div style="display:flex;align-items:flex-end;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div class="label" style="margin-bottom:0.35rem;">ALBUM ID</div>
+          <input class="field" id="album-id-input" type="text" placeholder="Enter Google Photos album ID…" />
+        </div>
+        <button class="btn-primary" id="load-album-btn">LOAD ALBUM</button>
+      </div>
+
+      <div id="photo-toolbar" style="display:none;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <span class="label" id="photo-count-label">0 PHOTOS</span>
+        <div style="flex:1;"></div>
+        <button class="btn-ghost" id="select-all-btn">SELECT ALL</button>
+        <button class="btn-ghost" id="deselect-all-btn">DESELECT ALL</button>
+        <button class="btn-primary" id="analyze-btn" disabled>ANALYZE SELECTED</button>
+      </div>
+
+      <div id="analyze-progress" style="display:none;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+        <div class="spinner"></div>
+        <span class="label">RUNNING ANALYSIS — THIS MAY TAKE SEVERAL MINUTES</span>
+      </div>
+
+      <div id="photo-grid-wrap">
+        <div id="photo-grid" class="photo-grid"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── ANALYSIS TAB ───────────────────────────────────────────────────────── -->
+  <section id="tab-analysis" class="tab-panel">
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem;">
+      <div>
+        <h2 class="section-head">Condition Analysis</h2>
+        <div class="section-sub">PER-PHOTO AI FINDINGS FROM CLAUDE VISION</div>
+      </div>
+      <button class="btn-secondary" id="refresh-analysis-btn">↻ REFRESH</button>
+    </div>
+
+    <div id="analysis-empty" class="connect-screen" style="min-height:30vh;display:none;">
+      <div class="connect-icon">🔍</div>
+      <p class="section-sub">No analysis yet — select photos and run Analyze Selected.</p>
+    </div>
+
+    <div id="analysis-grid" style="display:flex;flex-direction:column;gap:1px;background:#dddddd;"></div>
+
+  </section>
+
+  <!-- ── ROI REPORT TAB ─────────────────────────────────────────────────────── -->
+  <section id="tab-report" class="tab-panel">
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem;">
+      <div>
+        <h2 class="section-head">ROI Report</h2>
+        <div class="section-sub">PRIORITIZED UPGRADES + REPAIRS BY ESTIMATED RETURN</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button class="btn-primary" id="gen-report-btn">GENERATE REPORT</button>
+        <button class="btn-secondary" id="export-csv-btn" style="display:none;">↓ EXPORT CSV</button>
+      </div>
+    </div>
+
+    <div id="report-loading" style="display:none;align-items:center;gap:0.75rem;padding:2rem 0;">
+      <div class="spinner"></div>
+      <span class="label">GENERATING ROI ANALYSIS WITH CLAUDE…</span>
+    </div>
+
+    <div id="report-empty" style="padding:3rem 0;text-align:center;display:none;">
+      <p class="section-sub">Click Generate Report to analyze all cached findings.</p>
+    </div>
+
+    <div id="report-content" style="display:none;">
+
+      <!-- Metrics row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:#b8cfe4;margin-bottom:1.75rem;">
+        <div class="metric-card">
+          <div class="metric-label">ESTIMATED ARV</div>
+          <div class="metric-value" id="metric-arv">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">TOTAL UPGRADE COST</div>
+          <div class="metric-value" id="metric-upgrade-cost">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">CRITICAL REPAIRS</div>
+          <div class="metric-value" id="metric-critical">—</div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div id="report-summary" style="display:none;background:#eef5fb;border:1px solid #b8cfe4;border-left:4px solid #1a4a8a;padding:1.1rem 1.4rem;margin-bottom:1.75rem;font-size:0.92rem;color:#1a1a1a;line-height:1.7;"></div>
+
+      <!-- Upgrades table -->
+      <div style="margin-bottom:2rem;">
+        <div class="label" style="margin-bottom:0.75rem;">UPGRADES — SORTED BY ROI %</div>
+        <div style="overflow-x:auto;border:1px solid #dddddd;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>UPGRADE</th>
+                <th class="num">COST</th>
+                <th class="num">VALUE ADD</th>
+                <th class="num">ROI %</th>
+                <th>PRIORITY</th>
+              </tr>
+            </thead>
+            <tbody id="upgrades-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Repairs table -->
+      <div>
+        <div class="label" style="margin-bottom:0.75rem;">REPAIRS</div>
+        <div style="overflow-x:auto;border:1px solid #dddddd;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>REPAIR</th>
+                <th class="num">EST. COST</th>
+                <th>PRIORITY</th>
+              </tr>
+            </thead>
+            <tbody id="repairs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ── PROPERTY TAB ───────────────────────────────────────────────────────── -->
+  <section id="tab-property" class="tab-panel">
+
+    <div style="margin-bottom:1.25rem;">
+      <h2 class="section-head">Property Data</h2>
+      <div class="section-sub">130 KINGFISHER DR · SIMPSONVILLE SC · RIVER RIDGE SUBDIVISION</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:#dddddd;">
+
+      <div class="card" style="padding:1.25rem;">
+        <div class="label" style="margin-bottom:1rem;">PROPERTY FACTS</div>
+        <div class="prop-row">
+          <span class="label">ADDRESS</span>
+          <span class="value">130 Kingfisher Dr</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">CITY / STATE / ZIP</span>
+          <span class="value">Simpsonville SC 29680</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">SUBDIVISION</span>
+          <span class="value">River Ridge</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">YEAR BUILT</span>
+          <span class="value">1999</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">BEDS / BATHS</span>
+          <span class="value">3 / 2</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">SQ FT</span>
+          <span class="value">2,019</span>
+        </div>
+      </div>
+
+      <div class="card" style="padding:1.25rem;">
+        <div class="label" style="margin-bottom:1rem;">VALUATION</div>
+        <div class="prop-row">
+          <span class="label">MARKET VALUE</span>
+          <span class="value" style="font-weight:700;">$276,810</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">LAST SALE DATE</span>
+          <span class="value">Dec 28, 2017</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">LAST SALE PRICE</span>
+          <span class="value">$170,000</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">PRICE / SQFT (LAST SALE)</span>
+          <span class="value">$84.20</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">ANNUAL TAX (2025)</span>
+          <span class="value">$3,446</span>
+        </div>
+      </div>
+
+      <div class="card" style="padding:1.25rem;">
+        <div class="label" style="margin-bottom:1rem;">NEIGHBORHOOD</div>
+        <div class="prop-row">
+          <span class="label">COUNTY</span>
+          <span class="value">Greenville</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">COMP RANGE LOW</span>
+          <span class="value">$265,000</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">COMP RANGE HIGH</span>
+          <span class="value">$319,900</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">SUBJECT VS COMP MID</span>
+          <span class="value" style="color:#2d6a2d;font-weight:600;">−$15,645</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">DATA SOURCE</span>
+          <span class="value">ATTOM API</span>
+        </div>
+        <div class="prop-row">
+          <span class="label">TAX YEAR</span>
+          <span class="value">2025</span>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════ SCRIPTS ════════════════════════════════ -->
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  authenticated: false,
+  photos: [],          // [{id, filename, mimeType, baseUrl, productUrl}]
+  selectedIds: new Set(),
+  analyses: {},        // {photo_id: analysis_dict}
+  report: null,
+};
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return res.json();
+  return res;
+}
+
+function fmt$(n) {
+  if (n == null) return '—';
+  return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function fmtPct(n) {
+  if (n == null) return '—';
+  return Number(n).toFixed(1) + '%';
+}
+
+let toastTimer = null;
+function toast(msg, duration = 2800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${id}`).classList.add('active');
+    if (id === 'analysis') loadAnalyses();
+  });
+});
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+async function checkAuth() {
+  try {
+    const data = await api('GET', '/auth/status');
+    state.authenticated = data.authenticated;
+  } catch {
+    state.authenticated = false;
+  }
+  renderAuthState();
+}
+
+function renderAuthState() {
+  const dot   = document.getElementById('auth-dot');
+  const label = document.getElementById('auth-label');
+  const gate  = document.getElementById('auth-gate');
+  const ui    = document.getElementById('album-ui');
+
+  if (state.authenticated) {
+    dot.classList.add('auth');
+    label.textContent = 'CONNECTED';
+    gate.style.display = 'none';
+    ui.style.display   = 'block';
+  } else {
+    dot.classList.remove('auth');
+    label.textContent = 'NOT CONNECTED';
+    gate.style.display = 'flex';
+    ui.style.display   = 'none';
+  }
+}
+
+document.getElementById('connect-btn').addEventListener('click', async () => {
+  try {
+    const data = await api('GET', '/auth/login');
+    window.location.href = data.auth_url;
+  } catch (e) {
+    toast('Failed to get auth URL: ' + e.message);
+  }
+});
+
+// ─── Lazy image loader ────────────────────────────────────────────────────────
+const lazyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const img = entry.target;
+    const baseUrl = img.dataset.baseUrl;
+    if (!baseUrl) return;
+    const encoded = encodeURIComponent(baseUrl);
+    img.src = `/photos/thumbnail?base_url=${encoded}&width=400`;
+    img.onload  = () => img.classList.remove('loading');
+    img.onerror = () => { img.style.opacity = '0.2'; };
+    lazyObserver.unobserve(img);
+  });
+}, { rootMargin: '400px' });
+
+// ─── Photos tab ───────────────────────────────────────────────────────────────
+document.getElementById('load-album-btn').addEventListener('click', loadAlbum);
+document.getElementById('album-id-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadAlbum();
+});
+
+async function loadAlbum() {
+  const albumId = document.getElementById('album-id-input').value.trim();
+  if (!albumId) { toast('Please enter an album ID'); return; }
+
+  const btn = document.getElementById('load-album-btn');
+  btn.disabled = true;
+  btn.textContent = 'LOADING…';
+
+  try {
+    const data = await api('GET', `/photos/list?album_id=${encodeURIComponent(albumId)}`);
+    state.photos = data.photos || [];
+    state.selectedIds.clear();
+    renderPhotoGrid();
+    toast(`Loaded ${state.photos.length} photos`);
+  } catch (e) {
+    toast('Error loading album: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'LOAD ALBUM';
+  }
+}
+
+function renderPhotoGrid() {
+  const grid    = document.getElementById('photo-grid');
+  const toolbar = document.getElementById('photo-toolbar');
+  const countEl = document.getElementById('photo-count-label');
+
+  grid.innerHTML = '';
+  toolbar.style.display = state.photos.length ? 'flex' : 'none';
+  countEl.textContent = `${state.photos.length} PHOTO${state.photos.length !== 1 ? 'S' : ''}`;
+
+  state.photos.forEach(photo => {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.dataset.id = photo.id;
+
+    const img = document.createElement('img');
+    img.className = 'photo-thumb loading';
+    img.dataset.baseUrl = photo.baseUrl;
+    img.alt = photo.filename;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'photo-select';
+    cb.addEventListener('change', () => toggleSelect(photo.id, cb.checked, card));
+
+    const name = document.createElement('div');
+    name.className = 'photo-name';
+    name.title = photo.filename;
+    name.textContent = photo.filename;
+
+    card.appendChild(img);
+    card.appendChild(cb);
+    card.appendChild(name);
+    card.addEventListener('click', e => {
+      if (e.target === cb) return;
+      cb.checked = !cb.checked;
+      toggleSelect(photo.id, cb.checked, card);
+    });
+
+    grid.appendChild(card);
+    lazyObserver.observe(img);
+  });
+
+  updateAnalyzeBtn();
+}
+
+function toggleSelect(id, selected, card) {
+  if (selected) {
+    state.selectedIds.add(id);
+    card.classList.add('selected');
+  } else {
+    state.selectedIds.delete(id);
+    card.classList.remove('selected');
+  }
+  updateAnalyzeBtn();
+}
+
+function updateAnalyzeBtn() {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = state.selectedIds.size === 0;
+  btn.textContent = state.selectedIds.size
+    ? `ANALYZE SELECTED (${state.selectedIds.size})`
+    : 'ANALYZE SELECTED';
+}
+
+document.getElementById('select-all-btn').addEventListener('click', () => {
+  state.photos.forEach(p => {
+    state.selectedIds.add(p.id);
+    const card = document.querySelector(`.photo-card[data-id="${p.id}"]`);
+    if (card) {
+      card.classList.add('selected');
+      card.querySelector('input[type=checkbox]').checked = true;
+    }
+  });
+  updateAnalyzeBtn();
+});
+
+document.getElementById('deselect-all-btn').addEventListener('click', () => {
+  state.selectedIds.clear();
+  document.querySelectorAll('.photo-card').forEach(card => {
+    card.classList.remove('selected');
+    card.querySelector('input[type=checkbox]').checked = false;
+  });
+  updateAnalyzeBtn();
+});
+
+document.getElementById('analyze-btn').addEventListener('click', async () => {
+  const selected = state.photos.filter(p => state.selectedIds.has(p.id));
+  if (!selected.length) return;
+
+  const analyzeBtn  = document.getElementById('analyze-btn');
+  const progressEl  = document.getElementById('analyze-progress');
+  const toolbar     = document.getElementById('photo-toolbar');
+
+  analyzeBtn.disabled = true;
+  progressEl.style.display = 'flex';
+  toolbar.style.pointerEvents = 'none';
+
+  try {
+    const result = await api('POST', '/analyze/bulk', {
+      photos: selected.map(p => ({ base_url: p.baseUrl, photo_id: p.id }))
+    });
+    toast(`✓ Analysis complete: ${result.completed} / ${result.total} photos`);
+  } catch (e) {
+    toast('Analysis error: ' + e.message);
+  } finally {
+    progressEl.style.display = 'none';
+    toolbar.style.pointerEvents = '';
+    analyzeBtn.disabled = false;
+    updateAnalyzeBtn();
+  }
+});
+
+// ─── Analysis tab ─────────────────────────────────────────────────────────────
+document.getElementById('refresh-analysis-btn').addEventListener('click', loadAnalyses);
+
+async function loadAnalyses() {
+  try {
+    const data = await api('GET', '/analyze/results');
+    state.analyses = data || {};
+    renderAnalyses();
+  } catch (e) {
+    toast('Could not load analyses: ' + e.message);
+  }
+}
+
+function conditionBadgeClass(condition) {
+  return { excellent: 'badge-green', good: 'badge-blue', fair: 'badge-yellow', poor: 'badge-red' }[condition] || 'badge-gray';
+}
+
+function renderAnalyses() {
+  const grid  = document.getElementById('analysis-grid');
+  const empty = document.getElementById('analysis-empty');
+  const ids   = Object.keys(state.analyses);
+
+  if (!ids.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = '';
+
+  ids.forEach(photoId => {
+    const a = state.analyses[photoId];
+    const photo = state.photos.find(p => p.id === photoId);
+
+    const card = document.createElement('div');
+    card.className = 'analysis-card';
+
+    // Thumbnail
+    const thumbWrap = document.createElement('div');
+    thumbWrap.style.cssText = 'background:#e8ecf0;flex-shrink:0;';
+    if (photo?.baseUrl) {
+      const img = document.createElement('img');
+      img.className = 'analysis-thumb';
+      img.dataset.baseUrl = photo.baseUrl;
+      img.alt = photo.filename || photoId;
+      lazyObserver.observe(img);
+      thumbWrap.appendChild(img);
+    } else {
+      thumbWrap.style.cssText += 'display:flex;align-items:center;justify-content:center;color:#aaaaaa;font-size:1.5rem;';
+      thumbWrap.textContent = '🏠';
+    }
+    card.appendChild(thumbWrap);
+
+    // Content
+    const content = document.createElement('div');
+    content.style.cssText = 'padding:0.85rem 1rem;overflow:hidden;';
+
+    const badges = document.createElement('div');
+    badges.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.6rem;';
+
+    if (a.room_type) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-gray';
+      b.textContent = a.room_type;
+      badges.appendChild(b);
+    }
+    if (a.condition) {
+      const b = document.createElement('span');
+      b.className = `badge ${conditionBadgeClass(a.condition)}`;
+      b.textContent = a.condition;
+      badges.appendChild(b);
+    }
+    if (a.finish_quality) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-gray';
+      b.textContent = a.finish_quality.replace('_', ' ');
+      badges.appendChild(b);
+    }
+    if (a.error) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-red';
+      b.textContent = 'ERROR';
+      badges.appendChild(b);
+    }
+    content.appendChild(badges);
+
+    if (a.error) {
+      const err = document.createElement('div');
+      err.style.cssText = 'font-size:0.78rem;color:#8a1a1a;font-weight:500;';
+      err.textContent = a.error;
+      content.appendChild(err);
+    } else {
+      const cols = document.createElement('div');
+      cols.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;';
+
+      if (Array.isArray(a.issues) && a.issues.length) {
+        const col = document.createElement('div');
+        col.innerHTML = `<div class="label" style="margin-bottom:0.3rem;">ISSUES</div>`;
+        const ul = document.createElement('ul');
+        ul.style.cssText = 'list-style:none;padding:0;margin:0;';
+        a.issues.forEach(issue => {
+          const li = document.createElement('li');
+          li.style.cssText = 'font-size:0.8rem;color:#8a1a1a;padding:0.15rem 0;display:flex;gap:0.35rem;';
+          li.innerHTML = `<span style="color:#8a1a1a;">▸</span> ${issue}`;
+          ul.appendChild(li);
+        });
+        col.appendChild(ul);
+        cols.appendChild(col);
+      }
+
+      if (Array.isArray(a.upgrades) && a.upgrades.length) {
+        const col = document.createElement('div');
+        col.innerHTML = `<div class="label" style="margin-bottom:0.3rem;">UPGRADES</div>`;
+        const ul = document.createElement('ul');
+        ul.style.cssText = 'list-style:none;padding:0;margin:0;';
+        a.upgrades.forEach(upg => {
+          const li = document.createElement('li');
+          li.style.cssText = 'font-size:0.8rem;color:#2d6a2d;padding:0.15rem 0;display:flex;gap:0.35rem;';
+          li.innerHTML = `<span style="color:#2d6a2d;">▸</span> ${upg}`;
+          ul.appendChild(li);
+        });
+        col.appendChild(ul);
+        cols.appendChild(col);
+      }
+
+      if (cols.children.length) content.appendChild(cols);
+    }
+
+    card.appendChild(content);
+    grid.appendChild(card);
+  });
+}
+
+// ─── ROI Report tab ───────────────────────────────────────────────────────────
+document.getElementById('gen-report-btn').addEventListener('click', generateReport);
+
+async function generateReport() {
+  const loadingEl = document.getElementById('report-loading');
+  const contentEl = document.getElementById('report-content');
+  const emptyEl   = document.getElementById('report-empty');
+  const exportBtn = document.getElementById('export-csv-btn');
+
+  contentEl.style.display = 'none';
+  emptyEl.style.display   = 'none';
+  loadingEl.style.display = 'flex';
+
+  try {
+    const report = await api('POST', '/report');
+    state.report = report;
+    renderReport(report);
+    exportBtn.style.display = '';
+  } catch (e) {
+    emptyEl.style.display = 'block';
+    emptyEl.querySelector('p').textContent = 'Error: ' + e.message;
+    toast('Report error: ' + e.message);
+  } finally {
+    loadingEl.style.display = 'none';
+  }
+}
+
+function priorityClass(p) {
+  return { critical: 'p-critical', high: 'p-high', medium: 'p-medium', low: 'p-low' }[p] || '';
+}
+
+function renderReport(report) {
+  if (report.error) {
+    const emptyEl = document.getElementById('report-empty');
+    emptyEl.style.display = 'block';
+    emptyEl.querySelector('p').textContent = 'Error: ' + report.error;
+    return;
+  }
+
+  document.getElementById('metric-arv').textContent = fmt$(report.estimated_arv);
+
+  const upgrades = report.upgrades || [];
+  const repairs  = report.repairs  || [];
+
+  const totalUpgradeCost = upgrades.reduce((s, u) => s + (Number(u.estimated_cost) || 0), 0);
+  document.getElementById('metric-upgrade-cost').textContent = fmt$(totalUpgradeCost);
+
+  const criticalCount = repairs.filter(r => r.priority === 'critical').length;
+  document.getElementById('metric-critical').textContent = criticalCount;
+  document.getElementById('metric-critical').style.color = criticalCount > 0 ? '#8a1a1a' : '#1a1a1a';
+
+  if (report.summary) {
+    const summaryEl = document.getElementById('report-summary');
+    summaryEl.textContent = report.summary;
+    summaryEl.style.display = 'block';
+  }
+
+  const upgradesTbody = document.getElementById('upgrades-tbody');
+  upgradesTbody.innerHTML = '';
+  upgrades.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.name || '—'}</td>
+      <td class="num">${fmt$(u.estimated_cost)}</td>
+      <td class="num">${fmt$(u.estimated_value_add)}</td>
+      <td class="num" style="font-weight:700;color:#1a4a8a;">${fmtPct(u.roi_percent)}</td>
+      <td><span class="${priorityClass(u.priority)}">${u.priority || '—'}</span></td>
+    `;
+    upgradesTbody.appendChild(tr);
+  });
+
+  const repairsTbody = document.getElementById('repairs-tbody');
+  repairsTbody.innerHTML = '';
+  repairs.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.name || '—'}</td>
+      <td class="num">${fmt$(r.estimated_cost)}</td>
+      <td><span class="${priorityClass(r.priority)}">${r.priority || '—'}</span></td>
+    `;
+    repairsTbody.appendChild(tr);
+  });
+
+  document.getElementById('report-content').style.display = 'block';
+}
+
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+  window.location.href = '/report/export/csv';
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+checkAuth();
+</script>
+</body>
+</html>
