@@ -9,6 +9,7 @@ GET  /                       Serve static/index.html (or placeholder)
 GET  /auth/login             Return Google OAuth URL
 GET  /auth/callback?code=    Exchange code, redirect to /
 GET  /auth/status            Check whether a valid token exists
+GET  /photos/albums          List all albums owned by the authenticated user
 GET  /photos/list            List photos in a Google Photos album
 GET  /photos/thumbnail       Proxy a thumbnail from Google Photos
 POST /analyze                Analyze a single photo with Claude Vision
@@ -28,6 +29,8 @@ import io
 import tempfile
 from pathlib import Path
 from typing import Optional
+
+import requests
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -122,6 +125,46 @@ def auth_status():
 
 
 # ─── Photos endpoints ─────────────────────────────────────────────────────────
+
+@app.get("/photos/albums")
+def photos_albums():
+    creds = get_credentials()
+    if not creds:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    albums: list[dict] = []
+    page_token: Optional[str] = None
+    headers = {"Authorization": f"Bearer {creds.token}"}
+
+    while True:
+        params: dict = {"pageSize": 50}
+        if page_token:
+            params["pageToken"] = page_token
+        try:
+            resp = requests.get(
+                "https://photoslibrary.googleapis.com/v1/albums",
+                headers=headers,
+                params=params,
+                timeout=30,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            raise HTTPException(status_code=502, detail=f"Google Photos error: {exc}")
+
+        body = resp.json()
+        for a in body.get("albums", []):
+            albums.append({
+                "id":    a.get("id"),
+                "title": a.get("title"),
+                "count": int(a.get("mediaItemsCount", 0)),
+            })
+
+        page_token = body.get("nextPageToken")
+        if not page_token:
+            break
+
+    return {"albums": albums}
+
 
 @app.get("/photos/list")
 def photos_list(album_id: str = Query(...)):
