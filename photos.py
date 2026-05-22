@@ -55,7 +55,10 @@ except ImportError:
 TOKEN_FILE = Path("google_token.json")
 SUPABASE_TOKEN_ID = "google"           # primary key used in oauth_tokens table
 
-SCOPES = ["https://www.googleapis.com/auth/photoslibrary.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/photoslibrary.readonly",
+    "https://www.googleapis.com/auth/photoslibrary.sharing",
+]
 
 PHOTOS_API_BASE = "https://photoslibrary.googleapis.com/v1"
 
