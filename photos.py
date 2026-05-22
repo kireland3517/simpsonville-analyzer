@@ -44,15 +44,13 @@ def _load_client_config() -> dict:
     """
     Load OAuth client config from the GOOGLE_CREDENTIALS_JSON env var (a JSON
     string) if set, otherwise read google_credentials.json from disk.
-    Google credentials files wrap the config under a "web" key; this unwraps it.
+    Returns the full JSON including the "web" wrapper as Flow.from_client_config() expects.
     """
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
     if creds_json:
-        data = json.loads(creds_json)
-    else:
-        with open("google_credentials.json") as f:
-            data = json.load(f)
-    return data.get("web", data)
+        return json.loads(creds_json)
+    with open("google_credentials.json") as f:
+        return json.load(f)
 
 
 def _build_flow() -> Flow:
