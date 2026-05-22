@@ -453,9 +453,10 @@
     <div class="address">130 KINGFISHER DR</div>
     <div class="subtitle">SIMPSONVILLE, SC 29680 &nbsp;·&nbsp; RIVER RIDGE</div>
   </div>
-  <div style="display:flex;align-items:center;gap:0.6rem;">
+  <div style="display:flex;align-items:center;gap:0.75rem;">
     <span class="label" id="auth-label">NOT CONNECTED</span>
     <div class="status-dot" id="auth-dot"></div>
+    <button class="btn-ghost" id="disconnect-btn" style="display:none;font-size:0.7rem;padding:0.3rem 0.65rem;">DISCONNECT</button>
   </div>
 </header>
 
@@ -781,23 +782,35 @@ async function checkAuth() {
 }
 
 function renderAuthState() {
-  const dot   = document.getElementById('auth-dot');
-  const label = document.getElementById('auth-label');
-  const gate  = document.getElementById('auth-gate');
-  const ui    = document.getElementById('album-ui');
+  const dot        = document.getElementById('auth-dot');
+  const label      = document.getElementById('auth-label');
+  const gate       = document.getElementById('auth-gate');
+  const ui         = document.getElementById('album-ui');
+  const disconnBtn = document.getElementById('disconnect-btn');
 
   if (state.authenticated) {
     dot.classList.add('auth');
     label.textContent = 'CONNECTED';
     gate.style.display = 'none';
     ui.style.display   = 'block';
+    disconnBtn.style.display = '';
   } else {
     dot.classList.remove('auth');
     label.textContent = 'NOT CONNECTED';
     gate.style.display = 'flex';
     ui.style.display   = 'none';
+    disconnBtn.style.display = 'none';
   }
 }
+
+document.getElementById('disconnect-btn').addEventListener('click', async () => {
+  try {
+    await api('GET', '/auth/logout');
+  } catch (_) {
+    // proceed with reload regardless
+  }
+  window.location.reload();
+});
 
 document.getElementById('connect-btn').addEventListener('click', async () => {
   try {

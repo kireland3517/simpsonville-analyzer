@@ -9,6 +9,7 @@ GET  /                       Serve static/index.html (or placeholder)
 GET  /auth/login             Return Google OAuth URL
 GET  /auth/callback?code=    Exchange code, redirect to /
 GET  /auth/status            Check whether a valid token exists
+GET  /auth/logout            Clear token from Supabase and memory
 GET  /photos/albums          List all albums owned by the authenticated user
 GET  /photos/list            List photos in a Google Photos album
 GET  /photos/thumbnail       Proxy a thumbnail from Google Photos
@@ -52,7 +53,10 @@ from photos import (
     get_credentials,
     get_photo_bytes,
     list_album_photos,
+    _supabase_client,
+    SUPABASE_TOKEN_ID,
 )
+import photos as _photos_module
 from roi import generate_roi_report
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -122,6 +126,22 @@ def auth_status():
     if creds and not creds.expired:
         return {"authenticated": True}
     return {"authenticated": False}
+
+
+@app.get("/auth/logout")
+def auth_logout():
+    # Clear in-memory cache
+    _photos_module._token_cache = None
+
+    # Delete from Supabase if configured
+    client = _supabase_client()
+    if client:
+        try:
+            client.table("oauth_tokens").delete().eq("id", SUPABASE_TOKEN_ID).execute()
+        except Exception:
+            pass
+
+    return {"status": "logged out"}
 
 
 # ─── Photos endpoints ─────────────────────────────────────────────────────────
