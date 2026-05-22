@@ -2,7 +2,9 @@
 photos.py
 ─────────
 Google Photos OAuth 2.0 integration.
-Reads credentials from google_credentials.json; caches the token in google_token.json.
+Credentials are loaded from the GOOGLE_CREDENTIALS_JSON environment variable
+(a JSON string) if set, otherwise falls back to google_credentials.json on disk.
+The OAuth token is cached in google_token.json after first auth.
 No files are uploaded — read-only access only.
 
 Scopes used:
@@ -25,11 +27,9 @@ from google_auth_oauthlib.flow import Flow
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-CREDENTIALS_FILE = Path("google_credentials.json")
 TOKEN_FILE = Path("google_token.json")
 
 SCOPES = ["https://www.googleapis.com/auth/photoslibrary.readonly"]
-REDIRECT_URI = "http://localhost:8000/auth/callback"
 
 PHOTOS_API_BASE = "https://photoslibrary.googleapis.com/v1"
 
@@ -41,15 +41,23 @@ _pkce_verifier: Optional[str] = None
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 def _load_client_config() -> dict:
-    """Read google_credentials.json and return its contents."""
-    return json.loads(CREDENTIALS_FILE.read_text(encoding="utf-8"))
+    """
+    Load OAuth client config from the GOOGLE_CREDENTIALS_JSON env var (a JSON
+    string) if set, otherwise read google_credentials.json from disk.
+    """
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        return json.loads(creds_json)
+    with open("google_credentials.json") as f:
+        return json.load(f)
 
 
 def _build_flow() -> Flow:
+    redirect_uri = os.environ.get("REDIRECT_URI", "http://localhost:8000/auth/callback")
     return Flow.from_client_config(
         _load_client_config(),
         scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
+        redirect_uri=redirect_uri,
     )
 
 
