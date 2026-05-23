@@ -48,12 +48,12 @@
   --mono: 'IBM Plex Mono', monospace;
 }
 
-html, body { height: 100%; font-family: var(--font); font-size: 14px; color: var(--gray-900); background: var(--gray-100); }
+html, body { height: 100%; font-family: var(--font); font-size: 14px; color: var(--gray-900); background: var(--gray-100); overflow-x: hidden; }
 a { text-decoration: none; color: inherit; }
 button { cursor: pointer; font: inherit; border: none; background: none; }
 
 /* ── App Shell ─────────────────────────────────────────────────── */
-.app { display: flex; height: 100vh; overflow: hidden; }
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; width: 100%; }
 
 /* ── Sidebar ────────────────────────────────────────────────────── */
 .sidebar {
@@ -153,7 +153,15 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 }
 
 /* ── Main wrapper ───────────────────────────────────────────────── */
-.main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--white); }
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--white);
+  min-width: 0;
+  min-height: 0;
+}
 
 /* ── Top bar ────────────────────────────────────────────────────── */
 .top-bar {
@@ -213,7 +221,15 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ── Content area ───────────────────────────────────────────────── */
-.content-area { flex: 1; overflow-y: auto; background: var(--gray-50); }
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--gray-50);
+  min-width: 0;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
 .tab-pane { padding: 32px; display: none; }
 .tab-pane.active { display: block; }
 
@@ -602,14 +618,83 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .app { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; }
+  .app {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
   .sidebar-header { display: none; }
-  .sidebar-nav { display: flex; flex-direction: row; padding: 0; }
-  .nav-item { border-left: none; border-bottom: 3px solid transparent; padding: 14px 20px; white-space: nowrap; }
-  .nav-item.active { border-left-color: transparent; border-bottom-color: var(--sidebar-active-border); }
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    padding: 0;
+    min-width: 0;
+  }
+  .nav-item {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: 14px 18px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--sidebar-active-border);
+  }
   .sidebar-section, .sidebar-footer { display: none; }
-  .main-wrapper { height: calc(100vh - 56px); }
+
+  .main-wrapper {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .top-bar {
+    height: auto;
+    min-height: 56px;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .top-bar-right {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .top-bar-meta { display: none; }
+
+  .detail-tabs {
+    padding: 12px 16px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .detail-tabs::-webkit-scrollbar { display: none; }
+
+  .tab-pane { padding: 20px 16px; }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .data-table { min-width: 620px; }
+
   .summary-cards { grid-template-columns: repeat(2, 1fr); }
   .detail-grid { grid-template-columns: 1fr 1fr; }
   .timeline-cards { grid-template-columns: 1fr; }
@@ -617,13 +702,26 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   .prop-two-col { grid-template-columns: 1fr; }
   .dated-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
 @media (max-width: 600px) {
-  .tab-pane { padding: 16px; }
-  .top-bar { padding: 0 16px; }
-  .summary-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tab-pane { padding: 16px 12px; }
+  .top-bar { padding: 10px 12px; }
+  .top-bar-title { font-size: 15px; }
+  .top-bar-sub { font-size: 11px; }
+  .top-bar-right { width: 100%; justify-content: space-between; }
+  .detail-tabs { padding: 10px 12px 0; }
+  .detail-tab { padding: 8px 12px; font-size: 12px; }
+  .summary-cards { grid-template-columns: 1fr; gap: 12px; }
   .card-value { font-size: 22px; }
   .detail-grid { grid-template-columns: 1fr; }
-  .dated-grid { grid-template-columns: 1fr 1fr; }
+  .dated-grid { grid-template-columns: 1fr; }
+  .section-header { flex-wrap: wrap; gap: 6px; }
+  .selection-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .btn-print { padding: 6px 10px; font-size: 12px; }
 }
 
 /* ── Checkbox rows ───────────────────────────────────────────────── */
