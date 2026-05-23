@@ -16,9 +16,13 @@ GET  /photos/thumbnail       Proxy a thumbnail from Google Photos
 POST /analyze                Analyze a single photo with Claude Vision
 POST /analyze/bulk           Analyze a batch of photos sequentially
 GET  /analyze/results        Return all cached analysis results
-POST /report                 Generate ROI report from cached analyses, save to Supabase
-GET  /report                 Return ROI report from Supabase (falls back to memory)
+POST /report                 Generate ROI report (body: {detail_level, buyer_profile})
+GET  /report                 Return ROI report by ?id= (default standard_general)
 GET  /report/export/csv      Download upgrades + repairs as CSV
+GET  /upgrade-detail         Deep how-to detail for one upgrade (cached in Supabase)
+GET  /repair-detail          Deep how-to detail for one repair (cached in Supabase)
+GET  /dated-features         Aggregated dated_features across all photo analyses
+GET  /inspection-flags       Top 20 inspection flags across all photo analyses
 
 Run:
     uvicorn main:app --port 8000 --reload
@@ -58,7 +62,7 @@ from photos import (
     SUPABASE_TOKEN_ID,
 )
 import photos as _photos_module
-from roi import generate_roi_report
+from roi import generate_roi_report, get_item_detail
 from run_roi import build_analysis_summary
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -114,8 +118,9 @@ class BulkPhotoItem(BaseModel):
     photo_id: str
 
 
-class BulkAnalyzeRequest(BaseModel):
-    photos: list[BulkPhotoItem]
+class ReportRequest(BaseModel):
+    detail_level: str = "standard"
+    buyer_profile: str = "general"
 
 
 # ─── Auth endpoints ───────────────────────────────────────────────────────────
@@ -296,26 +301,44 @@ def analyze_results():
 # ─── Report endpoints ─────────────────────────────────────────────────────────
 
 @app.post("/report")
-def report_generate():
+def report_generate(body: ReportRequest):
+    """Generate and persist a report for the given detail_level + buyer_profile."""
     global roi_cache
+
+    detail_level  = body.detail_level
+    buyer_profile = body.buyer_profile
+    report_id     = f"{detail_level}_{buyer_profile}"
 
     analyses = list(analysis_cache.values())
     if not analyses:
-        raise HTTPException(status_code=422, detail="No analyses in cache — analyze some photos first")
+        # Fall back to Supabase analyses when memory cache is cold
+        sb = _sb()
+        if sb:
+            try:
+                rows = sb.table("photo_analyses").select("analysis").execute()
+                analyses = [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+            except Exception:
+                pass
+    if not analyses:
+        raise HTTPException(status_code=422, detail="No analyses available — run run_analysis.py first")
 
     summary = build_analysis_summary(analyses)
-    report  = generate_roi_report(summary, get_property_summary(), get_last_sale())
+    report  = generate_roi_report(
+        summary,
+        get_property_summary(),
+        get_last_sale(),
+        detail_level=detail_level,
+        buyer_profile=buyer_profile,
+    )
 
     if report.get("error"):
         raise HTTPException(status_code=500, detail=report["error"])
 
-    # Persist to Supabase
     sb = _sb()
     if sb:
         try:
-            sb.table(ROI_TABLE).upsert({"id": ROI_ID, "report": report}).execute()
+            sb.table(ROI_TABLE).upsert({"id": report_id, "report": report}).execute()
         except Exception as exc:
-            # Non-fatal — report is still returned
             print(f"WARNING: could not save report to Supabase: {exc}")
 
     roi_cache = report
@@ -323,22 +346,25 @@ def report_generate():
 
 
 @app.get("/report")
-def report_get():
-    # Try Supabase first so restarts don't lose the report
+def report_get(id: str = Query(default="standard_general")):
+    """Return a saved report by id (e.g. standard_general, deep_dive_first_time_buyer)."""
     sb = _sb()
     if sb:
         try:
-            row = sb.table(ROI_TABLE).select("report").eq("id", ROI_ID).maybe_single().execute()
+            row = sb.table(ROI_TABLE).select("report").eq("id", id).maybe_single().execute()
             if row and row.data:
                 return row.data["report"]
         except Exception:
             pass
 
-    # Fall back to in-memory cache
-    if roi_cache is not None:
+    # Fall back to in-memory cache (only valid for the last-generated report)
+    if roi_cache is not None and id == "standard_general":
         return roi_cache
 
-    raise HTTPException(status_code=404, detail="No report found. Run POST /report or python run_roi.py first.")
+    raise HTTPException(
+        status_code=404,
+        detail=f"Report not generated for '{id}' yet. POST /report with detail_level and buyer_profile."
+    )
 
 
 @app.get("/report/export/csv")
@@ -379,6 +405,156 @@ def report_export_csv():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=roi_report.csv"},
     )
+
+
+# ─── Analysis aggregation endpoints ──────────────────────────────────────────
+
+def _load_all_analyses() -> list[dict]:
+    """Load all photo analyses from Supabase."""
+    sb = _sb()
+    if not sb:
+        return []
+    try:
+        rows = sb.table("photo_analyses").select("analysis").execute()
+        return [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+    except Exception:
+        return []
+
+
+@app.get("/dated-features")
+def dated_features_get():
+    """Aggregate dated_features across all photo analyses, sorted by frequency."""
+    from collections import Counter
+    from run_roi import _norm_key
+
+    analyses = _load_all_analyses()
+    if not analyses:
+        raise HTTPException(status_code=404, detail="No photo analyses found in Supabase")
+
+    counts:  Counter = Counter()
+    display: dict[str, str] = {}
+
+    for a in analyses:
+        for text in (a.get("dated_features") or []):
+            text = text.strip()
+            if not text:
+                continue
+            key = _norm_key(text)
+            if not key:
+                continue
+            counts[key] += 1
+            if key not in display or len(text) > len(display[key]):
+                display[key] = text
+
+    features = [
+        {"name": display[k], "count": c}
+        for k, c in counts.most_common()
+    ]
+    return {"features": features}
+
+
+@app.get("/inspection-flags")
+def inspection_flags_get():
+    """Aggregate inspection_flags across all photo analyses, return top 20 by frequency."""
+    from collections import Counter
+    from run_roi import _norm_key
+
+    analyses = _load_all_analyses()
+    if not analyses:
+        raise HTTPException(status_code=404, detail="No photo analyses found in Supabase")
+
+    counts:  Counter = Counter()
+    display: dict[str, str] = {}
+    severity: dict[str, str] = {}
+
+    for a in analyses:
+        for flag in (a.get("inspection_flags") or []):
+            if isinstance(flag, dict):
+                text  = (flag.get("description") or flag.get("text") or str(flag)).strip()
+                sev   = flag.get("severity") or flag.get("priority") or "medium"
+            else:
+                text = str(flag).strip()
+                sev  = "medium"
+            if not text:
+                continue
+            key = _norm_key(text)
+            if not key:
+                continue
+            counts[key] += 1
+            if key not in display or len(text) > len(display[key]):
+                display[key] = text
+                severity[key] = sev
+
+    flags = [
+        {"description": display[k], "count": c, "severity": severity.get(k, "medium")}
+        for k, c in counts.most_common(20)
+    ]
+    return {"flags": flags}
+
+
+# ─── Item detail endpoints ────────────────────────────────────────────────────
+
+# Supabase table for caching on-demand deep detail per item
+DETAIL_TABLE = "upgrade_details"
+
+
+def _get_or_generate_detail(name: str, item_type: str) -> dict:
+    """
+    Return cached detail from Supabase if available, otherwise call Claude
+    via roi.get_item_detail() and persist the result.
+    item_type: "upgrade" | "repair"
+    """
+    if not name or not name.strip():
+        raise HTTPException(status_code=422, detail="name parameter is required")
+
+    row_id = name.strip()
+
+    # Check Supabase cache first
+    sb = _sb()
+    if sb:
+        try:
+            row = (
+                sb.table(DETAIL_TABLE)
+                .select("detail")
+                .eq("id", row_id)
+                .eq("item_type", item_type)
+                .maybe_single()
+                .execute()
+            )
+            if row and row.data:
+                return row.data["detail"]
+        except Exception:
+            pass
+
+    # Cache miss — call Claude
+    result = get_item_detail(row_id, item_type)
+    if result.get("error"):
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    # Persist to Supabase (non-fatal if it fails)
+    if sb:
+        try:
+            sb.table(DETAIL_TABLE).upsert({
+                "id":        row_id,
+                "item_type": item_type,
+                "detail":    result,
+            }).execute()
+        except Exception as exc:
+            print(f"WARNING: could not cache item detail to Supabase: {exc}")
+
+    return result
+
+
+@app.get("/upgrade-detail")
+def upgrade_detail(name: str = Query(..., description="Upgrade name from the ROI report")):
+    """Return deep how-to detail for a single upgrade item (cached in Supabase)."""
+    return _get_or_generate_detail(name, "upgrade")
+
+
+@app.get("/repair-detail")
+def repair_detail(name: str = Query(..., description="Repair name from the ROI report")):
+    """Return deep how-to detail for a single repair item (cached in Supabase)."""
+    return _get_or_generate_detail(name, "repair")
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────

@@ -32,19 +32,80 @@ except ImportError:
 MODEL = "claude-opus-4-5"
 
 SYSTEM_PROMPT = (
-    "You are a real estate condition analyst. Analyze house photos and identify "
-    "condition issues, finish quality, and upgrade opportunities."
+    "You are a forensic pre-listing home inspector and buyer's agent with 20 years of "
+    "experience in the Greenville County SC market. Your job is to find everything a "
+    "buyer at the $295,000-$305,000 price point would flag, negotiate on, or walk away "
+    "from. You have an obsessive eye for detail. You notice things sellers stop seeing "
+    "because they live there every day."
 )
 
-USER_PROMPT = (
-    "Analyze this photo of a house. Return a JSON object with exactly these fields:\n"
-    "- room_type: string (e.g. kitchen, bathroom, living room, exterior, unknown)\n"
-    "- condition: string, one of: excellent, good, fair, poor\n"
-    "- issues: list of strings describing specific problems visible\n"
-    "- upgrades: list of strings describing upgrades that would add value\n"
-    "- finish_quality: string, one of: builder_grade, mid_range, high_end, unknown\n"
-    "Return only valid JSON, no explanation."
-)
+USER_PROMPT = """\
+Analyze this photo of a house interior or exterior. Return a JSON object with exactly \
+these fields and no others:
+
+- room_type: string — be specific: "master bathroom", "kitchen", "living room", \
+"exterior front", "garage", "laundry room", "half bath", "bonus room", etc.
+
+- condition: string — one of: excellent, good, fair, poor
+
+- finish_quality: string — one of: builder_grade, mid_range, high_end, unknown
+
+- dated_features: list of strings — features that were standard in 1999 but buyers \
+in 2026 consider outdated. Look specifically for:
+  * Jetted/jacuzzi tubs (buyers prefer walk-in showers)
+  * Popcorn or stippled ceilings
+  * Brass or gold fixtures and hardware
+  * Oak or honey-colored cabinets
+  * Laminate countertops
+  * Linoleum or vinyl sheet flooring
+  * Builder-grade light fixtures (boob lights, basic ceiling fans)
+  * Hollow core interior doors
+  * Basic white plastic outlet covers and switch plates
+  * Single-pane windows
+  * Builder-grade hollow core bifold closet doors
+  * Garden tubs without a separate shower
+  * Cultured marble vanity tops
+  * Tile with dated colors (mauve, seafoam, almond, peach)
+  * Carpet in any room (buyers at this price expect LVP or hardwood)
+  * Wallpaper or wallpaper borders
+  * Mirrored closet doors
+  * Drop ceilings or suspended tile
+
+- issues: list of strings — specific visible problems a home inspector would document \
+or a buyer would request credits for. Be precise: not "water damage" but "brown water \
+stain on ceiling approximately 12 inches diameter near HVAC vent, suggesting past or \
+active leak". Include: stains, cracks, peeling paint, damaged trim, gaps in caulk, \
+missing or broken hardware, signs of moisture, settlement cracks, deferred maintenance.
+
+- deal_risk: string — one of: none, low, medium, high, critical
+  * critical = could kill the sale or requires immediate disclosure under SC law
+  * high = buyer will request a repair credit or price reduction
+  * medium = buyer will notice and factor into their offer
+  * low = minor cosmetic only, most buyers overlook
+  * none = no issues visible
+
+- upgrades: list of strings — specific improvements to bring this space to the \
+$295K-$305K buyer expectation. Not generic: not "update bathroom" but "replace \
+garden tub with freestanding soaking tub or convert niche to walk-in tile shower \
+with frameless glass door".
+
+- buyer_psychology_notes: list of strings — how a buyer would emotionally react to \
+this room during a showing. Examples:
+  * "Jacuzzi tub reads as maintenance burden and 1990s dated — buyers under 45 will \
+mentally subtract value"
+  * "Popcorn ceiling is the first thing buyers photograph to show their agent as a \
+negotiating point"
+  * "Carpet in master bedroom triggers concern for buyers with allergies or pets"
+
+- inspection_flags: list of strings — items a licensed SC home inspector would call \
+out in their written report, including code concerns, safety issues, or deferred \
+maintenance that requires further evaluation.
+
+- photo_quality: string — note if photo is too dark, blurry, poorly framed, or \
+otherwise limits your ability to assess the space accurately. Write "good" if clear.
+
+Return only valid JSON. No explanation, no markdown, no preamble.\
+"""
 
 _MEDIA_TYPES: dict[str, str] = {
     ".jpg":  "image/jpeg",
@@ -55,11 +116,16 @@ _MEDIA_TYPES: dict[str, str] = {
 }
 
 _ERROR_RESULT: dict = {
-    "room_type":      None,
-    "condition":      None,
-    "issues":         None,
-    "upgrades":       None,
-    "finish_quality": None,
+    "room_type":              None,
+    "condition":              None,
+    "finish_quality":         None,
+    "dated_features":         None,
+    "issues":                 None,
+    "deal_risk":              None,
+    "upgrades":               None,
+    "buyer_psychology_notes": None,
+    "inspection_flags":       None,
+    "photo_quality":          None,
 }
 
 
@@ -118,7 +184,7 @@ def analyze_image(image_path: Path) -> dict:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=2048,
             system=SYSTEM_PROMPT,
             messages=[
                 {

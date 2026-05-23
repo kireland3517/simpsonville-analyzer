@@ -54,11 +54,22 @@ def get_supabase():
     return create_client(url, key)
 
 
-def load_existing_ids(client) -> set[str]:
-    """Return the set of filename IDs already in the table."""
+def load_existing_ids(client, reanalyze_outdated: bool = False) -> set[str]:
+    """
+    Return the set of filename IDs already in the table.
+    If reanalyze_outdated is True, exclude rows that are missing the new
+    'dated_features' field (written by the previous prompt) so they get
+    re-analyzed with the updated prompt.
+    """
     try:
-        result = client.table(TABLE).select("id").execute()
-        return {row["id"] for row in (result.data or [])}
+        result = client.table(TABLE).select("id, analysis").execute()
+        ids: set[str] = set()
+        for row in (result.data or []):
+            analysis = row.get("analysis") or {}
+            if reanalyze_outdated and "dated_features" not in analysis:
+                continue  # will be re-analyzed
+            ids.add(row["id"])
+        return ids
     except Exception as exc:
         print(f"WARNING: Could not fetch existing rows: {exc}")
         return set()
@@ -89,13 +100,22 @@ def save_result(client, filename: str, analysis: dict) -> None:
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--reanalyze-outdated", action="store_true",
+        help="Re-analyze photos that are missing the new schema fields (dated_features etc.)"
+    )
+    args = parser.parse_args()
+
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     client = get_supabase()
-    existing = load_existing_ids(client)
-    print(f"{len(existing)} files already analyzed in Supabase — will skip them.")
+    existing = load_existing_ids(client, reanalyze_outdated=args.reanalyze_outdated)
+    label = "using updated schema" if args.reanalyze_outdated else "already analyzed"
+    print(f"{len(existing)} files {label} in Supabase — will skip them.")
 
     # Expand video files into their frame paths
     Work = list[tuple[Path, str]]  # (path_to_analyze, row_id_key)
