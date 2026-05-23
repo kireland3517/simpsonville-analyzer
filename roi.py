@@ -9,11 +9,44 @@ Requires GEMINI_API_KEY to be set in the environment.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from gemini_client import generate_text, get_api_key, get_detail_model
 # Valid parameter values
 DETAIL_LEVELS  = {"executive", "standard", "deep_dive"}
+DETAIL_LEVEL_ORDER = ["executive", "standard", "deep_dive"]
+
+# Human labels used in additive carry-forward prompts
+_LEVEL_LABELS = {
+    "executive": "Quick Wins",
+    "standard":  "Balanced Approach",
+    "deep_dive": "Leave Nothing Behind",
+}
+
+# Homeowner-facing summary of what each tab means (also stored on generated reports)
+LEVEL_DESCRIPTIONS = {
+    "executive": (
+        "These are the must-fix items so buyers don't walk away at the first showing — "
+        "the highest-leverage repairs and upgrades a good listing agent would say to "
+        "handle before you put a sign in the yard. Think \"fix these 3–4 things and list it,\" "
+        "not a full renovation."
+    ),
+    "standard": (
+        "Everything in Quick Wins, plus what buyers expect when comparing your home to "
+        "similar-era neighbors in the $295K–$305K range. You're not over-improving — "
+        "you're meeting market expectation. Homes like 4 Kingfisher Dr ($289K, built 1996) "
+        "and 305 Kingfisher Dr ($265K) set the bar: smooth ceilings, updated hardware, "
+        "neutral paint. That's what this market expects from a well-prepared 1999 home."
+    ),
+    "deep_dive": (
+        "Everything in Balanced Approach, plus what it takes to compete with newer homes "
+        "for top dollar. Anchored to 307 Blue Heron Cir ($301K, built 2007) — full flooring, "
+        "kitchen counters, jacuzzi-to-shower conversion, and the finishes buyers see in "
+        "2000s-built comps. At this level you're competing with newer construction, not "
+        "just same-age homes."
+    ),
+}
 BUYER_PROFILES = {
     "first_time_buyer", "young_family", "downsizer",
     "investor", "relocating_professional", "general",
@@ -51,14 +84,90 @@ def _fmt(value: Any, fallback: str = "unknown") -> str:
     return str(value) if value is not None else fallback
 
 
+def _norm_name(name: str) -> str:
+    """Normalize an item name for deduplication across report levels."""
+    s = re.sub(r"[^\w\s]", " ", (name or "").lower())
+    return " ".join(s.split())
+
+
+def _merge_recommendations(
+    prior: list[dict] | None,
+    new: list[dict],
+    max_count: int,
+    *,
+    sort_new: bool = True,
+    sort_key=None,
+    reverse: bool = True,
+) -> list[dict]:
+    """
+    Build an additive list: all prior items first, then new non-duplicates.
+    Prior items are never dropped when a higher detail level is generated.
+    """
+    prior = prior or []
+    seen = {_norm_name(item.get("name", "")) for item in prior if item.get("name")}
+    merged = list(prior)
+
+    extras: list[dict] = []
+    for item in new:
+        key = _norm_name(item.get("name", ""))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        extras.append(item)
+
+    if sort_new and sort_key and extras:
+        extras.sort(key=sort_key, reverse=reverse)
+
+    merged.extend(extras)
+    return merged[:max_count]
+
+
+def _prior_level(detail_level: str) -> str | None:
+    """Return the detail level immediately below the given level, if any."""
+    try:
+        idx = DETAIL_LEVEL_ORDER.index(detail_level)
+    except ValueError:
+        return None
+    return DETAIL_LEVEL_ORDER[idx - 1] if idx > 0 else None
+
+
+def _prior_items_block(prior_report: dict, detail_level: str) -> str:
+    """Prompt section listing items that must carry forward from the prior level."""
+    prior_level = _prior_level(detail_level)
+    if not prior_level:
+        return ""
+
+    prior_upgrades = prior_report.get("upgrades") or []
+    prior_repairs  = prior_report.get("repairs") or []
+    if not prior_upgrades and not prior_repairs:
+        return ""
+
+    prior_label = _LEVEL_LABELS.get(prior_level, prior_level)
+    current_label = _LEVEL_LABELS.get(detail_level, detail_level)
+
+    return f"""
+PRIOR LEVEL: {prior_label.upper()} ({prior_level.upper()})
+---------------------------------------------------------
+The following items were already selected at the {prior_label} level.
+You MUST include every item below in your response for {current_label}.
+Do not replace, omit, or contradict them — only add additional items beyond these.
+
+Prior upgrades (include all):
+{json.dumps(prior_upgrades, indent=2)}
+
+Prior repairs (include all):
+{json.dumps(prior_repairs, indent=2)}
+"""
+
+
 # ── Detail-level blocks ────────────────────────────────────────────────────
 
 def _detail_block(detail_level: str) -> str:
     """Tone and verbosity rules injected into every prompt."""
     if detail_level == "executive":
         return """\
-DETAIL LEVEL: EXECUTIVE
------------------------
+DETAIL LEVEL: QUICK WINS (executive)
+------------------------------------
 Audience: a busy homeowner who wants the bottom line in plain English.
 Tone: plain, non-technical, encouraging. No jargon.
 - Descriptions: 1 sentence maximum each.
@@ -66,8 +175,8 @@ Tone: plain, non-technical, encouraging. No jargon.
 
     if detail_level == "standard":
         return """\
-DETAIL LEVEL: STANDARD
-----------------------
+DETAIL LEVEL: BALANCED APPROACH (standard)
+------------------------------------------
 Audience: a homeowner who wants a solid, actionable plan.
 Tone: balanced, informative, practical.
 - Descriptions: 1-2 sentences maximum each.
@@ -76,13 +185,69 @@ Tone: balanced, informative, practical.
 
     # deep_dive
     return """\
-DETAIL LEVEL: DEEP DIVE
------------------------
+DETAIL LEVEL: LEAVE NOTHING BEHIND (deep_dive)
+----------------------------------------------
 Audience: a detail-oriented homeowner who wants to understand each project fully.
 Tone: forensic, precise, actionable. Write as if advising a client before listing.
 - Descriptions: 2-3 sentences. Include location in the home and impact on buyer perception.
 - Include diy_friendly flag and a 1-2 sentence diy_notes with skill context.
 - Time estimates: concise (e.g. "2-3 days contractor / 1 weekend DIY")."""
+
+
+def _comp_anchoring_block(detail_level: str) -> str:
+    """Comp and market framing injected into every prompt — drives item selection."""
+    if detail_level == "executive":
+        return """\
+COMP ANCHORING — QUICK WINS
+---------------------------
+Goal: fix what loses buyers at the first showing. Highest leverage only.
+A good listing agent would say: "Fix these 3–4 things and list it."
+
+Anchor to: buyer objections at ANY price point — not a renovation plan.
+Prioritize deal-killers and first-impression problems: water stains, broken glass,
+damaged garage doors, safety hazards, obvious deferred maintenance.
+Do NOT recommend projects just because comps have them. Recommend what stops
+buyers from making an offer or triggers immediate price reduction demands."""
+
+    if detail_level == "standard":
+        return """\
+COMP ANCHORING — BALANCED APPROACH
+-----------------------------------
+Goal: meet market expectation in the $295,000–$305,000 range without over-improving.
+You are not trying to beat newer construction — you are matching what successful
+same-era listings delivered.
+
+Primary comps (same subdivision, similar build era):
+- 4 Kingfisher Dr:    3/2, 1,891 sqft, built 1996, sold Apr 2026 — $289,000
+- 305 Kingfisher Dr:  3/2, 1,382 sqft, built 2000, sold Apr 2024 — $265,000
+
+Market bar at this price point: smooth ceilings (no popcorn), updated hardware,
+neutral paint — the condition buyers expect walking through a well-prepared listing.
+307 Blue Heron Cir ($301K, Dec 2025) illustrates the finish level buyers compare
+against: updated surfaces, cohesive neutrals, no dated fixtures screaming "1999."
+
+Include all Quick Wins items plus medium-priority updates that close the gap to
+what these comps likely had at sale. Cosmetic upgrades belong here; exhaustive
+renovation belongs at Leave Nothing Behind."""
+
+    # deep_dive
+    return """\
+COMP ANCHORING — LEAVE NOTHING BEHIND
+-------------------------------------
+Goal: compete for top dollar against newer construction, not just same-age homes.
+The seller wants maximum ARV — every meaningful gap to newer comps should be addressed.
+
+Primary comp (newer build, top of realistic ARV range):
+- 307 Blue Heron Cir: 3/2, 1,782 sqft, built 2007, sold Dec 2025 — $301,000
+
+Reference same-era floor (from Balanced Approach):
+- 4 Kingfisher Dr ($289K, 1996) and 305 Kingfisher Dr ($265K, 2000)
+
+At this level include all Balanced Approach items plus upgrades that close the
+1999-vs-2007 gap: jacuzzi/jetted tub to walk-in shower conversion, full flooring
+replacement, kitchen countertop upgrade, and other finishes buyers expect in a
+2000s-built home. You are positioning against newer construction on Woodruff Road
+corridor comps, not merely matching minimum market expectation."""
 
 
 # ── Buyer-profile blocks ───────────────────────────────────────────────────
@@ -259,18 +424,37 @@ def _build_upgrades_prompt(
     executive_summary: dict,
     detail_level: str,
     buyer_profile: str,
+    prior_report: dict | None = None,
 ) -> str:
-    """Call 2: return upgrades array only (max 5, sorted by roi_percent desc)."""
+    """Call 2: return upgrades array only."""
     top_issues, top_upgrades = _INPUT_COUNTS[detail_level]
     issues_freq   = summary.get("issues_by_frequency", {})
     upgrades_freq = summary.get("upgrades_by_frequency", {})
 
     ex_json = json.dumps(executive_summary, indent=2)
+    prior_block = _prior_items_block(prior_report, detail_level) if prior_report else ""
+    prior_count = len((prior_report or {}).get("upgrades") or [])
+
+    dated_section = ""
+    if detail_level == "deep_dive":
+        dated = summary.get("dated_features_by_frequency", {})
+        jetted = [
+            t for t in dated
+            if "jetted" in t.lower() or "jacuzzi" in t.lower() or "garden tub" in t.lower()
+        ]
+        if jetted:
+            dated_section = f"""
+CONFIRMED DATED FEATURES (jetted tub — must address in upgrades)
+----------------------------------------------------------------
+{_list_block(jetted)}
+"""
 
     return f"""You are preparing upgrade recommendations for 130 Kingfisher Dr, Simpsonville SC.
 This is CALL 2 OF 3. Return ONLY the upgrades array — no repairs, no other fields.
 
 {_detail_block(detail_level)}
+
+{_comp_anchoring_block(detail_level)}
 
 {_profile_block(buyer_profile)}
 
@@ -286,16 +470,11 @@ TOP {top_issues} ISSUES BY WEIGHTED SCORE
 
 TOP {top_upgrades} UPGRADE OPPORTUNITIES BY FREQUENCY
 -------------------------------------------------------
-{_freq_block(upgrades_freq, top_upgrades)}
+{_freq_block(upgrades_freq, top_upgrades)}{dated_section}{prior_block}
 
 INSTRUCTIONS
 ------------
-1. Return max 5 upgrades sorted by roi_percent descending (highest ROI first)
-2. Use the estimated_arv and investment range from the assessment context for pricing
-3. Use Greenville SC contractor rates (15-20% below national average)
-4. Apply the tone rules from the detail level above
-5. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation.
-   Entire response must be valid JSON fitting in 2000 tokens.
+{_upgrades_instructions(detail_level, prior_count=prior_count)}
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -307,18 +486,30 @@ def _build_repairs_prompt(
     executive_summary: dict,
     detail_level: str,
     buyer_profile: str,
+    prior_report: dict | None = None,
 ) -> str:
-    """Call 3: return repairs array only (max 5, sorted by priority)."""
+    """Call 3: return repairs array only."""
     top_issues, _ = _INPUT_COUNTS[detail_level]
     issues_freq = summary.get("issues_by_frequency", {})
     crit_high   = summary.get("critical_and_high_issues", [])
 
     ex_json = json.dumps(executive_summary, indent=2)
+    prior_block = _prior_items_block(prior_report, detail_level) if prior_report else ""
+    prior_count = len((prior_report or {}).get("repairs") or [])
+
+    crit_header = "CRITICAL AND HIGH DEAL-RISK ISSUES (always include — do not omit)"
+    if detail_level == "deep_dive":
+        crit_header = (
+            "CRITICAL AND HIGH DEAL-RISK ISSUES "
+            "(MUST ALL appear in repairs — consolidate if needed, omit none)"
+        )
 
     return f"""You are preparing repair recommendations for 130 Kingfisher Dr, Simpsonville SC.
 This is CALL 3 OF 3. Return ONLY the repairs array — no upgrades, no other fields.
 
 {_detail_block(detail_level)}
+
+{_comp_anchoring_block(detail_level)}
 
 {_profile_block(buyer_profile)}
 
@@ -328,26 +519,19 @@ ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
 
-CRITICAL AND HIGH DEAL-RISK ISSUES (always include — do not omit)
+{crit_header}
 -------------------------------------------------------------------
 {_list_block(crit_high)}
 
 TOP {top_issues} ISSUES BY WEIGHTED SCORE
 ------------------------------------------
-{_freq_block(issues_freq, top_issues)}
+{_freq_block(issues_freq, top_issues)}{prior_block}
 
 {_REPAIR_SEVERITY_RULES}
 
 INSTRUCTIONS
 ------------
-1. Return max 5 repairs sorted by priority (critical → high → medium → low)
-2. Set each repair's priority field using the repair severity rules above
-3. Use the investment range from the assessment context for pricing
-4. Use Greenville SC contractor rates (15-20% below national average)
-5. Apply the tone rules from the detail level above
-6. Flag sc_disclosure_required=true for any item SC law requires sellers to disclose
-7. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation.
-   Entire response must be valid JSON fitting in 2000 tokens.
+{_repairs_instructions(detail_level, prior_count=prior_count)}
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -415,8 +599,100 @@ _INPUT_COUNTS = {
     # (top_issues, top_upgrades)
     "executive": (10, 10),
     "standard":  (20, 20),
-    "deep_dive": (8,  6),   # fewer inputs → richer output per item
+    "deep_dive": (20, 20),
 }
+
+# Max items returned per recommendation call
+_RECOMMENDATION_LIMITS = {
+    "executive":  {"max_upgrades": 3, "max_repairs": 3},
+    "standard":   {"max_upgrades": 5, "max_repairs": 5},
+    "deep_dive":  {"max_upgrades": 8, "max_repairs": 8},
+}
+
+_DEEP_DIVE_EXHAUSTIVE = (
+    "Include every upgrade and repair worth considering, even lower "
+    "ROI items. The homeowner wants the complete picture."
+)
+
+
+def _max_upgrades(detail_level: str) -> int:
+    return _RECOMMENDATION_LIMITS[detail_level]["max_upgrades"]
+
+
+def _max_repairs(detail_level: str) -> int:
+    return _RECOMMENDATION_LIMITS[detail_level]["max_repairs"]
+
+
+def _upgrades_instructions(detail_level: str, prior_count: int = 0) -> str:
+    n = _max_upgrades(detail_level)
+    shared = f"""1. Return max {n} upgrades total sorted by roi_percent descending (highest ROI first)
+2. Use the estimated_arv and investment range from the assessment context for pricing
+3. Use Greenville SC contractor rates (15-20% below national average)
+4. Apply the tone rules from the detail level above"""
+
+    if prior_count:
+        add_n = max(0, n - prior_count)
+        shared += f"""
+5. You MUST include all {prior_count} prior-level upgrades listed above — do not replace or omit any
+6. Add up to {add_n} additional upgrade(s) beyond the prior items to reach the max of {n} total"""
+
+    if detail_level == "executive":
+        return shared + """
+7. Select ONLY items that fix buyer objections at first showing — highest leverage, not comp-matching cosmetics
+8. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+
+    if detail_level == "standard":
+        next_n = 8 if prior_count else 6
+        return shared + f"""
+{next_n}. Add medium-priority upgrades that match same-era comp expectations (4 Kingfisher, 305 Kingfisher bar)
+{next_n + 1}. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+
+    # deep_dive
+    next_n = 9 if prior_count else 5
+    return shared + f"""
+{next_n}. {_DEEP_DIVE_EXHAUSTIVE}
+{next_n + 1}. Add upgrades that close the 1999-vs-2007 gap per the 307 Blue Heron comp anchor
+{next_n + 2}. You MUST include a jetted/jacuzzi tub conversion as one upgrade: remove the \
+master bath jetted tub and convert to a walk-in tile shower with frameless glass
+{next_n + 3}. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+
+
+def _repairs_instructions(detail_level: str, prior_count: int = 0) -> str:
+    n = _max_repairs(detail_level)
+    shared = f"""1. Return max {n} repairs total sorted by priority (critical → high → medium → low)
+2. Set each repair's priority field using the repair severity rules above
+3. Use the investment range from the assessment context for pricing
+4. Use Greenville SC contractor rates (15-20% below national average)
+5. Apply the tone rules from the detail level above
+6. Flag sc_disclosure_required=true for any item SC law requires sellers to disclose"""
+
+    if prior_count:
+        add_n = max(0, n - prior_count)
+        shared += f"""
+7. You MUST include all {prior_count} prior-level repairs listed above — do not replace or omit any
+8. Add up to {add_n} additional repair(s) beyond the prior items to reach the max of {n} total"""
+
+    if detail_level == "executive":
+        next_n = 9 if prior_count else 7
+        return shared + f"""
+{next_n}. Include ONLY repairs that kill deals at first showing — buyer objections, not comp-matching cosmetics
+{next_n + 1}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
+
+    if detail_level == "standard":
+        next_n = 9 if prior_count else 7
+        return shared + f"""
+{next_n}. Add repairs needed to meet same-era comp bar (4 Kingfisher, 305 Kingfisher expectations)
+{next_n + 1}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
+
+    # deep_dive
+    next_n = 11 if prior_count else 7
+    return shared + f"""
+{next_n}. {_DEEP_DIVE_EXHAUSTIVE}
+{next_n + 1}. You MUST include a repair entry for EVERY issue listed under CRITICAL AND HIGH \
+DEAL-RISK ISSUES — consolidate related issues into shared repair entries where sensible, \
+but do not omit any critical/high issue
+{next_n + 2}. Include lower-priority repairs that standard would skip, up to the max of {n} entries
+{next_n + 3}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
 
 
 def _freq_block(d: dict, top: int) -> str:
@@ -480,9 +756,11 @@ UPGRADES BY ROOM (top {top_upgrades} per room)
 {room_block(upgrades_room, top_upgrades)}"""
 
     return f"""You are preparing a pre-sale property assessment for 130 Kingfisher Dr, Simpsonville SC.
-This is CALL 1 OF 2. Return ONLY the assessment sections — no upgrades list, no repairs list.
+This is CALL 1 OF 3. Return ONLY the assessment sections — no upgrades list, no repairs list.
 
 {_detail_block(detail_level)}
+
+{_comp_anchoring_block(detail_level)}
 
 {_profile_block(buyer_profile)}
 
@@ -515,13 +793,15 @@ TOP {top_upgrades} UPGRADES BY FREQUENCY
 
 INSTRUCTIONS
 ------------
-1. Goal: assess whether this property can reach the $295,000-$305,000 ARV ceiling
+1. Apply the COMP ANCHORING rules above — they define what belongs at this detail level
 2. High-frequency items are systemic problems across many rooms — weight them heavily
 3. Use Greenville SC contractor rates (15-20% below national average)
 4. Apply the detail level and buyer profile rules above
 5. Apply the repair severity rules above when classifying deal_killers and \
 assessing buyer impact in executive_summary
-6. Return ONLY the assessment JSON — no upgrades array, no repairs array
+6. In executive_summary.recommendation, write for a homeowner in plain English and \
+reference the comp anchoring frame (buyer objections / same-era comps / newer-build comps)
+7. Return ONLY the assessment JSON — no upgrades array, no repairs array
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -534,18 +814,17 @@ def generate_roi_report(
     last_sale: dict,
     detail_level: str = "standard",
     buyer_profile: str = "general",
+    prior_report: dict | None = None,
 ) -> dict:
     """
     Generate a pre-sale ROI report using three sequential Gemini calls (all levels):
-      Call 1 — Assessment (2048 tokens): executive_summary, deal_killers,
-                project_timeline, sc_considerations, buyer_profile_notes
-      Call 2 — Upgrades  (2048 tokens): upgrades array, max 5, sorted by ROI
-      Call 3 — Repairs   (2048 tokens): repairs array,  max 5, sorted by priority
+      Call 1 — Assessment: executive_summary, deal_killers, timeline, SC notes
+      Call 2 — Upgrades: sorted by ROI (executive 3 / standard 5 / deep_dive 8)
+      Call 3 — Repairs:  sorted by priority (executive 3 / standard 5 / deep_dive 8)
 
-    Differences between detail levels affect tone and input item counts only:
-      executive:  top 10 issues/upgrades in prompt, concise 1-sentence descriptions
-      standard:   top 20 issues/upgrades, 1-2 sentence descriptions
-      deep_dive:  top  8 issues/6 upgrades (focused), 2-3 sentence descriptions
+    When prior_report is provided (standard or deep_dive), upgrades and repairs from
+    the prior level are passed into the prompt and enforced in the merge step so each
+    tab is additive and never contradicts the level below it.
     """
     if detail_level not in DETAIL_LEVELS:
         return {**_ERROR_RESULT, "error": f"Invalid detail_level {detail_level!r}. Choose from: {sorted(DETAIL_LEVELS)}"}
@@ -574,7 +853,9 @@ def generate_roi_report(
     # ── Call 2: Upgrades ───────────────────────────────────────────
     print("  [2/3] Upgrades call...")
     upgrades_result, err = generate_text(
-        _build_upgrades_prompt(summary, executive_summary, detail_level, buyer_profile),
+        _build_upgrades_prompt(
+            summary, executive_summary, detail_level, buyer_profile, prior_report,
+        ),
         system=SYSTEM_PROMPT,
         max_tokens=_PRO_MAX_TOKENS,
         label="Upgrades",
@@ -585,7 +866,9 @@ def generate_roi_report(
     # ── Call 3: Repairs ────────────────────────────────────────────
     print("  [3/3] Repairs call...")
     repairs_result, err = generate_text(
-        _build_repairs_prompt(summary, executive_summary, detail_level, buyer_profile),
+        _build_repairs_prompt(
+            summary, executive_summary, detail_level, buyer_profile, prior_report,
+        ),
         system=SYSTEM_PROMPT,
         max_tokens=_PRO_MAX_TOKENS,
         label="Repairs",
@@ -593,20 +876,34 @@ def generate_roi_report(
     if err:
         return {**_ERROR_RESULT, "error": err}
 
-    # ── Merge ──────────────────────────────────────────────────────
-    upgrades: list = upgrades_result.get("upgrades", [])
-    repairs:  list = repairs_result.get("repairs",  [])
+    # ── Merge (additive when prior_report is set) ───────────────────
+    limits   = _RECOMMENDATION_LIMITS[detail_level]
+    upgrades: list = upgrades_result.get("upgrades", []) if isinstance(upgrades_result.get("upgrades"), list) else []
+    repairs:  list = repairs_result.get("repairs",  []) if isinstance(repairs_result.get("repairs"), list) else []
 
-    if isinstance(upgrades, list):
-        upgrades = sorted(
-            upgrades,
-            key=lambda u: float(u.get("roi_percent") or 0),
-            reverse=True,
-        )
+    prior_upgrades = (prior_report or {}).get("upgrades") or []
+    prior_repairs  = (prior_report or {}).get("repairs") or []
+
+    upgrades = _merge_recommendations(
+        prior_upgrades,
+        upgrades,
+        limits["max_upgrades"],
+        sort_key=lambda u: float(u.get("roi_percent") or 0),
+    )
+
+    _pri_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    repairs = _merge_recommendations(
+        prior_repairs,
+        repairs,
+        limits["max_repairs"],
+        sort_key=lambda r: _pri_order.get((r.get("priority") or "low").lower(), 9),
+        reverse=False,
+    )
 
     return {
         "detail_level":        assessment.get("detail_level",        detail_level),
         "buyer_profile":       assessment.get("buyer_profile",       buyer_profile),
+        "level_description":   LEVEL_DESCRIPTIONS.get(detail_level, ""),
         "buyer_profile_notes": assessment.get("buyer_profile_notes", []),
         "executive_summary":   executive_summary,
         "project_timeline":    assessment.get("project_timeline"),
@@ -615,6 +912,45 @@ def generate_roi_report(
         "upgrades":            upgrades,
         "repairs":             repairs,
     }
+
+
+def levels_up_to(detail_level: str) -> list[str]:
+    """Return detail levels from executive through the requested level."""
+    if detail_level not in DETAIL_LEVELS:
+        return []
+    idx = DETAIL_LEVEL_ORDER.index(detail_level)
+    return DETAIL_LEVEL_ORDER[: idx + 1]
+
+
+def generate_all_roi_reports(
+    summary: dict,
+    property_summary: dict,
+    last_sale: dict,
+    buyer_profile: str = "general",
+) -> dict[str, dict]:
+    """
+    Generate executive → standard → deep_dive in sequence so each level
+    includes all items from the level below it.
+    """
+    reports: dict[str, dict] = {}
+    prior: dict | None = None
+
+    for level in DETAIL_LEVEL_ORDER:
+        print(f"\n=== Generating [{level}] ===")
+        report = generate_roi_report(
+            summary,
+            property_summary,
+            last_sale,
+            detail_level=level,
+            buyer_profile=buyer_profile,
+            prior_report=prior,
+        )
+        if report.get("error"):
+            return {"error": report["error"], "partial": reports}
+        reports[level] = report
+        prior = report
+
+    return reports
 
 # ── On-demand deep detail ──────────────────────────────────────────────────
 

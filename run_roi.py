@@ -7,11 +7,14 @@ the result back to Supabase.
 
 Usage:
     python run_roi.py
+    python run_roi.py --all --buyer general
     python run_roi.py --detail executive --buyer first_time_buyer
     python run_roi.py --detail deep_dive --buyer relocating_professional
 
 Arguments:
+    --all      Generate all three levels in sequence (executive → standard → deep_dive)
     --detail   executive | standard | deep_dive          (default: standard)
+               Generates prerequisite levels first so each tab is additive.
     --buyer    first_time_buyer | young_family | downsizer |
                investor | relocating_professional | general  (default: general)
 
@@ -45,7 +48,13 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from attom import get_last_sale, get_property_summary
-from roi import generate_roi_report, DETAIL_LEVELS, BUYER_PROFILES
+from roi import (
+    generate_roi_report,
+    generate_all_roi_reports,
+    levels_up_to,
+    DETAIL_LEVELS,
+    BUYER_PROFILES,
+)
 
 load_dotenv()
 
@@ -337,6 +346,59 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     }
 
 
+def _print_report_summary(report: dict, detail_level: str, buyer_profile: str) -> None:
+    """Print executive summary block for one generated report."""
+    print("\n" + "-" * 60)
+    print(f"EXECUTIVE SUMMARY  [{detail_level.upper()} / {buyer_profile.upper()}]")
+    print("-" * 60)
+
+    ex  = report.get("executive_summary") or {}
+    arv = ex.get("estimated_arv")
+    if arv:
+        print(f"Estimated ARV:      ${float(arv):,.0f}")
+
+    upgrades = report.get("upgrades") or []
+    repairs  = report.get("repairs")  or []
+
+    total_upgrade_cost = sum(float(u.get("estimated_cost") or 0) for u in upgrades)
+    critical_count     = sum(1 for r in repairs if r.get("priority") == "critical")
+
+    print(f"Total upgrade cost: ${total_upgrade_cost:,.0f}")
+    print(f"Critical repairs:   {critical_count}")
+    print(f"Upgrades returned:  {len(upgrades)}")
+    print(f"Repairs returned:   {len(repairs)}")
+
+    if ex.get("recommendation"):
+        print(f"\n{ex['recommendation']}")
+
+    profile_notes = report.get("buyer_profile_notes") or []
+    if profile_notes:
+        print(f"\nBuyer profile notes ({buyer_profile}):")
+        for note in profile_notes[:3]:
+            print(f"  - {note}")
+
+    if upgrades:
+        print("\nTop upgrades by ROI:")
+        for u in upgrades[:5]:
+            roi  = u.get("roi_percent", 0)
+            name = u.get("name", "-")
+            cost = u.get("estimated_cost", 0)
+            print(f"  {roi:>6.1f}%  {name}  (${cost:,.0f})")
+
+    print("-" * 60)
+
+
+def _save_report(client, report_id: str, report: dict) -> None:
+    try:
+        client.table(REPORT_TABLE).upsert({
+            "id":     report_id,
+            "report": report,
+        }).execute()
+        print(f"Report saved to Supabase table '{REPORT_TABLE}' (id='{report_id}').")
+    except Exception as exc:
+        print(f"WARNING: Could not save report to Supabase: {exc}")
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -344,6 +406,11 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate a pre-sale ROI report from Supabase photo analyses."
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Generate all three levels in sequence (executive → standard → deep_dive)",
     )
     parser.add_argument(
         "--detail",
@@ -364,15 +431,24 @@ def main() -> None:
 
     detail_level  = args.detail
     buyer_profile = args.buyer
-    report_id     = f"{detail_level}_{buyer_profile}"
+    generate_all  = args.all
+
+    if generate_all:
+        detail_level = "deep_dive"
+
+    report_id = f"{detail_level}_{buyer_profile}"
 
     if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
         print("ERROR: GEMINI_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Detail level:  {detail_level}")
+    if generate_all:
+        print("Mode:          all three levels (additive chain)")
+    else:
+        chain = levels_up_to(detail_level)
+        print(f"Mode:          chain through {detail_level} ({' → '.join(chain)})")
     print(f"Buyer profile: {buyer_profile}")
-    print(f"Report ID:     {report_id}")
+    print(f"Final report:  {report_id}")
     print()
 
     client = get_supabase()
@@ -412,67 +488,46 @@ def main() -> None:
         f"Last sale: ${last_sale.get('sale_amount'):,} ({last_sale.get('sale_date')})"
     )
 
-    # 4. Generate ROI report
-    print(f"\nGenerating [{detail_level}] ROI report for [{buyer_profile}] buyer with Gemini...")
-    report = generate_roi_report(
-        summary, property_summary, last_sale,
-        detail_level=detail_level,
-        buyer_profile=buyer_profile,
-    )
+    # 4. Generate ROI report(s) in additive sequence
+    property_summary = get_property_summary()
+    last_sale        = get_last_sale()
 
-    if report.get("error"):
-        print(f"ERROR generating report: {report['error']}", file=sys.stderr)
-        sys.exit(1)
+    if generate_all:
+        print(f"\nGenerating all ROI reports for [{buyer_profile}] buyer with Gemini...")
+        result = generate_all_roi_reports(
+            summary, property_summary, last_sale, buyer_profile=buyer_profile,
+        )
+        if result.get("error"):
+            print(f"ERROR generating reports: {result['error']}", file=sys.stderr)
+            sys.exit(1)
+        reports = {k: v for k, v in result.items() if k != "error"}
+        for level, report in reports.items():
+            rid = f"{level}_{buyer_profile}"
+            _save_report(client, rid, report)
+            _print_report_summary(report, level, buyer_profile)
+        return
 
-    # 5. Save to Supabase with composite ID
-    try:
-        client.table(REPORT_TABLE).upsert({
-            "id":     report_id,
-            "report": report,
-        }).execute()
-        print(f"Report saved to Supabase table '{REPORT_TABLE}' (id='{report_id}').")
-    except Exception as exc:
-        print(f"WARNING: Could not save report to Supabase: {exc}")
+    chain = levels_up_to(detail_level)
+    prior: dict | None = None
+    report: dict | None = None
 
-    # 6. Print executive summary
-    print("\n" + "-" * 60)
-    print(f"EXECUTIVE SUMMARY  [{detail_level.upper()} / {buyer_profile.upper()}]")
-    print("-" * 60)
+    for level in chain:
+        level_report_id = f"{level}_{buyer_profile}"
+        print(f"\nGenerating [{level}] ROI report for [{buyer_profile}] buyer with Gemini...")
+        report = generate_roi_report(
+            summary, property_summary, last_sale,
+            detail_level=level,
+            buyer_profile=buyer_profile,
+            prior_report=prior,
+        )
+        if report.get("error"):
+            print(f"ERROR generating report: {report['error']}", file=sys.stderr)
+            sys.exit(1)
+        _save_report(client, level_report_id, report)
+        prior = report
 
-    ex  = report.get("executive_summary") or {}
-    arv = ex.get("estimated_arv")
-    if arv:
-        print(f"Estimated ARV:      ${float(arv):,.0f}")
-
-    upgrades = report.get("upgrades") or []
-    repairs  = report.get("repairs")  or []
-
-    total_upgrade_cost = sum(float(u.get("estimated_cost") or 0) for u in upgrades)
-    critical_count     = sum(1 for r in repairs if r.get("priority") == "critical")
-
-    print(f"Total upgrade cost: ${total_upgrade_cost:,.0f}")
-    print(f"Critical repairs:   {critical_count}")
-    print(f"Upgrades returned:  {len(upgrades)}")
-    print(f"Repairs returned:   {len(repairs)}")
-
-    if ex.get("recommendation"):
-        print(f"\n{ex['recommendation']}")
-
-    profile_notes = report.get("buyer_profile_notes") or []
-    if profile_notes:
-        print(f"\nBuyer profile notes ({buyer_profile}):")
-        for note in profile_notes[:3]:
-            print(f"  - {note}")
-
-    if upgrades:
-        print("\nTop upgrades by ROI:")
-        for u in upgrades[:5]:
-            roi  = u.get("roi_percent", 0)
-            name = u.get("name", "-")
-            cost = u.get("estimated_cost", 0)
-            print(f"  {roi:>6.1f}%  {name}  (${cost:,.0f})")
-
-    print("-" * 60)
+    assert report is not None
+    _print_report_summary(report, detail_level, buyer_profile)
 
 
 if __name__ == "__main__":

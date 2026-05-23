@@ -62,7 +62,7 @@ from photos import (
     SUPABASE_TOKEN_ID,
 )
 import photos as _photos_module
-from roi import generate_roi_report, get_item_detail
+from roi import generate_roi_report, levels_up_to, get_item_detail
 from run_roi import build_analysis_summary
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ def analyze_results():
 
 @app.post("/report")
 def report_generate(body: ReportRequest):
-    """Generate and persist a report for the given detail_level + buyer_profile."""
+    """Generate and persist additive report chain for the given buyer_profile."""
     global roi_cache
 
     detail_level  = body.detail_level
@@ -323,24 +323,40 @@ def report_generate(body: ReportRequest):
         raise HTTPException(status_code=422, detail="No analyses available — run run_analysis.py first")
 
     summary = build_analysis_summary(analyses)
-    report  = generate_roi_report(
-        summary,
-        get_property_summary(),
-        get_last_sale(),
-        detail_level=detail_level,
-        buyer_profile=buyer_profile,
-    )
+    property_summary = get_property_summary()
+    last_sale = get_last_sale()
 
-    if report.get("error"):
-        raise HTTPException(status_code=500, detail=report["error"])
+    # Generate executive → standard → deep_dive so each tab includes the prior level.
+    chain = levels_up_to(detail_level)
+    if not chain:
+        raise HTTPException(status_code=400, detail=f"Invalid detail_level: {detail_level!r}")
 
+    prior: dict | None = None
+    report: dict | None = None
     sb = _sb()
-    if sb:
-        try:
-            sb.table(ROI_TABLE).upsert({"id": report_id, "report": report}).execute()
-        except Exception as exc:
-            print(f"WARNING: could not save report to Supabase: {exc}")
 
+    for level in chain:
+        level_id = f"{level}_{buyer_profile}"
+        report = generate_roi_report(
+            summary,
+            property_summary,
+            last_sale,
+            detail_level=level,
+            buyer_profile=buyer_profile,
+            prior_report=prior,
+        )
+        if report.get("error"):
+            raise HTTPException(status_code=500, detail=report["error"])
+
+        if sb:
+            try:
+                sb.table(ROI_TABLE).upsert({"id": level_id, "report": report}).execute()
+            except Exception as exc:
+                print(f"WARNING: could not save report {level_id} to Supabase: {exc}")
+
+        prior = report
+
+    assert report is not None
     roi_cache = report
     return report
 
