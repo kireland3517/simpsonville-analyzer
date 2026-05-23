@@ -335,6 +335,48 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 }
 .deal-killer-list li::before { content: "●"; flex-shrink: 0; margin-top: 2px; }
 
+/* ── Collapsible report sections ─────────────────────────────────── */
+.report-collapse {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--white);
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.report-collapse summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  user-select: none;
+  color: var(--gray-700);
+}
+.report-collapse summary::-webkit-details-marker { display: none; }
+.report-collapse summary::after {
+  content: '▸';
+  font-size: 13px;
+  color: var(--gray-400);
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.report-collapse[open] summary::after { transform: rotate(90deg); }
+.report-collapse-summary--blue { border-left: 4px solid var(--accent); color: var(--accent); }
+.report-collapse-summary--red { border-left: 4px solid var(--red-600); color: var(--red-700); }
+.report-collapse-summary--amber { border-left: 4px solid var(--amber-600); color: var(--amber-600); }
+.report-collapse-summary--gray { border-left: 4px solid var(--gray-400); color: var(--gray-600); }
+.report-collapse-body { padding: 0 16px 16px; }
+.report-collapse-body .info-box { margin-bottom: 0; }
+.report-collapse-body .info-box.blue .info-box-title,
+.report-collapse-body .info-box.gray .info-box-title { display: none; }
+.report-collapse-body .dated-note { margin-top: 10px; font-size: 11px; color: var(--gray-400); }
+
 .profile-badge {
   display: inline-flex; align-items: center;
   padding: 2px 8px; border-radius: 99px;
@@ -697,7 +739,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <div class="detail-tab" data-level="executive">Quick Wins</div>
       <div class="detail-tab active" data-level="standard">Balanced Approach</div>
       <div class="detail-tab" data-level="deep_dive">Leave Nothing Behind</div>
-      <div class="detail-tab" data-level="custom">Build Your Plan</div>
     </div>
 
     <div class="content-area">
@@ -735,10 +776,14 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
         <!-- Approach summary (what this tab means) -->
         <div class="section" id="section-approach" style="display:none">
-          <div class="info-box gray">
-            <div class="info-box-title" id="approach-title">About This Plan</div>
-            <div class="info-box-body" id="approach-text"></div>
-          </div>
+          <details class="report-collapse">
+            <summary class="report-collapse-summary report-collapse-summary--gray" id="approach-summary">About This Plan</summary>
+            <div class="report-collapse-body">
+              <div class="info-box gray">
+                <div class="info-box-body" id="approach-text"></div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- 1. Summary Cards -->
@@ -780,35 +825,43 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
         <!-- 2. Recommendation -->
         <div class="section" id="section-recommendation" style="display:none">
-          <div class="info-box blue">
-            <div class="info-box-title">Recommendation</div>
-            <div class="info-box-body" id="rec-text"></div>
-            <div class="info-box-secondary" id="rec-market"></div>
-          </div>
+          <details class="report-collapse">
+            <summary class="report-collapse-summary report-collapse-summary--blue">Recommendation</summary>
+            <div class="report-collapse-body">
+              <div class="info-box blue">
+                <div class="info-box-body" id="rec-text"></div>
+                <div class="info-box-secondary" id="rec-market"></div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- 3. Deal Killers -->
         <div class="section" id="section-deal-killers" style="display:none">
-          <div class="info-box red">
-            <div class="info-box-title">
-              <span>⚠</span>
-              Deal Killers — Address Before Listing
+          <details class="report-collapse">
+            <summary class="report-collapse-summary report-collapse-summary--red">
+              <span>⚠ Deal Killers — Address Before Listing</span>
+            </summary>
+            <div class="report-collapse-body">
+              <div class="info-box red">
+                <ul class="deal-killer-list" id="deal-killers-list"></ul>
+              </div>
             </div>
-            <ul class="deal-killer-list" id="deal-killers-list"></ul>
-          </div>
+          </details>
         </div>
 
         <!-- 5. 1999-Era Dated Features -->
         <div class="section" id="section-dated" style="display:none">
-          <div class="section-header">
-            <span class="section-title">1999-Era Features to Address</span>
-            <div class="section-divider"></div>
-          </div>
-          <div class="info-box amber" style="margin-bottom:0">
-            <div class="info-box-title">Dated Features Found Across Photos</div>
-            <div class="dated-grid" id="dated-grid"></div>
-            <div class="dated-note">Frequency = number of photos where this feature was flagged by AI analysis</div>
-          </div>
+          <details class="report-collapse">
+            <summary class="report-collapse-summary report-collapse-summary--amber">1999-Era Features to Address</summary>
+            <div class="report-collapse-body">
+              <div class="info-box amber" style="margin-bottom:0">
+                <div class="info-box-title">Dated Features Found Across Photos</div>
+                <div class="dated-grid" id="dated-grid"></div>
+                <div class="dated-note">Frequency = number of photos where this feature was flagged by AI analysis</div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- 6. Upgrades Table -->
@@ -1062,24 +1115,18 @@ async function generateReport() {
   btn.textContent = 'Generating…';
   showState('state-loading');
   try {
-    // Custom tab uses the full additive chain (deep_dive generates all three)
-    const genLevel = currentLevel === 'custom' ? 'deep_dive' : currentLevel;
     const res = await fetch('/report', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({detail_level: genLevel, buyer_profile: BUYER_PROFILE})
+      body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
-    if (currentLevel === 'custom') {
-      await loadCustomPlan();
-    } else {
-      const report = await res.json();
-      populateReport(report);
-      showState('tab-roi');
-    }
+    const report = await res.json();
+    populateReport(report);
+    showState('tab-roi');
   } catch(err) {
     $('error-msg').textContent = 'Generation failed: ' + err.message;
     showState('state-error');
@@ -1092,10 +1139,6 @@ async function generateReport() {
 /* ── Load report (fetch by id) ───────────────────────────────────── */
 async function loadReport() {
   showState('state-loading');
-  if (currentLevel === 'custom') {
-    await loadCustomPlan();
-    return;
-  }
   const id = `${currentLevel}_${BUYER_PROFILE}`;
   try {
     const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
@@ -1120,7 +1163,6 @@ function labelFor(level) {
     executive: 'Quick Wins',
     standard: 'Balanced Approach',
     deep_dive: 'Leave Nothing Behind',
-    custom: 'Build Your Plan',
   }[level] || level;
 }
 
@@ -1128,67 +1170,7 @@ const LEVEL_DESCRIPTIONS = {
   executive: 'These are the must-fix items so buyers don\u2019t walk away at the first showing \u2014 the highest-leverage repairs and upgrades a good listing agent would say to handle before you put a sign in the yard. Think \u201cfix these 3\u20134 things and list it,\u201d not a full renovation.',
   standard: 'Everything in Quick Wins, plus what buyers expect when comparing your home to similar-era neighbors in the $295K\u2013$305K range. You\u2019re not over-improving \u2014 you\u2019re meeting market expectation. Homes like 4 Kingfisher Dr ($289K, built 1996) and 305 Kingfisher Dr ($265K) set the bar: smooth ceilings, updated hardware, neutral paint.',
   deep_dive: 'Everything in Balanced Approach, plus what it takes to compete with newer homes for top dollar. Anchored to 307 Blue Heron Cir ($301K, built 2007) \u2014 full flooring, kitchen counters, jacuzzi-to-shower conversion, and the finishes buyers see in 2000s-built comps. At this level you\u2019re competing with newer construction, not just same-age homes.',
-  custom: 'Mix and match from every upgrade and repair across all three plans. Check or uncheck items below and watch your total investment and projected net gain update instantly. This is your custom pre-listing budget \u2014 no new analysis, just the full menu in one place.',
 };
-
-const REPORT_LEVELS = ['executive', 'standard', 'deep_dive'];
-
-function normItemName(name) {
-  return String(name || '').toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-/** Merge items from all three reports; later levels win on duplicate names. */
-function mergeReportItems(reports, key) {
-  const byName = new Map();
-  for (const level of REPORT_LEVELS) {
-    const report = reports[level];
-    if (!report) continue;
-    for (const item of (report[key] || [])) {
-      const k = normItemName(item.name);
-      if (!k) continue;
-      byName.set(k, item);
-    }
-  }
-  return Array.from(byName.values());
-}
-
-function buildCustomPlan(reports) {
-  const deep = reports.deep_dive || {};
-  return {
-    detail_level: 'custom',
-    level_description: LEVEL_DESCRIPTIONS.custom,
-    executive_summary: deep.executive_summary || {},
-    upgrades: mergeReportItems(reports, 'upgrades'),
-    repairs: mergeReportItems(reports, 'repairs'),
-    deal_killers: [],
-    project_timeline: null,
-    sc_considerations: [],
-  };
-}
-
-async function loadCustomPlan() {
-  const reports = {};
-  try {
-    for (const level of REPORT_LEVELS) {
-      const id = `${level}_${BUYER_PROFILE}`;
-      const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
-      if (res.status === 404) {
-        $('not-gen-title').textContent = 'Build Your Plan';
-        $('not-gen-msg').textContent =
-          'Generate all three report levels first (Quick Wins through Leave Nothing Behind), then return here to mix and match.';
-        showState('state-not-generated');
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      reports[level] = await res.json();
-    }
-    populateReport(buildCustomPlan(reports));
-    showState('tab-roi');
-  } catch(err) {
-    $('error-msg').textContent = 'Could not load custom plan: ' + err.message;
-    showState('state-error');
-  }
-}
 
 /* ── Priority helpers ─────────────────────────────────────────────── */
 const PRIORITY_ORDER = {critical:0, high:1, medium:2, low:3};
@@ -1534,7 +1516,6 @@ function populateReport(report) {
   const ex       = report.executive_summary || {};
   const upgrades = report.upgrades || [];
   const repairs  = report.repairs  || [];
-  const isCustom = report.detail_level === 'custom' || currentLevel === 'custom';
 
   // Store on reportData so recalculate() can access
   reportData.executive_summary = ex;
@@ -1544,7 +1525,7 @@ function populateReport(report) {
   const approachText = report.level_description || LEVEL_DESCRIPTIONS[level] || '';
   if (approachText) {
     $('section-approach').style.display = '';
-    $('approach-title').textContent = `About ${labelFor(level)}`;
+    $('approach-summary').textContent = `About ${labelFor(level)}`;
     $('approach-text').textContent = approachText;
   } else {
     $('section-approach').style.display = 'none';
@@ -1552,21 +1533,13 @@ function populateReport(report) {
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
-  $('card-arv-sub').textContent = isCustom
-    ? 'Top ARV ceiling (Leave Nothing Behind plan)'
-    : 'After-repair value ceiling';
+  $('card-arv-sub').textContent = 'After-repair value ceiling';
 
   // Reset unchecked sets on fresh data load (all start checked)
   unchecked.upgrades.clear();
   unchecked.repairs.clear();
 
-  // Narrative sections — hidden on custom planner tab
-  if (isCustom) {
-    $('section-recommendation').style.display = 'none';
-    $('section-deal-killers').style.display = 'none';
-    $('section-timeline').style.display = 'none';
-    $('section-sc').style.display = 'none';
-  } else if (ex.recommendation || ex.market_position) {
+  if (ex.recommendation || ex.market_position) {
     $('section-recommendation').style.display = '';
     $('rec-text').textContent = ex.recommendation ?? '';
     $('rec-market').textContent = ex.market_position ?? '';
@@ -1574,14 +1547,12 @@ function populateReport(report) {
     $('section-recommendation').style.display = 'none';
   }
 
-  if (!isCustom) {
-    const dks = report.deal_killers || [];
-    if (dks.length) {
-      $('section-deal-killers').style.display = '';
-      $('deal-killers-list').innerHTML = dks.map(d => `<li>${esc(d)}</li>`).join('');
-    } else {
-      $('section-deal-killers').style.display = 'none';
-    }
+  const dks = report.deal_killers || [];
+  if (dks.length) {
+    $('section-deal-killers').style.display = '';
+    $('deal-killers-list').innerHTML = dks.map(d => `<li>${esc(d)}</li>`).join('');
+  } else {
+    $('section-deal-killers').style.display = 'none';
   }
 
   // Upgrades & repairs
@@ -1592,37 +1563,38 @@ function populateReport(report) {
   renderUpgrades(sortedUpgrades);
   renderRepairs(sortedRepairs);
 
-  if (!isCustom) {
-    // Timeline
-    const tl = report.project_timeline;
-    if (tl) {
-      $('section-timeline').style.display = '';
-      $('tl-hired').textContent = tl.total_weeks_hired ?? '—';
-      $('tl-diy').textContent   = tl.total_weeks_diy   ?? '—';
-      const seq = tl.recommended_sequence || [];
-      const par = new Set(tl.parallel_projects || []);
-      $('tl-sequence').innerHTML = seq.map((s, i) => {
-        const isP = par.has(s) || [...par].some(p => s.toLowerCase().includes(p.toLowerCase()));
-        return `<div class="timeline-step"><div class="step-num">${i+1}</div>
-          <div class="step-text">${esc(s)}${isP ? '<br><span class="parallel-tag">can run simultaneously</span>' : ''}</div>
-        </div>`;
-      }).join('');
-      if (tl.notes) $('tl-notes').textContent = tl.notes;
-    } else {
-      $('section-timeline').style.display = 'none';
-    }
+  // Collapse narrative sections by default on each load
+  document.querySelectorAll('.report-collapse').forEach(d => { d.open = false; });
 
-    // SC Considerations
-    const sc = report.sc_considerations || [];
-    const scIcons = ['🏡','📋','🌿','💧','⚡','🏗️','📍','⚖️'];
-    if (sc.length) {
-      $('section-sc').style.display = '';
-      $('sc-grid').innerHTML = sc.map((item, i) =>
-        `<div class="sc-card"><span class="sc-icon">${scIcons[i%scIcons.length]}</span><span>${esc(item)}</span></div>`
-      ).join('');
-    } else {
-      $('section-sc').style.display = 'none';
-    }
+  // Timeline
+  const tl = report.project_timeline;
+  if (tl) {
+    $('section-timeline').style.display = '';
+    $('tl-hired').textContent = tl.total_weeks_hired ?? '—';
+    $('tl-diy').textContent   = tl.total_weeks_diy   ?? '—';
+    const seq = tl.recommended_sequence || [];
+    const par = new Set(tl.parallel_projects || []);
+    $('tl-sequence').innerHTML = seq.map((s, i) => {
+      const isP = par.has(s) || [...par].some(p => s.toLowerCase().includes(p.toLowerCase()));
+      return `<div class="timeline-step"><div class="step-num">${i+1}</div>
+        <div class="step-text">${esc(s)}${isP ? '<br><span class="parallel-tag">can run simultaneously</span>' : ''}</div>
+      </div>`;
+    }).join('');
+    if (tl.notes) $('tl-notes').textContent = tl.notes;
+  } else {
+    $('section-timeline').style.display = 'none';
+  }
+
+  // SC Considerations
+  const sc = report.sc_considerations || [];
+  const scIcons = ['🏡','📋','🌿','💧','⚡','🏗️','📍','⚖️'];
+  if (sc.length) {
+    $('section-sc').style.display = '';
+    $('sc-grid').innerHTML = sc.map((item, i) =>
+      `<div class="sc-card"><span class="sc-icon">${scIcons[i%scIcons.length]}</span><span>${esc(item)}</span></div>`
+    ).join('');
+  } else {
+    $('section-sc').style.display = 'none';
   }
 
   // Report meta
@@ -1673,6 +1645,7 @@ async function loadInspectionFlags() {
 /* ── Print ───────────────────────────────────────────────────────── */
 function printReport() {
   document.getElementById('top-bar').setAttribute('data-date', new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}));
+  document.querySelectorAll('.report-collapse').forEach(d => { d.open = true; });
   window.print();
 }
 
