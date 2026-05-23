@@ -1231,7 +1231,7 @@ _ITEM_DETAIL_SCHEMA = """{
     "2. <second step>"
   ],
   "product_recommendations": [
-    "<specific product name — brand, model/SKU if applicable, where to buy locally, approx price>"
+    "<brand and product line only — no model numbers or SKUs. Do not name a specific store. Include approx price range. Example: 'Clopay insulated steel 2-car garage door — $800–$1,200 materials'>"
   ],
   "contractor_questions": [
     "<question to ask when getting quotes from local contractors>"
