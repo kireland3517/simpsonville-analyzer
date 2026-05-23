@@ -514,20 +514,27 @@ def inspection_flags_get():
 DETAIL_TABLE = "upgrade_details"
 
 
-def _get_or_generate_detail(name: str, item_type: str) -> dict:
+def _get_or_generate_detail(
+    name: str,
+    item_type: str,
+    description: str = "",
+    issues: str = "",
+) -> dict:
     """
     Return cached detail from Supabase if available, otherwise call Gemini
     via roi.get_item_detail() and persist the result.
     item_type: "upgrade" | "repair"
+    description / issues: grounding context forwarded from the frontend.
     """
     if not name or not name.strip():
         raise HTTPException(status_code=422, detail="name parameter is required")
 
     row_id = name.strip()
 
-    # Check Supabase cache first
+    # Check Supabase cache first (keyed by name; context params bypass cache so
+    # grounded results always reflect what was actually observed)
     sb = _sb()
-    if sb:
+    if sb and not description and not issues:
         try:
             row = (
                 sb.table(DETAIL_TABLE)
@@ -542,15 +549,16 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
         except Exception:
             pass
 
-    # Cache miss — call Gemini
-    result = get_item_detail(row_id, item_type)
+    # Cache miss — call Gemini with observed context
+    result = get_item_detail(row_id, item_type, description=description, issues=issues)
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
 
     formatted = format_item_detail_for_display(result)
 
-    # Persist to Supabase (non-fatal if it fails)
-    if sb:
+    # Persist to Supabase only when we have grounding context (so cached results
+    # are the context-aware versions, not the hallucinated ones)
+    if sb and (description or issues):
         try:
             sb.table(DETAIL_TABLE).upsert({
                 "id":        row_id,
@@ -564,15 +572,23 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
 
 
 @app.get("/upgrade-detail")
-def upgrade_detail(name: str = Query(..., description="Upgrade name from the ROI report")):
+def upgrade_detail(
+    name: str = Query(..., description="Upgrade name from the ROI report"),
+    description: str = Query("", description="Item description from the report"),
+    issues: str = Query("", description="Observed issues from photo analysis"),
+):
     """Return deep how-to detail for a single upgrade item (cached in Supabase)."""
-    return _get_or_generate_detail(name, "upgrade")
+    return _get_or_generate_detail(name, "upgrade", description=description, issues=issues)
 
 
 @app.get("/repair-detail")
-def repair_detail(name: str = Query(..., description="Repair name from the ROI report")):
+def repair_detail(
+    name: str = Query(..., description="Repair name from the ROI report"),
+    description: str = Query("", description="Item description from the report"),
+    issues: str = Query("", description="Observed issues from photo analysis"),
+):
     """Return deep how-to detail for a single repair item (cached in Supabase)."""
-    return _get_or_generate_detail(name, "repair")
+    return _get_or_generate_detail(name, "repair", description=description, issues=issues)
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────

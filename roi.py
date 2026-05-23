@@ -91,6 +91,9 @@ def _norm_name(name: str) -> str:
     return " ".join(s.split())
 
 
+_COST_FIELDS = ("estimated_cost", "materials_cost", "labor_cost", "estimated_value_add", "roi_percent")
+
+
 def _merge_recommendations(
     prior: list[dict] | None,
     new: list[dict],
@@ -103,17 +106,30 @@ def _merge_recommendations(
     """
     Build an additive list: all prior items first, then new non-duplicates.
     Prior items are never dropped when a higher detail level is generated.
+    Cost fields from the first-seen (lower) detail level are always preserved
+    so the same item never shows a different price across tabs.
     """
     prior = prior or []
-    seen = {_norm_name(item.get("name", "")) for item in prior if item.get("name")}
+    seen: dict[str, dict] = {}
+    for item in prior:
+        key = _norm_name(item.get("name", ""))
+        if key:
+            seen[key] = item
     merged = list(prior)
 
     extras: list[dict] = []
     for item in new:
         key = _norm_name(item.get("name", ""))
-        if not key or key in seen:
+        if not key:
             continue
-        seen.add(key)
+        if key in seen:
+            # Item already exists — anchor its cost fields to the prior version
+            prior_item = seen[key]
+            for field in _COST_FIELDS:
+                if prior_item.get(field) is not None:
+                    item[field] = prior_item[field]
+            continue
+        seen[key] = item
         extras.append(item)
 
     if sort_new and sort_key and extras:
@@ -1111,11 +1127,12 @@ _ITEM_DETAIL_SCHEMA = """{
 }"""
 
 
-def get_item_detail(name: str, item_type: str) -> dict:
+def get_item_detail(name: str, item_type: str, description: str = "", issues: str = "") -> dict:
     """
     Generate deep how-to detail for a single upgrade or repair item.
 
     item_type: "upgrade" | "repair"
+    description / issues: grounding context from the original photo-analysis report.
     Returns a detail dict, or a dict with an "error" key on failure.
     """
     if item_type not in ("upgrade", "repair"):
@@ -1125,12 +1142,22 @@ def get_item_detail(name: str, item_type: str) -> dict:
         return {"error": "GEMINI_API_KEY environment variable is not set"}
 
     verb = "upgrading" if item_type == "upgrade" else "repairing"
+
+    observed_block = ""
+    if description or issues:
+        parts = []
+        if issues:
+            parts.append(f"Observed issues from photo analysis: {issues}")
+        if description:
+            parts.append(f"Report summary: {description}")
+        observed_block = "\n".join(parts) + "\n\nOnly expand on what was actually observed above. Do not invent symptoms or problems not mentioned.\n"
+
     prompt = f"""You are a home improvement expert advising on a pre-sale renovation at:
 130 Kingfisher Dr, Simpsonville SC 29680 — 3 bed / 2 bath / 2,019 sqft / built 1999
 
 Provide deep how-to detail for {verb}: "{name}"
 
-Context:
+{observed_block}Context:
 - Target market: Greenville SC (labor rates 15-20% below national average)
 - Goal: maximize resale value, target ARV $295,000-$305,000
 - Local suppliers: Lowe's (1014 Woodruff Rd), Home Depot (2750 Laurens Rd), Floor & Decor (Greenville)

@@ -1424,6 +1424,7 @@ function list(arr, empty='—') {
 
 /* ── Deep detail fetch ─────────────────────────────────────────────── */
 const deepCache = {};
+const deepItemMeta = {}; // name → {description, issues} populated at render time
 
 async function fetchDeepDetail(name, type, panelEl) {
   if (window.isPrinting) return;
@@ -1431,7 +1432,11 @@ async function fetchDeepDetail(name, type, panelEl) {
   panelEl.innerHTML = `<div class="deep-detail-loading"><div class="spinner sm"></div> Loading deep detail…</div>`;
   try {
     const endpoint = type === 'upgrade' ? '/upgrade-detail' : '/repair-detail';
-    const res = await fetch(`${endpoint}?name=${encodeURIComponent(name)}`);
+    const meta = deepItemMeta[name] || {};
+    const params = new URLSearchParams({ name });
+    if (meta.description) params.set('description', meta.description);
+    if (meta.issues) params.set('issues', meta.issues);
+    const res = await fetch(`${endpoint}?${params}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     deepCache[name] = data;
@@ -1577,6 +1582,8 @@ function renderUpgrades(data) {
       <div class="deep-detail-panel" id="${panelId}" style="display:none"></div>
     </div></td>`;
 
+    deepItemMeta[u.name] = { description: u.description ?? '', issues: '' };
+
     row.addEventListener('click', (e) => { if (!e.target.classList.contains('row-cb')) toggleDetail(row, detail); });
     tbody.appendChild(row);
     tbody.appendChild(detail);
@@ -1642,6 +1649,8 @@ function renderRepairs(data) {
       </button>
       <div class="deep-detail-panel" id="${panelId}" style="display:none"></div>
     </div></td>`;
+
+    deepItemMeta[r.name] = { description: r.description ?? '', issues: r.issues ?? '' };
 
     row.addEventListener('click', (e) => { if (!e.target.classList.contains('row-cb')) toggleDetail(row, detail); });
     tbody.appendChild(row);
