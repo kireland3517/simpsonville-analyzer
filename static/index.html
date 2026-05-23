@@ -676,27 +676,59 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 /* ── Print styles ────────────────────────────────────────────────── */
 @media print {
   @page { margin: 20mm 15mm; }
-  .sidebar, .detail-tabs, .sidebar-section, .btn-print,
-  .top-bar-right .btn-print, .profile-pills,
+
+  /* Chrome UI + fetch/loading states */
+  .sidebar, .sidebar-nav, .sidebar-header, .sidebar-footer,
+  .detail-tabs, .sidebar-section, .btn-print, .top-bar,
+  .profile-pills, .nav-item,
   #state-loading, #state-not-generated, #state-error,
-  .selection-bar, .btn-deep, .table-controls, .cb-col,
-  .expand-icon { display: none !important; }
+  .selection-bar, .btn-deep, .btn-generate, .table-controls, .cb-col,
+  .expand-icon, .spinner, .deep-detail-loading, .state-center {
+    display: none !important;
+  }
+
   .app { display: block; }
   .main-wrapper { height: auto; overflow: visible; }
   .content-area { overflow: visible; height: auto; }
-  /* Only print the loaded ROI report — not loading/empty states or property tab */
+
+  /* Print the loaded ROI report only */
   .tab-pane { display: none !important; padding: 0; }
   #tab-roi { display: block !important; }
+
+  #tab-roi::before {
+    content: '130 Kingfisher Dr - Pre-Listing Analysis Report';
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+  }
+
+  /* Expand all collapsible report sections */
+  details.report-collapse { display: block !important; }
+  details.report-collapse > summary {
+    display: block !important;
+    list-style: none;
+  }
+  details.report-collapse > summary::after { display: none !important; }
+  .report-collapse-body,
+  .info-box-body, .info-box-secondary, .dated-grid, .sc-grid,
+  .timeline-cards, .timeline-seq, .flag-list {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   .table-wrap { box-shadow: none; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
   .detail-grid { grid-template-columns: repeat(3, 1fr); }
   tr.detail-row[hidden] { display: none !important; }
   .deep-detail-panel { display: none !important; }
   .section { break-inside: avoid; }
-  #section-timeline, #section-sc { break-before: page; }
-  .top-bar::before {
-    content: '130 Kingfisher Dr — Pre-Listing Analysis  ·  Printed ' attr(data-date);
-    display: block; font-size: 12px; color: #666; margin-bottom: 8px;
+  #section-upgrades, #section-repairs, #section-timeline {
+    page-break-before: always;
   }
 }
 </style>
@@ -871,7 +903,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
 
         <!-- 6. Upgrades Table -->
-        <div class="section">
+        <div class="section" id="section-upgrades">
           <div class="section-header">
             <span class="section-title">Recommended Upgrades</span>
             <span class="badge count" id="upgrades-count">0</span>
@@ -911,7 +943,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
 
         <!-- 7. Repairs Table -->
-        <div class="section">
+        <div class="section" id="section-repairs">
           <div class="section-header">
             <span class="section-title">Required Repairs</span>
             <span class="badge count" id="repairs-count">0</span>
@@ -1221,6 +1253,7 @@ function list(arr, empty='—') {
 const deepCache = {};
 
 async function fetchDeepDetail(name, type, panelEl) {
+  if (window.isPrinting) return;
   if (deepCache[name]) { renderDeepPanel(deepCache[name], panelEl); return; }
   panelEl.innerHTML = `<div class="deep-detail-loading"><div class="spinner sm"></div> Loading deep detail…</div>`;
   try {
@@ -1725,13 +1758,44 @@ async function loadInspectionFlags() {
 }
 
 /* ── Print ───────────────────────────────────────────────────────── */
+function sectionHasPrintContent(sec) {
+  const contentIds = ['approach-text', 'rec-text', 'deal-killers-list', 'dated-grid', 'flag-list', 'tl-sequence', 'sc-grid'];
+  for (const id of contentIds) {
+    const el = sec.querySelector('#' + id);
+    if (el?.textContent?.trim()) return true;
+  }
+  const tlHired = sec.querySelector('#tl-hired');
+  if (tlHired && tlHired.textContent.trim() && tlHired.textContent.trim() !== '—') return true;
+  return false;
+}
+
 function printReport() {
   if (!$('tab-roi')?.classList.contains('active')) {
     alert('Please wait until the report finishes loading before printing.');
     return;
   }
-  document.getElementById('top-bar').setAttribute('data-date', new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}));
+
+  window.isPrinting = true;
+  document.body.classList.add('is-printing');
+
   document.querySelectorAll('.report-collapse').forEach(d => { d.open = true; });
+
+  const restoredSections = [];
+  document.querySelectorAll('#tab-roi .section').forEach(sec => {
+    if (sec.style.display === 'none' && sectionHasPrintContent(sec)) {
+      restoredSections.push([sec, sec.style.display]);
+      sec.style.display = 'block';
+    }
+  });
+
+  const finishPrint = () => {
+    window.isPrinting = false;
+    document.body.classList.remove('is-printing');
+    restoredSections.forEach(([sec, display]) => { sec.style.display = display; });
+    window.removeEventListener('afterprint', finishPrint);
+  };
+
+  window.addEventListener('afterprint', finishPrint);
   window.print();
 }
 
