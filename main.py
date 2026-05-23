@@ -13,7 +13,7 @@ GET  /auth/logout            Clear token from Supabase and memory
 GET  /photos/albums          List all albums owned by the authenticated user
 GET  /photos/list            List photos in a Google Photos album
 GET  /photos/thumbnail       Proxy a thumbnail from Google Photos
-POST /analyze                Analyze a single photo with Claude Vision
+POST /analyze                Analyze a single photo with Gemini Vision
 POST /analyze/bulk           Analyze a batch of photos sequentially
 GET  /analyze/results        Return all cached analysis results
 POST /report                 Generate ROI report (body: {detail_level, buyer_profile})
@@ -500,7 +500,7 @@ DETAIL_TABLE = "upgrade_details"
 
 def _get_or_generate_detail(name: str, item_type: str) -> dict:
     """
-    Return cached detail from Supabase if available, otherwise call Claude
+    Return cached detail from Supabase if available, otherwise call Gemini
     via roi.get_item_detail() and persist the result.
     item_type: "upgrade" | "repair"
     """
@@ -526,7 +526,7 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
         except Exception:
             pass
 
-    # Cache miss — call Claude
+    # Cache miss — call Gemini
     result = get_item_detail(row_id, item_type)
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])

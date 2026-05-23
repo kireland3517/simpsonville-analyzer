@@ -673,20 +673,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       </div>
     </nav>
 
-    <!-- Buyer Profile Toggle -->
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Buyer Profile</div>
-      <div class="profile-pills">
-        <button class="profile-pill active" data-profile="general">General</button>
-        <button class="profile-pill" data-profile="first_time_buyer">First Time</button>
-        <button class="profile-pill" data-profile="young_family">Young Family</button>
-        <button class="profile-pill" data-profile="downsizer">Downsizer</button>
-        <button class="profile-pill" data-profile="investor">Investor</button>
-        <button class="profile-pill" data-profile="relocating_professional">Relocating Pro</button>
-      </div>
-    </div>
-
-    <div class="sidebar-footer">Powered by Claude AI</div>
+    <div class="sidebar-footer">Powered by Gemini AI</div>
   </aside>
 
   <!-- ── Main ───────────────────────────────────── -->
@@ -707,9 +694,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
     <!-- Detail level tabs -->
     <div class="detail-tabs" id="detail-tabs">
-      <div class="detail-tab active" data-level="executive">Executive Summary</div>
-      <div class="detail-tab" data-level="standard">Standard Report</div>
-      <div class="detail-tab" data-level="deep_dive">Deep Dive</div>
+      <div class="detail-tab" data-level="executive">Quick Wins</div>
+      <div class="detail-tab active" data-level="standard">Balanced Approach</div>
+      <div class="detail-tab" data-level="deep_dive">Leave Nothing Behind</div>
     </div>
 
     <div class="content-area">
@@ -791,18 +778,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
         </div>
 
-        <!-- 3. Buyer Profile Insights -->
-        <div class="section" id="section-profile-notes" style="display:none">
-          <div class="info-box purple">
-            <div class="info-box-title">
-              Buyer Profile Insights
-              <span class="profile-badge" id="profile-badge-text"></span>
-            </div>
-            <ul class="profile-notes-list" id="profile-notes-list"></ul>
-          </div>
-        </div>
-
-        <!-- 4. Deal Killers -->
+        <!-- 3. Deal Killers -->
         <div class="section" id="section-deal-killers" style="display:none">
           <div class="info-box red">
             <div class="info-box-title">
@@ -1035,8 +1011,8 @@ const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 const $    = id => document.getElementById(id);
 
 /* ── State ─────────────────────────────────────────────────────── */
-let currentLevel   = 'executive';
-let currentProfile = 'general';
+let currentLevel = 'standard';
+const BUYER_PROFILE = 'general';
 let reportData     = {};
 
 /* ── Tab switching (main nav) ───────────────────────────────────── */
@@ -1056,16 +1032,6 @@ document.querySelectorAll('.detail-tab').forEach(tab => {
     document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     currentLevel = tab.dataset.level;
-    loadReport();
-  });
-});
-
-/* ── Buyer profile pills ───────────────────────────────────────── */
-document.querySelectorAll('.profile-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('.profile-pill').forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-    currentProfile = pill.dataset.profile;
     loadReport();
   });
 });
@@ -1090,7 +1056,7 @@ async function generateReport() {
     const res = await fetch('/report', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({detail_level: currentLevel, buyer_profile: currentProfile})
+      body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1111,11 +1077,11 @@ async function generateReport() {
 /* ── Load report (fetch by id) ───────────────────────────────────── */
 async function loadReport() {
   showState('state-loading');
-  const id = `${currentLevel}_${currentProfile}`;
+  const id = `${currentLevel}_${BUYER_PROFILE}`;
   try {
     const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
     if (res.status === 404) {
-      $('not-gen-title').textContent = `${labelFor(currentLevel)} — ${labelForProfile(currentProfile)}`;
+      $('not-gen-title').textContent = labelFor(currentLevel);
       $('not-gen-msg').textContent = 'This report level has not been generated yet.';
       showState('state-not-generated');
       return;
@@ -1131,13 +1097,11 @@ async function loadReport() {
 }
 
 function labelFor(level) {
-  return {executive:'Executive Summary', standard:'Standard Report', deep_dive:'Deep Dive'}[level] || level;
-}
-function labelForProfile(p) {
   return {
-    general:'General', first_time_buyer:'First Time Buyer', young_family:'Young Family',
-    downsizer:'Downsizer', investor:'Investor', relocating_professional:'Relocating Pro'
-  }[p] || p;
+    executive: 'Quick Wins',
+    standard: 'Balanced Approach',
+    deep_dive: 'Leave Nothing Behind',
+  }[level] || level;
 }
 
 /* ── Priority helpers ─────────────────────────────────────────────── */
@@ -1504,16 +1468,6 @@ function populateReport(report) {
     $('section-recommendation').style.display = 'none';
   }
 
-  // Buyer profile notes
-  const notes = report.buyer_profile_notes || [];
-  if (notes.length) {
-    $('section-profile-notes').style.display = '';
-    $('profile-badge-text').textContent = labelForProfile(report.buyer_profile || currentProfile);
-    $('profile-notes-list').innerHTML = notes.map(n => `<li>${esc(n)}</li>`).join('');
-  } else {
-    $('section-profile-notes').style.display = 'none';
-  }
-
   // Deal killers
   const dks = report.deal_killers || [];
   if (dks.length) {
@@ -1565,7 +1519,7 @@ function populateReport(report) {
   // Report meta
   $('report-meta').innerHTML = `
     <span style="font-weight:600;color:var(--gray-600)">${upgrades.length} upgrades · ${repairs.length} repairs</span>
-    <span>${labelFor(report.detail_level || currentLevel)} · ${labelForProfile(report.buyer_profile || currentProfile)}</span>
+    <span>${labelFor(report.detail_level || currentLevel)}</span>
   `;
 }
 

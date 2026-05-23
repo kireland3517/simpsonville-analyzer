@@ -1,14 +1,14 @@
 """
 run_analysis.py
 ───────────────
-Batch-analyzes house photos and video frames using Claude Vision,
+Batch-analyzes house photos and video frames using Gemini Vision,
 saving results to Supabase.
 
 Usage:
     python run_analysis.py
 
 Requires:
-    ANTHROPIC_API_KEY     — Claude API key
+    GEMINI_API_KEY        — Google Gemini API key
     SUPABASE_URL          — Supabase project URL
     SUPABASE_SERVICE_KEY  — Supabase service role key
 
@@ -108,8 +108,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
+    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
+        print("ERROR: GEMINI_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     client = get_supabase()

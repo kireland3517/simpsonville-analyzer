@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 python-multipart
-anthropic
+google-genai
 requests
 google-auth
 google-auth-oauthlib

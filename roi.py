@@ -1,28 +1,26 @@
 """
 roi.py
 ------
-Uses Claude to generate a pre-sale ROI report from vision analysis
+Uses Gemini to generate a pre-sale ROI report from vision analysis
 summary data. Supports three detail levels and six buyer profiles.
 
-Requires ANTHROPIC_API_KEY to be set in the environment.
+Requires GEMINI_API_KEY to be set in the environment.
 """
 from __future__ import annotations
 
 import json
-import os
-import re
 from typing import Any
 
-import anthropic
-
-MODEL = "claude-sonnet-4-5"
-
+from gemini_client import generate_text, get_api_key, get_detail_model
 # Valid parameter values
 DETAIL_LEVELS  = {"executive", "standard", "deep_dive"}
 BUYER_PROFILES = {
     "first_time_buyer", "young_family", "downsizer",
     "investor", "relocating_professional", "general",
 }
+
+# gemini-2.5-pro uses part of the output budget for internal reasoning
+_PRO_MAX_TOKENS = 8192
 
 SYSTEM_PROMPT = (
     "You are a licensed real estate agent and renovation consultant in Greenville County, "
@@ -48,14 +46,6 @@ _ERROR_RESULT: dict = {
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
-
-def _extract_json(text: str) -> dict:
-    """Pull the first {...} block from the response and parse it."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in response: {text!r}")
-    return json.loads(match.group())
-
 
 def _fmt(value: Any, fallback: str = "unknown") -> str:
     return str(value) if value is not None else fallback
@@ -275,10 +265,6 @@ def _build_upgrades_prompt(
     issues_freq   = summary.get("issues_by_frequency", {})
     upgrades_freq = summary.get("upgrades_by_frequency", {})
 
-    def freq_block(d: dict, top: int) -> str:
-        items = list(d.items())[:top]
-        return "\n".join(f"  [{c:>3}x]  {t}" for t, c in items) if items else "  (none)"
-
     ex_json = json.dumps(executive_summary, indent=2)
 
     return f"""You are preparing upgrade recommendations for 130 Kingfisher Dr, Simpsonville SC.
@@ -294,13 +280,13 @@ ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
 
-TOP {top_issues} ISSUES BY FREQUENCY
---------------------------------------
-{freq_block(issues_freq, top_issues)}
+TOP {top_issues} ISSUES BY WEIGHTED SCORE
+------------------------------------------
+{_freq_block(issues_freq, top_issues)}
 
 TOP {top_upgrades} UPGRADE OPPORTUNITIES BY FREQUENCY
 -------------------------------------------------------
-{freq_block(upgrades_freq, top_upgrades)}
+{_freq_block(upgrades_freq, top_upgrades)}
 
 INSTRUCTIONS
 ------------
@@ -325,10 +311,7 @@ def _build_repairs_prompt(
     """Call 3: return repairs array only (max 5, sorted by priority)."""
     top_issues, _ = _INPUT_COUNTS[detail_level]
     issues_freq = summary.get("issues_by_frequency", {})
-
-    def freq_block(d: dict, top: int) -> str:
-        items = list(d.items())[:top]
-        return "\n".join(f"  [{c:>3}x]  {t}" for t, c in items) if items else "  (none)"
+    crit_high   = summary.get("critical_and_high_issues", [])
 
     ex_json = json.dumps(executive_summary, indent=2)
 
@@ -345,18 +328,25 @@ ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
 
-TOP {top_issues} ISSUES BY FREQUENCY
---------------------------------------
-{freq_block(issues_freq, top_issues)}
+CRITICAL AND HIGH DEAL-RISK ISSUES (always include — do not omit)
+-------------------------------------------------------------------
+{_list_block(crit_high)}
+
+TOP {top_issues} ISSUES BY WEIGHTED SCORE
+------------------------------------------
+{_freq_block(issues_freq, top_issues)}
+
+{_REPAIR_SEVERITY_RULES}
 
 INSTRUCTIONS
 ------------
 1. Return max 5 repairs sorted by priority (critical → high → medium → low)
-2. Use the investment range from the assessment context for pricing
-3. Use Greenville SC contractor rates (15-20% below national average)
-4. Apply the tone rules from the detail level above
-5. Flag sc_disclosure_required=true for any item SC law requires sellers to disclose
-6. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation.
+2. Set each repair's priority field using the repair severity rules above
+3. Use the investment range from the assessment context for pricing
+4. Use Greenville SC contractor rates (15-20% below national average)
+5. Apply the tone rules from the detail level above
+6. Flag sc_disclosure_required=true for any item SC law requires sellers to disclose
+7. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation.
    Entire response must be valid JSON fitting in 2000 tokens.
 
 Return this exact JSON (no markdown, no explanation):
@@ -401,6 +391,25 @@ LOCAL SUPPLIERS (use for pricing)
 
 # ── Prompt builders ────────────────────────────────────────────────────────
 
+_REPAIR_SEVERITY_RULES = """\
+REPAIR SEVERITY RULES - apply these consistently:
+Mark as CRITICAL if ANY of these are true:
+- Item will fail FHA/USDA/conventional appraisal
+- Item is a known SC disclosure requirement
+- Item poses safety risk (electrical, structural, water intrusion)
+- Item will trigger immediate price reduction demand from any buyer
+- Item involves exposed wiring, cracked window glass, damaged \
+garage door panels, active water stains, or moisture damage
+
+Mark as HIGH if:
+- Item will appear on home inspection report
+- Buyer will request repair credit
+- Item is visually obvious to any buyer
+
+Never downgrade a critical item to high or medium based on \
+estimated repair cost or ease of fix. Severity is about buyer \
+impact, not difficulty."""
+
 # Input item counts per detail level
 _INPUT_COUNTS = {
     # (top_issues, top_upgrades)
@@ -408,6 +417,27 @@ _INPUT_COUNTS = {
     "standard":  (20, 20),
     "deep_dive": (8,  6),   # fewer inputs → richer output per item
 }
+
+
+def _freq_block(d: dict, top: int) -> str:
+    """Format a frequency or weighted-score dict for prompt injection."""
+    items = list(d.items())[:top]
+    if not items:
+        return "  (none)"
+    lines = []
+    for text, value in items:
+        if isinstance(value, float):
+            lines.append(f"  [{value:>5.1f} pts]  {text}")
+        else:
+            lines.append(f"  [{value:>3}x]  {text}")
+    return "\n".join(lines)
+
+
+def _list_block(items: list[str]) -> str:
+    """Format a plain list of strings for prompt injection."""
+    if not items:
+        return "  (none)"
+    return "\n".join(f"  - {text}" for text in items)
 
 
 def _build_assessment_prompt(summary: dict, detail_level: str, buyer_profile: str) -> str:
@@ -425,10 +455,6 @@ def _build_assessment_prompt(summary: dict, detail_level: str, buyer_profile: st
     upgrades_freq  = summary.get("upgrades_by_frequency", {})
     issues_room    = summary.get("issues_by_room", {})
     upgrades_room  = summary.get("upgrades_by_room", {})
-
-    def freq_block(d: dict, top: int) -> str:
-        items = list(d.items())[:top]
-        return "\n".join(f"  [{c:>3}x]  {t}" for t, c in items) if items else "  (none)"
 
     def room_block(d: dict, top_items: int) -> str:
         if not d:
@@ -475,15 +501,17 @@ Deal risk distribution:
 
 DATED FEATURES BY FREQUENCY (top 15)
 --------------------------------------
-{freq_block(dated_freq, 15)}
+{_freq_block(dated_freq, 15)}
 
-TOP {top_issues} ISSUES BY FREQUENCY
---------------------------------------
-{freq_block(issues_freq, top_issues)}
+TOP {top_issues} ISSUES BY WEIGHTED SCORE
+------------------------------------------
+{_freq_block(issues_freq, top_issues)}
 
 TOP {top_upgrades} UPGRADES BY FREQUENCY
 ------------------------------------------
-{freq_block(upgrades_freq, top_upgrades)}{room_section}
+{_freq_block(upgrades_freq, top_upgrades)}{room_section}
+
+{_REPAIR_SEVERITY_RULES}
 
 INSTRUCTIONS
 ------------
@@ -491,7 +519,9 @@ INSTRUCTIONS
 2. High-frequency items are systemic problems across many rooms — weight them heavily
 3. Use Greenville SC contractor rates (15-20% below national average)
 4. Apply the detail level and buyer profile rules above
-5. Return ONLY the assessment JSON — no upgrades array, no repairs array
+5. Apply the repair severity rules above when classifying deal_killers and \
+assessing buyer impact in executive_summary
+6. Return ONLY the assessment JSON — no upgrades array, no repairs array
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -506,7 +536,7 @@ def generate_roi_report(
     buyer_profile: str = "general",
 ) -> dict:
     """
-    Generate a pre-sale ROI report using three sequential Claude calls (all levels):
+    Generate a pre-sale ROI report using three sequential Gemini calls (all levels):
       Call 1 — Assessment (2048 tokens): executive_summary, deal_killers,
                 project_timeline, sc_considerations, buyer_profile_notes
       Call 2 — Upgrades  (2048 tokens): upgrades array, max 5, sorted by ROI
@@ -524,18 +554,16 @@ def generate_roi_report(
     if not summary.get("total_photos"):
         return {**_ERROR_RESULT, "error": "Empty analysis summary — nothing to report on"}
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return {**_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
-
-    client = anthropic.Anthropic(api_key=api_key)
+    if not get_api_key():
+        return {**_ERROR_RESULT, "error": "GEMINI_API_KEY environment variable is not set"}
 
     # ── Call 1: Assessment ─────────────────────────────────────────
     print("  [1/3] Assessment call...")
-    assessment, err = _call_claude(
-        client,
+    # gemini-2.5-pro can spend much of the output budget on internal reasoning
+    assessment, err = generate_text(
         _build_assessment_prompt(summary, detail_level, buyer_profile),
-        max_tokens=2048,
+        system=SYSTEM_PROMPT,
+        max_tokens=_PRO_MAX_TOKENS,
         label="Assessment",
     )
     if err:
@@ -545,10 +573,10 @@ def generate_roi_report(
 
     # ── Call 2: Upgrades ───────────────────────────────────────────
     print("  [2/3] Upgrades call...")
-    upgrades_result, err = _call_claude(
-        client,
+    upgrades_result, err = generate_text(
         _build_upgrades_prompt(summary, executive_summary, detail_level, buyer_profile),
-        max_tokens=2048,
+        system=SYSTEM_PROMPT,
+        max_tokens=_PRO_MAX_TOKENS,
         label="Upgrades",
     )
     if err:
@@ -556,10 +584,10 @@ def generate_roi_report(
 
     # ── Call 3: Repairs ────────────────────────────────────────────
     print("  [3/3] Repairs call...")
-    repairs_result, err = _call_claude(
-        client,
+    repairs_result, err = generate_text(
         _build_repairs_prompt(summary, executive_summary, detail_level, buyer_profile),
-        max_tokens=2048,
+        system=SYSTEM_PROMPT,
+        max_tokens=_PRO_MAX_TOKENS,
         label="Repairs",
     )
     if err:
@@ -587,79 +615,6 @@ def generate_roi_report(
         "upgrades":            upgrades,
         "repairs":             repairs,
     }
-
-def _call_claude(
-    client: anthropic.Anthropic,
-    prompt: str,
-    max_tokens: int,
-    label: str,
-) -> tuple[dict | None, str | None]:
-    """
-    Make one Claude call and parse JSON. Retries once on parse failure.
-    Returns (result_dict, None) on success or (None, error_str) on failure.
-    """
-    try:
-        msg = client.messages.create(
-            model=MODEL,
-            max_tokens=max_tokens,
-            stream=False,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-    except anthropic.APIError as exc:
-        return None, f"{label} API error: {exc}"
-
-    text = msg.content[0].text
-    char_count = len(text)
-    stop_reason = msg.stop_reason
-
-    # Always log response boundaries so truncation is immediately visible
-    head = text[:200].replace("\n", " ")
-    tail = text[-200:].replace("\n", " ")
-    print(f"  [{label}] stop_reason={stop_reason!r}  chars={char_count:,}")
-    print(f"  [{label}] HEAD: {head}")
-    print(f"  [{label}] TAIL: {tail}")
-
-    if stop_reason == "max_tokens":
-        print(f"  [{label}] WARNING: response hit max_tokens limit — JSON is likely truncated")
-
-    try:
-        return _extract_json(text), None
-    except (ValueError, json.JSONDecodeError) as parse_err:
-        print(f"  [{label}] JSON parse failed: {parse_err} — retrying")
-
-    # Retry: send broken response back and ask for clean JSON
-    try:
-        retry_msg = client.messages.create(
-            model=MODEL,
-            max_tokens=max_tokens,
-            stream=False,
-            system=SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": prompt},
-                {"role": "assistant", "content": text},
-                {
-                    "role": "user",
-                    "content": (
-                        "Your previous response could not be parsed as JSON. "
-                        "Return ONLY the JSON object — no explanation, no markdown fences, "
-                        "no truncation. Start with '{' and end with '}'."
-                    ),
-                },
-            ],
-        )
-        retry_text = retry_msg.content[0].text
-        retry_chars = len(retry_text)
-        retry_stop  = retry_msg.stop_reason
-        retry_tail  = retry_text[-200:].replace("\n", " ")
-        print(f"  [{label} RETRY] stop_reason={retry_stop!r}  chars={retry_chars:,}")
-        print(f"  [{label} RETRY] TAIL: {retry_tail}")
-        try:
-            return _extract_json(retry_text), None
-        except (ValueError, json.JSONDecodeError) as exc:
-            return None, f"{label} JSON parse failed after retry: {exc}"
-    except anthropic.APIError as exc:
-        return None, f"{label} retry API error: {exc}"
 
 # ── On-demand deep detail ──────────────────────────────────────────────────
 
@@ -700,9 +655,8 @@ def get_item_detail(name: str, item_type: str) -> dict:
     if item_type not in ("upgrade", "repair"):
         return {"error": f"item_type must be 'upgrade' or 'repair', got {item_type!r}"}
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return {"error": "ANTHROPIC_API_KEY environment variable is not set"}
+    if not get_api_key():
+        return {"error": "GEMINI_API_KEY environment variable is not set"}
 
     verb = "upgrading" if item_type == "upgrade" else "repairing"
     prompt = f"""You are a home improvement expert advising on a pre-sale renovation at:
@@ -720,8 +674,13 @@ Return this exact JSON (no markdown, no explanation):
 
 {_ITEM_DETAIL_SCHEMA}"""
 
-    client = anthropic.Anthropic(api_key=api_key)
-    result, err = _call_claude(client, prompt, max_tokens=1500, label=f"ItemDetail:{name}")
+    result, err = generate_text(
+        prompt,
+        system=SYSTEM_PROMPT,
+        max_tokens=4096,
+        label=f"ItemDetail:{name}",
+        model=get_detail_model(),
+    )
     if err:
         return {"error": err}
     return result

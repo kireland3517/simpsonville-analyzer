@@ -165,13 +165,13 @@ with st.sidebar:
     st.markdown("### 🔍 AI Analysis")
 
     api_key_input: str = st.text_input(
-        "Anthropic API Key",
+        "Gemini API Key",
         type="password",
         key="api_key_input",
-        placeholder="sk-ant-...",
+        placeholder="AIza...",
     )
     if api_key_input:
-        os.environ["ANTHROPIC_API_KEY"] = api_key_input
+        os.environ["GEMINI_API_KEY"] = api_key_input
 
     already_analyzed = st.session_state.df["analysis"].str.strip().ne("").sum()
     st.caption(f"{already_analyzed} / {len(st.session_state.df)} files analyzed")

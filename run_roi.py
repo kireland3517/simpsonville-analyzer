@@ -2,7 +2,7 @@
 run_roi.py
 ----------
 Reads all photo analyses from Supabase, pre-processes them into a
-structured summary, generates an ROI report with Claude, and saves
+structured summary, generates an ROI report with Gemini, and saves
 the result back to Supabase.
 
 Usage:
@@ -21,7 +21,7 @@ Report is saved to Supabase with id = "{detail}_{buyer}", e.g.
     "executive_first_time_buyer"
 
 Requires:
-    ANTHROPIC_API_KEY     -- Claude API key
+    GEMINI_API_KEY        -- Google Gemini API key
     SUPABASE_URL          -- Supabase project URL
     SUPABASE_SERVICE_KEY  -- Supabase service role key
 
@@ -153,22 +153,49 @@ def _norm_key(text: str) -> str:
     return ' '.join(words[:5])
 
 
+_DEAL_RISK_WEIGHT: dict[str, float] = {
+    "critical": 10.0,
+    "high":     5.0,
+    "medium":   2.0,
+    "low":      1.0,
+    "none":     0.5,
+}
+_DEFAULT_RISK_WEIGHT = 0.5  # unknown / missing deal_risk
+
+
+def _risk_weight(deal_risk: str | None) -> float:
+    """Return the frequency weight for a photo's deal_risk value."""
+    risk = (deal_risk or "").strip().lower()
+    return _DEAL_RISK_WEIGHT.get(risk, _DEFAULT_RISK_WEIGHT)
+
+
+def _is_jetted_tub(text: str) -> bool:
+    """True when a dated-feature string refers to a jetted/jacuzzi/garden tub."""
+    t = text.lower()
+    return "jetted" in t or "jacuzzi" in t or "garden tub" in t
+
+
 def build_analysis_summary(analyses: list[dict]) -> dict:
     """
     Aggregate raw analysis dicts into a structured summary for the ROI prompt.
     Uses normalized key deduplication so the same issue appearing across many
-    photos accumulates a count > 1 (previously all issues showed count=1 because
-    Claude writes unique verbose sentences each time).
+    photos accumulates a weighted score (previously all issues showed count=1
+    because Claude writes unique verbose sentences each time).
+
+    Issue weighting by photo deal_risk:
+      critical: 10 | high: 5 | medium: 2 | low: 1 | none/unknown: 0.5
 
     Canonical text = the longest seen string for that key (most descriptive).
 
     Limits applied to cap token usage:
-      - issues_by_frequency:   top 30 by count
-      - upgrades_by_frequency: top 30 by count
-      - dated_features:        top 20 by count
-      - issues_by_room:        top 5 per room, max 10 rooms
-      - upgrades_by_room:      top 5 per room, max 10 rooms
+      - issues_by_frequency:        top 30 by weighted score
+      - critical_and_high_issues:   ALL issues from critical/high photos (uncapped)
+      - upgrades_by_frequency:      top 30 by raw count
+      - dated_features_by_frequency: top 20 by count + always include jetted tub
+      - issues_by_room:             top 5 per room, max 10 rooms
+      - upgrades_by_room:             top 5 per room, max 10 rooms
     """
+    issue_weights:         defaultdict[str, float] = defaultdict(float)
     issue_counts:          Counter = Counter()
     upgrade_counts:        Counter = Counter()
     dated_counts:          Counter = Counter()
@@ -181,12 +208,19 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     upgrade_canon: dict[str, str] = {}
     dated_canon:   dict[str, str] = {}
 
+    # issue keys seen in at least one critical/high deal_risk photo
+    critical_high_keys: set[str] = set()
+    # dated-feature keys for jetted/jacuzzi tub — always included in summary
+    pinned_dated_keys: set[str] = set()
+
     # room → list of canonical display texts (first-seen-wins per room)
     issues_by_room:   defaultdict[str, list[str]] = defaultdict(list)
     upgrades_by_room: defaultdict[str, list[str]] = defaultdict(list)
 
     for a in analyses:
         room = (a.get("room_type") or "unknown").strip().lower()
+        risk = (a.get("deal_risk") or "").strip().lower()
+        weight = _risk_weight(risk)
 
         if cond := (a.get("condition") or "").strip().lower():
             condition_counts[cond] += 1
@@ -194,7 +228,7 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
         if finish := (a.get("finish_quality") or "").strip().lower():
             finish_quality_counts[finish] += 1
 
-        if risk := (a.get("deal_risk") or "").strip().lower():
+        if risk:
             deal_risk_counts[risk] += 1
 
         for text in (a.get("dated_features") or []):
@@ -207,6 +241,8 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
             dated_counts[key] += 1
             if key not in dated_canon or len(text) > len(dated_canon[key]):
                 dated_canon[key] = text
+            if _is_jetted_tub(text):
+                pinned_dated_keys.add(key)
 
         for text in (a.get("issues") or []):
             text = text.strip()
@@ -215,7 +251,10 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
             key = _norm_key(text)
             if not key:
                 continue
+            issue_weights[key] += weight
             issue_counts[key] += 1
+            if risk in ("critical", "high"):
+                critical_high_keys.add(key)
             if key not in issue_canon or len(text) > len(issue_canon[key]):
                 issue_canon[key] = text
             canonical = issue_canon[key]
@@ -236,40 +275,51 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
             if canonical not in upgrades_by_room[room]:
                 upgrades_by_room[room].append(canonical)
 
-    total_unique_issues   = len(issue_counts)
+    total_unique_issues   = len(issue_weights)
     total_unique_upgrades = len(upgrade_counts)
 
     # ── Cap frequency dicts ────────────────────────────────────────
-    issues_by_freq   = {issue_canon[k]:   c for k, c in issue_counts.most_common(30)}
+    issues_by_freq = {
+        issue_canon[k]: round(score, 1)
+        for k, score in sorted(issue_weights.items(), key=lambda kv: kv[1], reverse=True)[:30]
+    }
     upgrades_by_freq = {upgrade_canon[k]: c for k, c in upgrade_counts.most_common(30)}
-    dated_by_freq    = {dated_canon[k]:   c for k, c in dated_counts.most_common(20)}
+
+    dated_by_freq = {dated_canon[k]: c for k, c in dated_counts.most_common(20)}
+    for key in pinned_dated_keys:
+        text = dated_canon.get(key)
+        if text and text not in dated_by_freq:
+            dated_by_freq[text] = dated_counts[key]
+
+    critical_and_high_issues = sorted(
+        (issue_canon[k] for k in critical_high_keys if k in issue_canon),
+        key=lambda t: issue_weights[_norm_key(t)],
+        reverse=True,
+    )
 
     # ── Cap room dicts: top-5 items per room, max 10 rooms ─────────
     def cap_room_dict(
         room_dict: defaultdict[str, list[str]],
-        freq_counter: Counter,
-        canonical: dict[str, str],
+        score_lookup: dict[str, float] | Counter,
         max_rooms: int = 10,
         max_per_room: int = 5,
     ) -> dict[str, list[str]]:
-        def room_score(items: list[str]) -> int:
-            return sum(
-                freq_counter.get(_norm_key(t), 0) for t in items
-            )
+        def room_score(items: list[str]) -> float:
+            return sum(float(score_lookup.get(_norm_key(t), 0)) for t in items)
 
         ranked = sorted(room_dict.items(), key=lambda kv: room_score(kv[1]), reverse=True)
         result: dict[str, list[str]] = {}
         for room, items in ranked[:max_rooms]:
             sorted_items = sorted(
                 items,
-                key=lambda t: freq_counter.get(_norm_key(t), 0),
+                key=lambda t: float(score_lookup.get(_norm_key(t), 0)),
                 reverse=True,
             )
             result[room] = sorted_items[:max_per_room]
         return result
 
-    capped_issues_by_room   = cap_room_dict(issues_by_room,   issue_counts,   issue_canon)
-    capped_upgrades_by_room = cap_room_dict(upgrades_by_room, upgrade_counts, upgrade_canon)
+    capped_issues_by_room   = cap_room_dict(issues_by_room,   issue_weights)
+    capped_upgrades_by_room = cap_room_dict(upgrades_by_room, upgrade_counts)
 
     return {
         "total_photos":                len(analyses),
@@ -280,6 +330,7 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
         "deal_risk_summary":           dict(deal_risk_counts.most_common()),
         "dated_features_by_frequency": dated_by_freq,
         "issues_by_frequency":         issues_by_freq,
+        "critical_and_high_issues":    critical_and_high_issues,
         "upgrades_by_frequency":       upgrades_by_freq,
         "issues_by_room":              capped_issues_by_room,
         "upgrades_by_room":            capped_upgrades_by_room,
@@ -315,8 +366,8 @@ def main() -> None:
     buyer_profile = args.buyer
     report_id     = f"{detail_level}_{buyer_profile}"
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
+    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
+        print("ERROR: GEMINI_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     print(f"Detail level:  {detail_level}")
@@ -338,10 +389,16 @@ def main() -> None:
           f"{summary['total_unique_issues']} unique issues (showing top 30) | "
           f"{summary['total_unique_upgrades']} unique upgrades (showing top 30)")
 
-    # Diagnostic: show top 5 issues and upgrades with actual frequency counts
-    print("\nTop 5 issues by frequency:")
-    for text, count in list(summary["issues_by_frequency"].items())[:5]:
-        print(f"  [{count:>3}x]  {text[:80]}")
+    # Diagnostic: show top 10 issues by weighted score
+    print("\nTop 10 issues by weighted score:")
+    for text, score in list(summary["issues_by_frequency"].items())[:10]:
+        print(f"  [{score:>5.1f} pts]  {text[:80]}")
+    crit_high = summary.get("critical_and_high_issues") or []
+    print(f"\nCritical/high deal-risk issues (always sent to repairs prompt): {len(crit_high)}")
+    for text in crit_high[:5]:
+        print(f"  - {text[:80]}")
+    if len(crit_high) > 5:
+        print(f"  ... and {len(crit_high) - 5} more")
     print("Top 5 upgrades by frequency:")
     for text, count in list(summary["upgrades_by_frequency"].items())[:5]:
         print(f"  [{count:>3}x]  {text[:80]}")
@@ -356,7 +413,7 @@ def main() -> None:
     )
 
     # 4. Generate ROI report
-    print(f"\nGenerating [{detail_level}] ROI report for [{buyer_profile}] buyer with Claude...")
+    print(f"\nGenerating [{detail_level}] ROI report for [{buyer_profile}] buyer with Gemini...")
     report = generate_roi_report(
         summary, property_summary, last_sale,
         detail_level=detail_level,

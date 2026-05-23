@@ -1,25 +1,21 @@
 """
 analyzer.py
 ───────────
-Uses Claude Vision to analyze house photos and return structured condition findings.
-Requires ANTHROPIC_API_KEY to be set in the environment.
+Uses Gemini Vision to analyze house photos and return structured condition findings.
+Requires GEMINI_API_KEY to be set in the environment.
 
 No API calls are made for local helpers (extract_video_frames uses ffmpeg via subprocess).
 """
 from __future__ import annotations
 
-import base64
 import io
-import json
-import os
-import re
 import subprocess
 from pathlib import Path
 from typing import Optional
 
 from PIL import Image
 
-import anthropic
+from gemini_client import generate_vision, get_api_key
 
 # Optional HEIC support
 try:
@@ -28,8 +24,6 @@ try:
 except ImportError:
     _pillow_heif = None  # type: ignore[assignment]
     _HEIC_AVAILABLE = False
-
-MODEL = "claude-opus-4-5"
 
 SYSTEM_PROMPT = (
     "You are a forensic pre-listing home inspector and buyer's agent with 20 years of "
@@ -133,22 +127,9 @@ def _media_type(path: Path) -> Optional[str]:
     return _MEDIA_TYPES.get(path.suffix.lower())
 
 
-def _extract_json(text: str) -> dict:
-    """
-    Pull the first {...} block out of the response text and parse it.
-    Claude occasionally wraps JSON in markdown fences; this strips them.
-    """
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in response: {text!r}")
-    return json.loads(match.group())
-
-
-# ─── Main public function ─────────────────────────────────────────────────────
-
 def analyze_image(image_path: Path) -> dict:
     """
-    Send a house photo to Claude Vision and return structured condition findings.
+    Send a house photo to Gemini Vision and return structured condition findings.
 
     Returns a dict with keys: room_type, condition, issues, upgrades, finish_quality.
     On any error (missing file, unsupported type, API failure, bad JSON) returns
@@ -172,48 +153,24 @@ def analyze_image(image_path: Path) -> dict:
         img.thumbnail((2000, 2000), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
-        image_data = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
+        image_bytes = buf.getvalue()
+        mime_type = "image/jpeg"
     except (FileNotFoundError, OSError) as exc:
         return {**_ERROR_RESULT, "error": str(exc)}
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return {**_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
+    if not get_api_key():
+        return {**_ERROR_RESULT, "error": "GEMINI_API_KEY environment variable is not set"}
 
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model=MODEL,
-            max_tokens=2048,
-            system=SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": USER_PROMPT,
-                        },
-                    ],
-                }
-            ],
-        )
-    except anthropic.APIError as exc:
-        return {**_ERROR_RESULT, "error": str(exc)}
-
-    response_text = message.content[0].text
-    try:
-        return _extract_json(response_text)
-    except (ValueError, json.JSONDecodeError) as exc:
-        return {**_ERROR_RESULT, "error": str(exc)}
+    result, err = generate_vision(
+        image_bytes,
+        mime_type,
+        USER_PROMPT,
+        system=SYSTEM_PROMPT,
+        max_tokens=2048,
+    )
+    if err:
+        return {**_ERROR_RESULT, "error": err}
+    return result
 
 
 # ─── Video frame extraction ───────────────────────────────────────────────────
