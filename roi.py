@@ -530,6 +530,17 @@ def _build_repairs_prompt(
             "(MUST ALL appear in repairs — consolidate if needed, omit none)"
         )
 
+    crit_high_flags = summary.get("critical_and_high_flags") or []
+    flags_block = ""
+    if crit_high_flags:
+        flags_block = f"""
+INSPECTOR FLAGS FROM PHOTO ANALYSIS (critical/high photos only)
+---------------------------------------------------------------
+These are verbatim recommendations a licensed inspector would write.
+Use this language to name and scope repair items — do not downgrade.
+{_list_block(crit_high_flags[:20])}
+"""
+
     return f"""You are preparing repair recommendations for 130 Kingfisher Dr, Simpsonville SC.
 This is CALL 3 OF 3. Return ONLY the repairs array — no upgrades, no other fields.
 
@@ -550,7 +561,7 @@ ASSESSMENT CONTEXT (from prior analysis)
 {crit_header}
 -------------------------------------------------------------------
 {_list_block(crit_high)}
-
+{flags_block}
 TOP {top_issues} ISSUES BY WEIGHTED SCORE
 ------------------------------------------
 {_freq_block(issues_freq, top_issues)}{prior_block}

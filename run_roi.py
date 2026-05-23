@@ -208,6 +208,7 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     issue_counts:          Counter = Counter()
     upgrade_counts:        Counter = Counter()
     dated_counts:          Counter = Counter()
+    flag_counts:           Counter = Counter()
     condition_counts:      Counter = Counter()
     finish_quality_counts: Counter = Counter()
     deal_risk_counts:      Counter = Counter()
@@ -216,6 +217,10 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     issue_canon:   dict[str, str] = {}
     upgrade_canon: dict[str, str] = {}
     dated_canon:   dict[str, str] = {}
+    flag_canon:    dict[str, str] = {}
+
+    # flag keys seen in critical/high photos — always include in summary
+    critical_high_flag_keys: set[str] = set()
 
     # issue keys seen in at least one critical/high deal_risk photo
     critical_high_keys: set[str] = set()
@@ -284,6 +289,21 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
             if canonical not in upgrades_by_room[room]:
                 upgrades_by_room[room].append(canonical)
 
+        for text in (a.get("inspection_flags") or []):
+            if isinstance(text, dict):
+                text = text.get("flag") or text.get("text") or str(text)
+            text = text.strip()
+            if not text:
+                continue
+            key = _norm_key(text)
+            if not key:
+                continue
+            flag_counts[key] += 1
+            if key not in flag_canon or len(text) > len(flag_canon[key]):
+                flag_canon[key] = text
+            if risk in ("critical", "high"):
+                critical_high_flag_keys.add(key)
+
     total_unique_issues   = len(issue_weights)
     total_unique_upgrades = len(upgrade_counts)
 
@@ -330,6 +350,14 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     capped_issues_by_room   = cap_room_dict(issues_by_room,   issue_weights)
     capped_upgrades_by_room = cap_room_dict(upgrades_by_room, upgrade_counts)
 
+    # Top inspection flags — all from critical/high photos, plus top 20 by frequency
+    top_flags_by_freq = {flag_canon[k]: c for k, c in flag_counts.most_common(20)}
+    critical_high_flags = sorted(
+        (flag_canon[k] for k in critical_high_flag_keys if k in flag_canon),
+        key=lambda t: flag_counts[_norm_key(t)],
+        reverse=True,
+    )
+
     return {
         "total_photos":                len(analyses),
         "total_unique_issues":         total_unique_issues,
@@ -340,6 +368,8 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
         "dated_features_by_frequency": dated_by_freq,
         "issues_by_frequency":         issues_by_freq,
         "critical_and_high_issues":    critical_and_high_issues,
+        "inspection_flags_by_frequency": top_flags_by_freq,
+        "critical_and_high_flags":     critical_high_flags,
         "upgrades_by_frequency":       upgrades_by_freq,
         "issues_by_room":              capped_issues_by_room,
         "upgrades_by_room":            capped_upgrades_by_room,
