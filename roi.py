@@ -1,7 +1,7 @@
 """
 roi.py
 ──────
-Uses Claude to generate a prioritized ROI report from vision analysis results
+Uses Claude to generate a detailed ROI report from vision analysis results
 and property data. Requires ANTHROPIC_API_KEY to be set in the environment.
 """
 from __future__ import annotations
@@ -16,26 +16,25 @@ import anthropic
 MODEL = "claude-sonnet-4-5"
 
 SYSTEM_PROMPT = (
-    "You are a real estate investment analyst specializing in residential renovation ROI. "
-    "Given property data and condition findings, you produce prioritized repair and upgrade "
-    "recommendations with realistic cost and value-add estimates."
-)
-
-NEIGHBORHOOD_CONTEXT = (
-    "River Ridge subdivision, Simpsonville SC 29680. "
-    "Recent comps range $265,000–$319,900. "
-    "Subject market value $276,810."
+    "You are a licensed real estate agent and renovation consultant in Greenville County, "
+    "South Carolina with 20 years of experience. You specialize in helping homeowners "
+    "prepare properties for sale and maximize their net proceeds. You know local contractor "
+    "rates, material costs at the Greenville SC Lowe's and Home Depot, and what buyers in "
+    "the Simpsonville market actually pay for. You give specific, actionable advice with "
+    "realistic local pricing — not national averages. You always return valid JSON only, "
+    "with no commentary, preamble, or markdown formatting."
 )
 
 _ERROR_RESULT: dict = {
-    "estimated_arv": None,
-    "upgrades":      None,
-    "repairs":       None,
-    "summary":       None,
+    "executive_summary":  None,
+    "project_timeline":   None,
+    "upgrades":           None,
+    "repairs":            None,
+    "deal_killers":       None,
+    "sc_considerations":  None,
 }
 
-
-# ─── Shared helpers (same pattern as analyzer.py) ────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _extract_json(text: str) -> dict:
     """Pull the first {...} block from the response and parse it."""
@@ -46,118 +45,198 @@ def _extract_json(text: str) -> dict:
 
 
 def _fmt(value: Any, fallback: str = "unknown") -> str:
-    """Return a clean string for a value that may be None."""
     return str(value) if value is not None else fallback
 
 
-def _unique(items: list[str]) -> list[str]:
-    """Deduplicate a list while preserving order."""
-    seen: set[str] = set()
-    out: list[str] = []
-    for item in items:
-        key = item.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            out.append(item.strip())
-    return out
+# ─── Prompt ───────────────────────────────────────────────────────────────────
 
+def _build_prompt(summary: dict) -> str:
+    total   = summary.get("total_photos", 0)
+    cond    = summary.get("condition_summary", {})
+    finish  = summary.get("finish_quality_summary", {})
+    issues_freq   = summary.get("issues_by_frequency", {})
+    upgrades_freq = summary.get("upgrades_by_frequency", {})
+    issues_room   = summary.get("issues_by_room", {})
+    upgrades_room = summary.get("upgrades_by_room", {})
 
-# ─── Prompt builder ───────────────────────────────────────────────────────────
+    def freq_block(freq_dict: dict, top: int = 30) -> str:
+        items = list(freq_dict.items())[:top]
+        if not items:
+            return "  (none identified)"
+        return "\n".join(f"  [{count:>3}x]  {text}" for text, count in items)
 
-def _build_prompt(
-    property_summary: dict,
-    last_sale: dict,
-    all_issues: list[str],
-    all_upgrades: list[str],
-) -> str:
-    ps = property_summary
-    ls = last_sale
+    def room_block(room_dict: dict) -> str:
+        if not room_dict:
+            return "  (none identified)"
+        lines = []
+        for room, items in sorted(room_dict.items()):
+            for item in items:
+                lines.append(f"  {room:20s}  {item}")
+        return "\n".join(lines)
 
-    issues_block = (
-        "\n".join(f"  - {i}" for i in all_issues)
-        if all_issues else "  (none identified)"
-    )
-    upgrades_block = (
-        "\n".join(f"  - {u}" for u in all_upgrades)
-        if all_upgrades else "  (none identified)"
-    )
+    cond_str   = "  " + ", ".join(f"{k}: {v}" for k, v in cond.items()) if cond else "  (no data)"
+    finish_str = "  " + ", ".join(f"{k}: {v}" for k, v in finish.items()) if finish else "  (no data)"
 
-    return f"""Property facts:
-  Address:      {_fmt(ps.get("address"))}
-  Sqft:         {_fmt(ps.get("sqft"))}
-  Beds/Baths:   {_fmt(ps.get("beds"))} bed / {_fmt(ps.get("baths"))} bath
-  Year built:   {_fmt(ps.get("year_built"))}
-  Market value: ${_fmt(ps.get("market_value"))}
-  Tax amount:   ${_fmt(ps.get("tax_amount"))} ({_fmt(ps.get("tax_year"))} tax year)
+    return f"""You are preparing a pre-sale renovation report for the owner of this property.
 
-Last sale:
-  Date:   {_fmt(ls.get("sale_date"))}
-  Amount: ${_fmt(ls.get("sale_amount"))}
-  Price/sqft: ${_fmt(ls.get("price_per_sqft"))}
+SUBJECT PROPERTY
+----------------
+Address:       130 Kingfisher Dr, Simpsonville SC 29680
+Subdivision:   River Ridge, Greenville County SC
+Specs:         3 bed / 2 bath / 2,019 sqft / built 1999 / 2-car attached garage
+Lot:           0.35 acres (15,377 sqft)
+Current value: $276,810 (ATTOM AVM)
+AVM range:     Redfin $282,986 / Zillow $290,500 / Realtor.com $296,945
+Last sold:     $170,000 - December 2017
+Annual tax:    $3,446
 
-Neighborhood context:
-  {NEIGHBORHOOD_CONTEXT}
+RECENT COMPS - River Ridge subdivision
+---------------------------------------
+4 Kingfisher Dr:    3/2, 1,891 sqft, built 1996, sold Apr 2026 - $289,000 (100% of list)
+102 Blue Heron Cir: 4/2, 2,290 sqft, built 2017, sold Apr 2026 - $319,900 (96% of list) [OUTLIER: newer construction]
+307 Blue Heron Cir: 3/2, 1,782 sqft, built 2007, sold Dec 2025 - $301,000 (99% of list)
+2 Turnstone Ct:     3/2, 1,238 sqft, built 1999, sold Sep 2025 - $252,000 (100% of list)
+305 Kingfisher Dr:  3/2, 1,382 sqft, built 2000, sold Apr 2024 - $265,000
+413 Kingfisher Dr:  4/2, 1,526 sqft, built 2002, sold Feb 2024 - $285,000
 
-Condition issues found across photos:
-{issues_block}
+Market conditions: somewhat competitive, ~1% below list price, 58 days avg DOM
+Subject advantage: largest sqft of all comparable comps at 2,019 sqft
+Realistic ARV ceiling: $295,000-$305,000 (102 Blue Heron is newer construction - not achievable for a 1999 build)
 
-Upgrade opportunities found across photos:
-{upgrades_block}
+PHOTO ANALYSIS SUMMARY ({total} photos analyzed)
+-------------------------------------------------
+Overall condition distribution:
+{cond_str}
 
-Return a JSON object with exactly these fields:
-- estimated_arv: number (after repair value estimate in dollars)
-- upgrades: list of objects, each with:
-    - name: string
-    - estimated_cost: number
-    - estimated_value_add: number
-    - roi_percent: number
-    - priority: string, one of: high, medium, low
-- repairs: list of objects, each with:
-    - name: string
-    - estimated_cost: number
-    - priority: string, one of: critical, high, medium, low
-- summary: string (2-3 sentence plain English summary)
+Finish quality distribution:
+{finish_str}
 
-Return only valid JSON, no explanation."""
+ISSUES BY FREQUENCY (count x issue text)
+-----------------------------------------
+{freq_block(issues_freq)}
+
+UPGRADES BY FREQUENCY (count x upgrade text)
+---------------------------------------------
+{freq_block(upgrades_freq)}
+
+ISSUES BY ROOM
+--------------
+{room_block(issues_room)}
+
+UPGRADES BY ROOM
+----------------
+{room_block(upgrades_room)}
+
+LOCAL SUPPLIERS (use for pricing)
+----------------------------------
+- Lowe's: 1014 Woodruff Rd, Greenville SC 29607
+- Home Depot: 2750 Laurens Rd, Greenville SC 29607
+- Floor & Decor: Greenville SC (flooring)
+- Labor rates: Greenville SC is 15-20% below national average
+
+INSTRUCTIONS
+------------
+1. Target audience: homeowner preparing to sell - not an investor
+2. Goal: close the gap between $276,810 and the $295,000-$305,000 ARV ceiling
+3. High-frequency issues (seen in many photos) indicate systemic problems - weight them more heavily
+4. Use actual Greenville SC contractor and material rates
+5. Be specific about what work needs to be done - not generic descriptions
+6. Sort upgrades by roi_percent descending
+7. Return at most 8 upgrades and 8 repairs - include deck/structural issues; they must not be omitted
+8. Keep descriptions concise (1-2 sentences each); put detail in diy_notes only if diy_friendly is true
+
+Return a single JSON object with this exact structure (no markdown, no explanation):
+
+{{
+  "executive_summary": {{
+    "current_value": <number>,
+    "estimated_arv": <number>,
+    "total_investment_low": <number>,
+    "total_investment_high": <number>,
+    "net_gain_low": <number>,
+    "net_gain_high": <number>,
+    "recommendation": "<2-3 sentence recommendation for the seller>",
+    "market_position": "<brief description of how this property sits vs comps>",
+    "disclaimer": "This report is based on AI analysis of photos and public records. Cost estimates should be validated with local contractor quotes before making decisions."
+  }},
+  "project_timeline": {{
+    "total_weeks_hired": <number>,
+    "total_weeks_diy": <number>,
+    "recommended_sequence": ["<project 1>", "<project 2>", "..."],
+    "parallel_projects": ["<projects that can run simultaneously>"],
+    "notes": "<string>"
+  }},
+  "upgrades": [
+    {{
+      "name": "<string>",
+      "description": "<specific description of exactly what work is needed>",
+      "materials_needed": ["<item with quantity>"],
+      "materials_cost": <number>,
+      "labor_cost": <number>,
+      "estimated_cost": <number>,
+      "estimated_value_add": <number>,
+      "roi_percent": <number>,
+      "priority": "<high|medium|low>",
+      "diy_friendly": <true|false>,
+      "diy_notes": "<specific reason why or why not>",
+      "skill_level": "<beginner|intermediate|advanced|professional_only>",
+      "time_estimate_contractor": "<e.g. 2-3 days>",
+      "time_estimate_diy": "<e.g. 2 weekends or not recommended>",
+      "tools_needed": ["<tool name>"],
+      "local_suppliers": ["<store name and location>"]
+    }}
+  ],
+  "repairs": [
+    {{
+      "name": "<string>",
+      "description": "<specific description of the issue and fix>",
+      "estimated_cost": <number>,
+      "priority": "<critical|high|medium|low>",
+      "diy_friendly": <true|false>,
+      "diy_notes": "<string>",
+      "time_estimate_contractor": "<string>",
+      "time_estimate_diy": "<string>",
+      "sc_disclosure_required": <true|false>,
+      "sc_disclosure_note": "<why SC law requires or does not require disclosure>",
+      "safety_concern": <true|false>,
+      "safety_note": "<string, empty if not a safety concern>"
+    }}
+  ],
+  "deal_killers": [
+    "<item that could kill a sale or force a price reduction if not addressed>"
+  ],
+  "sc_considerations": [
+    "<South Carolina-specific item buyers commonly flag in this market>"
+  ]
+}}"""
 
 
 # ─── Main public function ─────────────────────────────────────────────────────
 
 def generate_roi_report(
-    analyses: list[dict],
+    summary: dict,
     property_summary: dict,
     last_sale: dict,
 ) -> dict:
     """
-    Generate a prioritized ROI report from vision analysis results and property data.
+    Generate a detailed pre-sale ROI report using Claude.
 
-    analyses        — list of dicts from analyzer.analyze_image(); entries with a
-                      non-None "error" field are silently filtered out.
-    property_summary — dict from attom.get_property_summary()
-    last_sale        — dict from attom.get_last_sale()
+    summary          -- pre-processed analysis summary from run_roi.build_analysis_summary()
+                        Keys: total_photos, condition_summary, finish_quality_summary,
+                        issues_by_frequency, upgrades_by_frequency,
+                        issues_by_room, upgrades_by_room
+    property_summary -- dict from attom.get_property_summary() (context only)
+    last_sale        -- dict from attom.get_last_sale() (context only)
 
-    Returns a dict with keys: estimated_arv, upgrades, repairs, summary.
+    Returns a dict with keys: executive_summary, project_timeline, upgrades,
+    repairs, deal_killers, sc_considerations.
     On any failure returns those keys set to None plus an "error" key.
     """
-    # 1. Filter out errored analyses
-    clean = [a for a in analyses if a.get("error") is None]
+    if not summary.get("total_photos"):
+        return {**_ERROR_RESULT, "error": "Empty analysis summary — nothing to report on"}
 
-    # 2. Aggregate issues and upgrades across all valid analyses
-    raw_issues: list[str] = []
-    raw_upgrades: list[str] = []
-    for a in clean:
-        if isinstance(a.get("issues"), list):
-            raw_issues.extend(a["issues"])
-        if isinstance(a.get("upgrades"), list):
-            raw_upgrades.extend(a["upgrades"])
+    prompt = _build_prompt(summary)
 
-    all_issues = _unique(raw_issues)
-    all_upgrades = _unique(raw_upgrades)
-
-    # 3. Build prompt
-    prompt = _build_prompt(property_summary, last_sale, all_issues, all_upgrades)
-
-    # 4. Call Claude
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return {**_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
@@ -166,7 +245,7 @@ def generate_roi_report(
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=8192,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -179,7 +258,7 @@ def generate_roi_report(
     except (ValueError, json.JSONDecodeError) as exc:
         return {**_ERROR_RESULT, "error": str(exc)}
 
-    # 5. Sort upgrades by roi_percent descending
+    # Sort upgrades by roi_percent descending
     if isinstance(result.get("upgrades"), list):
         result["upgrades"] = sorted(
             result["upgrades"],

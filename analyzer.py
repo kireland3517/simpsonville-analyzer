@@ -9,12 +9,15 @@ No API calls are made for local helpers (extract_video_frames uses ffmpeg via su
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import re
 import subprocess
 from pathlib import Path
 from typing import Optional
+
+from PIL import Image
 
 import anthropic
 
@@ -89,24 +92,23 @@ def analyze_image(image_path: Path) -> dict:
     if media_type is None:
         return {**_ERROR_RESULT, "error": f"Unsupported image type: {image_path.suffix!r}"}
 
-    if image_path.suffix.lower() == ".heic":
-        if not _HEIC_AVAILABLE:
-            return {**_ERROR_RESULT, "error": "HEIC support requires pillow-heif: pip install pillow-heif"}
-        try:
-            import io
-            from PIL import Image
+    try:
+        if image_path.suffix.lower() == ".heic":
+            if not _HEIC_AVAILABLE:
+                return {**_ERROR_RESULT, "error": "HEIC support requires pillow-heif: pip install pillow-heif"}
             heif = _pillow_heif.read_heif(str(image_path))
             img = Image.frombytes(heif.mode, heif.size, heif.data, "raw")
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG")
-            image_data = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
-        except (FileNotFoundError, OSError) as exc:
-            return {**_ERROR_RESULT, "error": str(exc)}
-    else:
-        try:
-            image_data = base64.standard_b64encode(image_path.read_bytes()).decode("utf-8")
-        except (FileNotFoundError, OSError) as exc:
-            return {**_ERROR_RESULT, "error": str(exc)}
+        else:
+            img = Image.open(image_path)
+
+        # Resize so the longest side is at most 2000px, then encode as JPEG
+        img = img.convert("RGB")
+        img.thumbnail((2000, 2000), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        image_data = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
+    except (FileNotFoundError, OSError) as exc:
+        return {**_ERROR_RESULT, "error": str(exc)}
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:

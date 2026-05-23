@@ -1,10 +1,10 @@
 """
 main.py
-───────
+-------
 FastAPI backend for the house analysis web app.
 
 Endpoints
-─────────
+---------
 GET  /                       Serve static/index.html (or placeholder)
 GET  /auth/login             Return Google OAuth URL
 GET  /auth/callback?code=    Exchange code, redirect to /
@@ -16,8 +16,8 @@ GET  /photos/thumbnail       Proxy a thumbnail from Google Photos
 POST /analyze                Analyze a single photo with Claude Vision
 POST /analyze/bulk           Analyze a batch of photos sequentially
 GET  /analyze/results        Return all cached analysis results
-POST /report                 Generate ROI report from cached analyses
-GET  /report                 Return cached ROI report
+POST /report                 Generate ROI report from cached analyses, save to Supabase
+GET  /report                 Return ROI report from Supabase (falls back to memory)
 GET  /report/export/csv      Download upgrades + repairs as CSV
 
 Run:
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -58,14 +59,19 @@ from photos import (
 )
 import photos as _photos_module
 from roi import generate_roi_report
+from run_roi import build_analysis_summary
 
 # ─── Module-level state ───────────────────────────────────────────────────────
 
 # Keyed by photo_id → analysis dict from analyzer.analyze_image()
 analysis_cache: dict[str, dict] = {}
 
-# Latest generated ROI report
+# Write-through memory cache for the latest ROI report (also persisted to Supabase)
 roi_cache: Optional[dict] = None
+
+# Supabase table / row for the ROI report
+ROI_TABLE = "roi_report"
+ROI_ID    = "current"
 
 # ─── App setup ────────────────────────────────────────────────────────────────
 
@@ -79,6 +85,21 @@ app.add_middleware(
 )
 
 STATIC_INDEX = Path("static/index.html")
+
+
+# ─── Supabase helper ──────────────────────────────────────────────────────────
+
+def _sb():
+    """Return a Supabase client if credentials are configured, else None."""
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        return None
+    try:
+        from supabase import create_client
+        return create_client(url, key)
+    except Exception:
+        return None
 
 
 # ─── Pydantic models ──────────────────────────────────────────────────────────
@@ -130,10 +151,8 @@ def auth_status():
 
 @app.get("/auth/logout")
 def auth_logout():
-    # Clear in-memory cache
     _photos_module._token_cache = None
 
-    # Delete from Supabase if configured
     client = _supabase_client()
     if client:
         try:
@@ -279,34 +298,72 @@ def analyze_results():
 @app.post("/report")
 def report_generate():
     global roi_cache
+
     analyses = list(analysis_cache.values())
-    roi_cache = generate_roi_report(
-        analyses,
-        get_property_summary(),
-        get_last_sale(),
-    )
-    return roi_cache
+    if not analyses:
+        raise HTTPException(status_code=422, detail="No analyses in cache — analyze some photos first")
+
+    summary = build_analysis_summary(analyses)
+    report  = generate_roi_report(summary, get_property_summary(), get_last_sale())
+
+    if report.get("error"):
+        raise HTTPException(status_code=500, detail=report["error"])
+
+    # Persist to Supabase
+    sb = _sb()
+    if sb:
+        try:
+            sb.table(ROI_TABLE).upsert({"id": ROI_ID, "report": report}).execute()
+        except Exception as exc:
+            # Non-fatal — report is still returned
+            print(f"WARNING: could not save report to Supabase: {exc}")
+
+    roi_cache = report
+    return report
 
 
 @app.get("/report")
 def report_get():
-    if roi_cache is None:
-        raise HTTPException(status_code=404, detail="No report generated yet")
-    return roi_cache
+    # Try Supabase first so restarts don't lose the report
+    sb = _sb()
+    if sb:
+        try:
+            row = sb.table(ROI_TABLE).select("report").eq("id", ROI_ID).maybe_single().execute()
+            if row and row.data:
+                return row.data["report"]
+        except Exception:
+            pass
+
+    # Fall back to in-memory cache
+    if roi_cache is not None:
+        return roi_cache
+
+    raise HTTPException(status_code=404, detail="No report found. Run POST /report or python run_roi.py first.")
 
 
 @app.get("/report/export/csv")
 def report_export_csv():
-    if roi_cache is None:
+    # Use memory cache if available, else hit Supabase
+    report = roi_cache
+    if report is None:
+        sb = _sb()
+        if sb:
+            try:
+                row = sb.table(ROI_TABLE).select("report").eq("id", ROI_ID).maybe_single().execute()
+                if row and row.data:
+                    report = row.data["report"]
+            except Exception:
+                pass
+
+    if report is None:
         raise HTTPException(status_code=404, detail="No report generated yet")
 
-    upgrades: list[dict] = roi_cache.get("upgrades") or []
-    repairs: list[dict] = roi_cache.get("repairs") or []
+    upgrades: list[dict] = report.get("upgrades") or []
+    repairs:  list[dict] = report.get("repairs")  or []
 
-    # Collect all field names across both lists
     upgrade_fields = list(dict.fromkeys(k for u in upgrades for k in u))
-    repair_fields = list(dict.fromkeys(k for r in repairs for k in r))
-    all_fields = ["type"] + list(dict.fromkeys(upgrade_fields + repair_fields))
+    repair_fields  = list(dict.fromkeys(k for r in repairs  for k in r))
+    all_fields     = ["type"] + list(dict.fromkeys(upgrade_fields + repair_fields))
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=all_fields, extrasaction="ignore")
@@ -328,3 +385,4 @@ def report_export_csv():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+

@@ -10,4 +10,5 @@ pillow
 pillow-heif
 pandas
 supabase
+python-dotenv
 watchdog
