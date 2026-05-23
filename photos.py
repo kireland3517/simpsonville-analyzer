@@ -158,6 +158,7 @@ def get_auth_url() -> str:
     code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
     flow = _build_flow()
+    print(f"[photos] get_auth_url() requesting scopes: {SCOPES}", flush=True)
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -249,19 +250,23 @@ def get_credentials() -> Optional[Credentials]:
     if data is None:
         return None
 
+    saved_scopes = data.get("scopes", SCOPES)
+    print(f"[photos] get_credentials() token scopes: {saved_scopes}", flush=True)
+
     creds = Credentials(
         token=data.get("token"),
         refresh_token=data.get("refresh_token"),
         token_uri=data.get("token_uri", "https://oauth2.googleapis.com/token"),
         client_id=data.get("client_id"),
         client_secret=data.get("client_secret"),
-        scopes=data.get("scopes", SCOPES),
+        scopes=saved_scopes,
     )
 
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         data["token"] = creds.token
         _save_token(data)
+        print(f"[photos] token refreshed, scopes still: {saved_scopes}", flush=True)
 
     return creds
 
