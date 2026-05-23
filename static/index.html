@@ -677,18 +677,23 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 @media print {
   @page { margin: 20mm 15mm; }
   .sidebar, .detail-tabs, .sidebar-section, .btn-print,
-  .top-bar-right .btn-print, .profile-pills { display: none !important; }
+  .top-bar-right .btn-print, .profile-pills,
+  #state-loading, #state-not-generated, #state-error,
+  .selection-bar, .btn-deep, .table-controls, .cb-col,
+  .expand-icon { display: none !important; }
   .app { display: block; }
   .main-wrapper { height: auto; overflow: visible; }
   .content-area { overflow: visible; height: auto; }
-  .tab-pane { display: block !important; padding: 0; }
+  /* Only print the loaded ROI report — not loading/empty states or property tab */
+  .tab-pane { display: none !important; padding: 0; }
+  #tab-roi { display: block !important; }
   .table-wrap { box-shadow: none; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
   .detail-grid { grid-template-columns: repeat(3, 1fr); }
   tr.detail-row[hidden] { display: none !important; }
+  .deep-detail-panel { display: none !important; }
   .section { break-inside: avoid; }
   #section-timeline, #section-sc { break-before: page; }
-  #tab-property { break-before: page; }
   .top-bar::before {
     content: '130 Kingfisher Dr — Pre-Listing Analysis  ·  Printed ' attr(data-date);
     display: block; font-size: 12px; color: #666; margin-bottom: 8px;
@@ -1721,6 +1726,10 @@ async function loadInspectionFlags() {
 
 /* ── Print ───────────────────────────────────────────────────────── */
 function printReport() {
+  if (!$('tab-roi')?.classList.contains('active')) {
+    alert('Please wait until the report finishes loading before printing.');
+    return;
+  }
   document.getElementById('top-bar').setAttribute('data-date', new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}));
   document.querySelectorAll('.report-collapse').forEach(d => { d.open = true; });
   window.print();
