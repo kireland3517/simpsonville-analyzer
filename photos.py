@@ -296,12 +296,17 @@ def list_album_photos(album_id: str, credentials: Credentials) -> list[dict]:
                 json=payload,
                 timeout=30,
             )
+            print(f"[photos-debug] list_album_photos status: {response.status_code}", flush=True)
+            print(f"[photos-debug] list_album_photos response JSON: {response.text[:2000]}", flush=True)
             response.raise_for_status()
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            print(f"[photos-debug] list_album_photos request failed: {exc}", flush=True)
             return results
 
         body = response.json()
-        for item in body.get("mediaItems", []):
+        page_items = body.get("mediaItems", [])
+        print(f"[photos-debug] list_album_photos page items: {len(page_items)}, running total: {len(results) + len(page_items)}", flush=True)
+        for item in page_items:
             results.append({
                 "id":         item.get("id"),
                 "filename":   item.get("filename"),
