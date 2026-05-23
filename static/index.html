@@ -529,6 +529,7 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .deep-detail-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .deep-detail-list li { display: flex; gap: 8px; font-size: 13px; color: var(--gray-700); line-height: 1.5; }
 .deep-detail-list li::before { content: "›"; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.deep-detail-list li strong { font-weight: 700; color: var(--gray-900); }
 
 .btn-deep {
   margin-top: 10px;
@@ -1070,6 +1071,29 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 const fmt$ = n => n != null ? '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}) : '—';
 const fmtN = n => n != null ? Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}) : '—';
 const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/** Append text with **bold** markdown rendered as <strong> elements. */
+function appendRichText(parent, text) {
+  const str = String(text ?? '');
+  // Server may return HTML <strong> tags (from format_item_detail_for_display)
+  if (str.includes('<strong>')) {
+    const tmp = document.createElement('span');
+    tmp.innerHTML = str;
+    parent.appendChild(tmp);
+    return;
+  }
+  const re = /\*\*([^*\n]+)\*\*/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) parent.appendChild(document.createTextNode(str.slice(last, m.index)));
+    const strong = document.createElement('strong');
+    strong.textContent = m[1];
+    parent.appendChild(strong);
+    last = re.lastIndex;
+  }
+  if (last < str.length) parent.appendChild(document.createTextNode(str.slice(last)));
+}
 const $    = id => document.getElementById(id);
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -1167,7 +1191,7 @@ function labelFor(level) {
 }
 
 const LEVEL_DESCRIPTIONS = {
-  executive: 'These are the must-fix items so buyers don\u2019t walk away at the first showing \u2014 the highest-leverage repairs and upgrades a good listing agent would say to handle before you put a sign in the yard. Think \u201cfix these 3\u20134 things and list it,\u201d not a full renovation.',
+  executive: 'These are the must-fix items so buyers don\u2019t walk away at the first showing \u2014 the highest-leverage repairs and upgrades a good listing agent would say to handle before you put a sign in the yard. Think \u201cfix these 3\u20134 things and list it\u201d \u2014 the smallest scope with the biggest impact, with full DIY and timeline detail like the other tabs.',
   standard: 'Everything in Quick Wins, plus what buyers expect when comparing your home to similar-era neighbors in the $295K\u2013$305K range. You\u2019re not over-improving \u2014 you\u2019re meeting market expectation. Homes like 4 Kingfisher Dr ($289K, built 1996) and 305 Kingfisher Dr ($265K) set the bar: smooth ceilings, updated hardware, neutral paint.',
   deep_dive: 'Everything in Balanced Approach, plus what it takes to compete with newer homes for top dollar. Anchored to 307 Blue Heron Cir ($301K, built 2007) \u2014 full flooring, kitchen counters, jacuzzi-to-shower conversion, and the finishes buyers see in 2000s-built comps. At this level you\u2019re competing with newer construction, not just same-age homes.',
 };
@@ -1207,38 +1231,82 @@ async function fetchDeepDetail(name, type, panelEl) {
 }
 
 function renderDeepPanel(d, el) {
-  const section = (label, items) => {
-    if (!items?.length) return '';
-    return `<div class="deep-detail-section">
-      <div class="deep-detail-label">${label}</div>
-      <ul class="deep-detail-list">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
-    </div>`;
+  el.replaceChildren();
+
+  const addListSection = (label, items) => {
+    if (!items?.length) return;
+    const sec = document.createElement('div');
+    sec.className = 'deep-detail-section';
+    const lbl = document.createElement('div');
+    lbl.className = 'deep-detail-label';
+    lbl.textContent = label;
+    sec.appendChild(lbl);
+    const ul = document.createElement('ul');
+    ul.className = 'deep-detail-list';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      appendRichText(li, item);
+      ul.appendChild(li);
+    });
+    sec.appendChild(ul);
+    el.appendChild(sec);
   };
-  const beforeAfter = (d.before_description || d.after_description) ? `
-    <div class="deep-detail-section">
-      <div class="deep-detail-label">Before → After</div>
-      <div style="font-size:13px;color:var(--gray-600);line-height:1.5">
-        ${d.before_description ? `<strong>Now:</strong> ${esc(d.before_description)}<br>` : ''}
-        ${d.after_description  ? `<strong>After:</strong> ${esc(d.after_description)}` : ''}
-      </div>
-    </div>` : '';
 
-  const timeBreakdown = d.estimated_time_breakdown ? `
-    <div class="deep-detail-section">
-      <div class="deep-detail-label">Time Breakdown</div>
-      <div style="font-size:13px;color:var(--gray-600)">
-        ${Object.entries(d.estimated_time_breakdown).map(([k,v]) =>
-          `<span style="margin-right:14px"><strong>${esc(k.replace(/_/g,' '))}:</strong> ${esc(v)}</span>`
-        ).join('')}
-      </div>
-    </div>` : '';
+  if (d.before_description || d.after_description) {
+    const sec = document.createElement('div');
+    sec.className = 'deep-detail-section';
+    const lbl = document.createElement('div');
+    lbl.className = 'deep-detail-label';
+    lbl.textContent = 'Before → After';
+    sec.appendChild(lbl);
+    const body = document.createElement('div');
+    body.style.cssText = 'font-size:13px;color:var(--gray-600);line-height:1.5';
+    if (d.before_description) {
+      const now = document.createElement('strong');
+      now.textContent = 'Now:';
+      body.appendChild(now);
+      body.appendChild(document.createTextNode(' '));
+      appendRichText(body, d.before_description);
+      body.appendChild(document.createElement('br'));
+    }
+    if (d.after_description) {
+      const after = document.createElement('strong');
+      after.textContent = 'After:';
+      body.appendChild(after);
+      body.appendChild(document.createTextNode(' '));
+      appendRichText(body, d.after_description);
+    }
+    sec.appendChild(body);
+    el.appendChild(sec);
+  }
 
-  el.innerHTML = beforeAfter
-    + section('Step-by-Step', d.step_by_step)
-    + section('Product Recommendations', d.product_recommendations)
-    + section('Questions for Contractors', d.contractor_questions)
-    + section('Common Mistakes to Avoid', d.common_mistakes)
-    + timeBreakdown;
+  addListSection('Step-by-Step', d.step_by_step);
+  addListSection('Product Recommendations', d.product_recommendations);
+  addListSection('Questions for Contractors', d.contractor_questions);
+  addListSection('Common Mistakes to Avoid', d.common_mistakes);
+
+  if (d.estimated_time_breakdown) {
+    const sec = document.createElement('div');
+    sec.className = 'deep-detail-section';
+    const lbl = document.createElement('div');
+    lbl.className = 'deep-detail-label';
+    lbl.textContent = 'Time Breakdown';
+    sec.appendChild(lbl);
+    const body = document.createElement('div');
+    body.style.cssText = 'font-size:13px;color:var(--gray-600)';
+    Object.entries(d.estimated_time_breakdown).forEach(([k, v]) => {
+      const span = document.createElement('span');
+      span.style.marginRight = '14px';
+      const key = document.createElement('strong');
+      key.textContent = k.replace(/_/g, ' ') + ':';
+      span.appendChild(key);
+      span.appendChild(document.createTextNode(' '));
+      appendRichText(span, v);
+      body.appendChild(span);
+    });
+    sec.appendChild(body);
+    el.appendChild(sec);
+  }
 }
 
 /* ── Checkbox state: sets of UNCHECKED item names ──────────────── */

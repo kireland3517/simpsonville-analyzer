@@ -8,6 +8,7 @@ Requires GEMINI_API_KEY to be set in the environment.
 """
 from __future__ import annotations
 
+import html
 import json
 import re
 from typing import Any
@@ -29,8 +30,8 @@ LEVEL_DESCRIPTIONS = {
     "executive": (
         "These are the must-fix items so buyers don't walk away at the first showing — "
         "the highest-leverage repairs and upgrades a good listing agent would say to "
-        "handle before you put a sign in the yard. Think \"fix these 3–4 things and list it,\" "
-        "not a full renovation."
+        "handle before you put a sign in the yard. Think \"fix these 3–4 things and list it\" — "
+        "the smallest scope with the biggest impact, not a stripped-down report."
     ),
     "standard": (
         "Everything in Quick Wins, plus what buyers expect when comparing your home to "
@@ -168,10 +169,13 @@ def _detail_block(detail_level: str) -> str:
         return """\
 DETAIL LEVEL: QUICK WINS (executive)
 ------------------------------------
-Audience: a busy homeowner who wants the bottom line in plain English.
+Audience: a homeowner who wants the smallest high-impact scope before listing.
 Tone: plain, non-technical, encouraging. No jargon.
-- Descriptions: 1 sentence maximum each.
-- No DIY notes, no time estimates, no materials."""
+- Scope: ONLY the highest-leverage items (max 3 upgrades, 3 repairs) — least work, biggest impact.
+- Descriptions: 1-2 sentences maximum each.
+- Include diy_friendly flag and a 1-sentence diy_notes.
+- Time estimates: 5 words max (e.g. "1-2 days").
+- Same actionable detail as other levels — Quick Wins means fewer projects, not less information."""
 
     if detail_level == "standard":
         return """\
@@ -331,8 +335,8 @@ would react to the property's current condition."""
 # ── Schema helpers ─────────────────────────────────────────────────────────
 
 def _assessment_schema(detail_level: str) -> str:
-    """JSON schema for Call 1 (Assessment) — standard and executive levels only."""
-    timeline_block = "" if detail_level == "executive" else """
+    """JSON schema for Call 1 (Assessment)."""
+    timeline_block = """
   "project_timeline": {
     "total_weeks_hired": <number>,
     "total_weeks_diy": <number>,
@@ -341,16 +345,19 @@ def _assessment_schema(detail_level: str) -> str:
     "notes": "<string>"
   },"""
 
-    sc_block = "" if detail_level == "executive" else """
+    sc_block = """
   "sc_considerations": ["<South Carolina-specific item buyers commonly flag>"],"""
 
     if detail_level == "executive":
         ex_fields = """\
     "current_value": <number>,
     "estimated_arv": <number>,
+    "total_investment_low": <number>,
+    "total_investment_high": <number>,
     "net_gain_low": <number>,
     "net_gain_high": <number>,
     "recommendation": "<plain English 2-3 sentence recommendation>",
+    "market_position": "<how property sits vs comps at this scope>",
     "disclaimer": "This report is based on AI analysis of photos and public records. Validate cost estimates with local contractors." """
     else:
         ex_fields = """\
@@ -801,7 +808,8 @@ INSTRUCTIONS
 assessing buyer impact in executive_summary
 6. In executive_summary.recommendation, write for a homeowner in plain English and \
 reference the comp anchoring frame (buyer objections / same-era comps / newer-build comps)
-7. Return ONLY the assessment JSON — no upgrades array, no repairs array
+7. project_timeline should cover ONLY the upgrades and repairs selected at this detail level
+8. Return ONLY the assessment JSON — no upgrades array, no repairs array
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -1020,3 +1028,29 @@ Return this exact JSON (no markdown, no explanation):
     if err:
         return {"error": err}
     return result
+
+
+_MD_BOLD_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+
+
+def _rich_text(s: str) -> str:
+    """Convert **bold** markdown to HTML <strong> tags (HTML-escaped otherwise)."""
+    if "**" not in s:
+        return html.escape(s)
+    escaped = html.escape(s)
+    return _MD_BOLD_RE.sub(r"<strong>\1</strong>", escaped)
+
+
+def _format_detail_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return _rich_text(value)
+    if isinstance(value, list):
+        return [_format_detail_value(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _format_detail_value(v) for k, v in value.items()}
+    return value
+
+
+def format_item_detail_for_display(detail: dict) -> dict:
+    """Apply markdown formatting to all string fields in a detail response."""
+    return _format_detail_value(detail)

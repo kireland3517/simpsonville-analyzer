@@ -62,7 +62,7 @@ from photos import (
     SUPABASE_TOKEN_ID,
 )
 import photos as _photos_module
-from roi import generate_roi_report, levels_up_to, get_item_detail
+from roi import generate_roi_report, levels_up_to, get_item_detail, format_item_detail_for_display
 from run_roi import build_analysis_summary
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -538,7 +538,7 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
                 .execute()
             )
             if row and row.data:
-                return row.data["detail"]
+                return format_item_detail_for_display(row.data["detail"])
         except Exception:
             pass
 
@@ -546,6 +546,8 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
     result = get_item_detail(row_id, item_type)
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
+
+    formatted = format_item_detail_for_display(result)
 
     # Persist to Supabase (non-fatal if it fails)
     if sb:
@@ -558,7 +560,7 @@ def _get_or_generate_detail(name: str, item_type: str) -> dict:
         except Exception as exc:
             print(f"WARNING: could not cache item detail to Supabase: {exc}")
 
-    return result
+    return formatted
 
 
 @app.get("/upgrade-detail")
