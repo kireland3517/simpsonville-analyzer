@@ -1185,8 +1185,8 @@ _MD_BOLD_RE = re.compile(r"\*\*([^*\n]+)\*\*")
 def _rich_text(s: str) -> str:
     """Convert **bold** markdown to HTML <strong> tags (HTML-escaped otherwise)."""
     if "**" not in s:
-        return html.escape(s)
-    escaped = html.escape(s)
+        return html.escape(s, quote=False)
+    escaped = html.escape(s, quote=False)
     return _MD_BOLD_RE.sub(r"<strong>\1</strong>", escaped)
 
 
