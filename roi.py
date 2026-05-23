@@ -483,6 +483,8 @@ This is CALL 2 OF 3. Return ONLY the upgrades array — no repairs, no other fie
 
 {_PROPERTY_CONTEXT}
 
+{_GREENVILLE_COST_ANCHORS}
+
 ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
@@ -537,6 +539,8 @@ This is CALL 3 OF 3. Return ONLY the repairs array — no upgrades, no other fie
 {_profile_block(buyer_profile)}
 
 {_PROPERTY_CONTEXT}
+
+{_GREENVILLE_COST_ANCHORS}
 
 ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
@@ -594,6 +598,85 @@ LOCAL SUPPLIERS (use for pricing)
 - Home Depot: 2750 Laurens Rd, Greenville SC 29607
 - Floor & Decor: Greenville SC (flooring)
 - Labor rates: Greenville SC is 15-20% below national average"""
+
+
+# ── Real-world cost anchors (Greenville SC, 2025) ─────────────────────────
+# Sourced from Greenville/Simpsonville contractor quotes, HomeAdvisor/Angi
+# regional data, and Lowe's/Home Depot materials at the local stores.
+# Labor is 15-20% below national average. Use these ranges — never guess.
+
+_GREENVILLE_COST_ANCHORS = """\
+GREENVILLE SC REAL-WORLD COST ANCHORS (2025) — USE THESE RANGES, DO NOT GUESS
+===============================================================================
+Labor is 15-20% below national average. All figures are installed/completed cost.
+
+REPAIRS
+-------
+Garage door — cosmetic panel dent/ding repair (filler + repaint):   $150–$350
+Garage door — single panel replacement (steel, standard size):       $250–$500
+Garage door — full door replacement (steel, 2-car, basic):         $1,200–$1,800
+Garage door — full door replacement (steel, 2-car, insulated):     $1,600–$2,400
+Garage door opener replacement:                                       $300–$600
+Window glass — single-pane replacement (per window):                 $150–$350
+Window glass — double-pane IGU replacement (per window):             $200–$500
+Window full replacement (double-hung, vinyl, per window):            $400–$800
+Ceiling water stain — drywall patch + prime + paint (per area):      $300–$700
+Ceiling water stain — investigate source + remediate minor leak:     $400–$900
+Active roof leak repair (flashing, shingles, minor):                 $400–$800
+Roof replacement (30-yr architectural shingle, 2,019 sqft home):  $8,000–$14,000
+Deck/porch structural post replacement (per post, wood):             $250–$600
+Deck board replacement (per 100 sqft):                               $600–$1,200
+Popcorn ceiling asbestos test (bulk sample, certified lab):          $250–$450
+Popcorn ceiling removal + skim coat — per room (200–300 sqft):       $400–$800
+Popcorn ceiling removal + skim coat — whole house (2,019 sqft):    $2,500–$4,500
+Exterior siding repair — wood/hardboard patch (per section):         $300–$700
+Exterior trim repair/repaint (per elevation):                        $300–$600
+Interior drywall patch — hairline cracks, seams (per room):         $150–$350
+Interior drywall patch — larger holes or water damage (per area):    $300–$700
+Baseboard gap caulk + paint (whole house):                           $200–$450
+Door frame trim repair/replace (per door):                           $100–$250
+GFCI outlet installation (per outlet):                               $150–$250
+Electrical panel inspection + minor repair:                          $200–$500
+Plumbing — minor repair (faucet, supply line, minor leak):           $150–$350
+Plumbing — toilet repair/replace:                                    $200–$500
+HVAC service/tune-up:                                                $100–$200
+HVAC filter + minor repair:                                          $100–$300
+Crawl space moisture barrier (1,000 sqft):                           $800–$1,800
+Mold remediation — minor (under 10 sqft):                            $500–$1,500
+
+UPGRADES
+--------
+Interior paint — single room (labor + materials):                    $400–$800
+Interior paint — whole house (2,019 sqft, 3/2):                  $3,000–$5,000
+Exterior paint — full house (2,019 sqft):                          $3,500–$6,500
+Light fixture replacement — ceiling/flush-mount (per fixture):       $150–$350
+Light fixture replacement — dining chandelier:                       $300–$700
+Ceiling fan with light (per unit, installed):                        $250–$500
+Recessed lighting retrofit — per light (LED):                        $150–$300
+Interior door hardware (knobs/levers, per door):                      $50–$120
+Interior door hardware — whole house (10–12 doors):                  $500–$900
+HVAC vent cover replacement — whole house (15–20 vents):             $150–$350
+Kitchen cabinet painting + new hardware (labor + materials):       $1,500–$3,500
+Kitchen cabinet refacing (per linear foot):                          $150–$300
+Kitchen countertop — laminate replacement (per sqft installed):       $25–$50
+Kitchen countertop — granite/quartz (per sqft installed):             $60–$100
+Kitchen countertop — whole kitchen (30–40 sqft):                   $1,800–$4,000
+Kitchen backsplash — subway tile, installed (per sqft):               $15–$30
+Kitchen appliance package (range, dishwasher, microhood, basic):   $2,000–$4,000
+Bathroom vanity replacement — hall bath (36", installed):            $500–$1,200
+Bathroom vanity replacement — master bath (48–60", installed):       $800–$2,000
+Bathroom tile — shower surround regrout/reseal:                      $200–$500
+Bathroom tile — full shower retile (labor + materials):            $2,000–$4,500
+Jetted/jacuzzi tub removal + walk-in shower conversion:            $4,500–$9,000
+Flooring — LVP/LVT, whole house (2,019 sqft, materials + install): $5,000–$9,500
+Flooring — carpet removal + LVP (per room, ~200 sqft):              $600–$1,400
+Flooring — carpet replacement (per room, ~200 sqft):                $400–$900
+Popcorn ceiling removal + smooth finish — whole house:             $2,500–$4,500
+Crown molding installation (per room, labor + materials):            $400–$900
+Crown molding — whole house:                                       $2,000–$4,500
+Landscaping refresh — mulch, shrub trim, minor plantings:            $500–$1,500
+Pressure wash — driveway + exterior:                                 $200–$500
+Staging — basic furniture rental (90 days):                        $1,500–$3,500"""
 
 
 # ── Prompt builders ────────────────────────────────────────────────────────
@@ -1162,6 +1245,8 @@ Provide deep how-to detail for {verb}: "{name}"
 - Goal: maximize resale value, target ARV $295,000-$305,000
 - Local suppliers: Lowe's (1014 Woodruff Rd), Home Depot (2750 Laurens Rd), Floor & Decor (Greenville)
 - Buyer pool: typical Greenville SC move-up buyers, expect home-inspection scrutiny
+
+{_GREENVILLE_COST_ANCHORS}
 
 Return this exact JSON (no markdown, no explanation):
 
