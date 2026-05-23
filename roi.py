@@ -8,6 +8,7 @@ Requires GEMINI_API_KEY to be set in the environment.
 """
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import re
@@ -679,6 +680,10 @@ Pressure wash — driveway + exterior:                                 $200–$5
 Staging — basic furniture rental (90 days):                        $1,500–$3,500"""
 
 
+# Short fingerprint of the cost anchor table. Changes automatically when
+# _GREENVILLE_COST_ANCHORS is edited — used to detect stale cached reports.
+PROMPT_VERSION = hashlib.sha1(_GREENVILLE_COST_ANCHORS.encode()).hexdigest()[:8]
+
 # ── Prompt builders ────────────────────────────────────────────────────────
 
 _REPAIR_SEVERITY_RULES = """\
@@ -1140,6 +1145,7 @@ def generate_roi_report(
         "sc_considerations":   assessment.get("sc_considerations",   []),
         "upgrades":            upgrades,
         "repairs":             repairs,
+        "prompt_version":      PROMPT_VERSION,
     }
 
 

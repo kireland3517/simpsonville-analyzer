@@ -18,6 +18,9 @@ POST /analyze/bulk           Analyze a batch of photos sequentially
 GET  /analyze/results        Return all cached analysis results
 POST /report                 Generate ROI report (body: {detail_level, buyer_profile})
 GET  /report                 Return ROI report by ?id= (default standard_general)
+GET  /report/status          Cache status + prompt_version for every report slot
+POST /report/invalidate      Delete cached reports (?profile=all or specific profile)
+POST /report/regenerate-all  Regenerate all 3 levels for one profile (?profile=general)
 GET  /report/export/csv      Download upgrades + repairs as CSV
 GET  /upgrade-detail         Deep how-to detail for one upgrade (cached in Supabase)
 GET  /repair-detail          Deep how-to detail for one repair (cached in Supabase)
@@ -62,7 +65,15 @@ from photos import (
     SUPABASE_TOKEN_ID,
 )
 import photos as _photos_module
-from roi import generate_roi_report, levels_up_to, get_item_detail, format_item_detail_for_display
+from roi import (
+    generate_roi_report,
+    levels_up_to,
+    get_item_detail,
+    format_item_detail_for_display,
+    PROMPT_VERSION,
+    BUYER_PROFILES,
+    DETAIL_LEVEL_ORDER,
+)
 from run_roi import build_analysis_summary
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -381,6 +392,123 @@ def report_get(id: str = Query(default="standard_general")):
         status_code=404,
         detail=f"Report not generated for '{id}' yet. POST /report with detail_level and buyer_profile."
     )
+
+
+@app.get("/report/status")
+def report_status():
+    """
+    Return cache status for every report slot: whether it exists and whether it
+    was generated with the current cost anchors (prompt_version).
+    """
+    sb = _sb()
+    slots = [
+        f"{level}_{profile}"
+        for level in DETAIL_LEVEL_ORDER
+        for profile in sorted(BUYER_PROFILES)
+    ]
+    result = {}
+    if sb:
+        try:
+            rows = sb.table(ROI_TABLE).select("id, report->prompt_version").execute()
+            cached = {r["id"]: r.get("prompt_version") for r in (rows.data or [])}
+        except Exception:
+            cached = {}
+    else:
+        cached = {}
+
+    for slot in slots:
+        pv = cached.get(slot)
+        result[slot] = {
+            "cached":       slot in cached,
+            "current":      pv == PROMPT_VERSION,
+            "prompt_version": pv,
+        }
+    result["current_prompt_version"] = PROMPT_VERSION
+    return result
+
+
+@app.post("/report/invalidate")
+def report_invalidate(profile: str = Query(default="all")):
+    """
+    Delete cached roi_reports from Supabase so they are regenerated fresh on
+    the next POST /report call. Pass ?profile=general to wipe one profile,
+    or leave blank to wipe all profiles across all detail levels.
+    """
+    global roi_cache
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    deleted = []
+    errors = []
+    profiles = sorted(BUYER_PROFILES) if profile == "all" else [profile]
+
+    for p in profiles:
+        for level in DETAIL_LEVEL_ORDER:
+            slot = f"{level}_{p}"
+            try:
+                sb.table(ROI_TABLE).delete().eq("id", slot).execute()
+                deleted.append(slot)
+            except Exception as exc:
+                errors.append(f"{slot}: {exc}")
+
+    roi_cache = None
+    return {"deleted": deleted, "errors": errors}
+
+
+@app.post("/report/regenerate-all")
+def report_regenerate_all(profile: str = Query(default="general")):
+    """
+    Regenerate executive → standard → deep_dive for the given buyer profile
+    (default: general) using the current cost anchors, then persist to Supabase.
+    This is the one-shot command to refresh stale cached reports after a prompt change.
+    """
+    global roi_cache
+
+    sb = _sb()
+    analyses = list(analysis_cache.values())
+    if not analyses and sb:
+        try:
+            rows = sb.table("photo_analyses").select("analysis").execute()
+            analyses = [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+        except Exception:
+            pass
+    if not analyses:
+        raise HTTPException(status_code=422, detail="No photo analyses available")
+
+    summary = build_analysis_summary(analyses)
+    property_summary = get_property_summary()
+    last_sale = get_last_sale()
+
+    prior: dict | None = None
+    reports: dict[str, dict] = {}
+
+    for level in DETAIL_LEVEL_ORDER:
+        print(f"\n=== Regenerating [{level}_{profile}] ===")
+        report = generate_roi_report(
+            summary, property_summary, last_sale,
+            detail_level=level,
+            buyer_profile=profile,
+            prior_report=prior,
+        )
+        if report.get("error"):
+            raise HTTPException(status_code=500, detail=f"[{level}] {report['error']}")
+
+        level_id = f"{level}_{profile}"
+        if sb:
+            try:
+                sb.table(ROI_TABLE).upsert({"id": level_id, "report": report}).execute()
+            except Exception as exc:
+                print(f"WARNING: could not save {level_id} to Supabase: {exc}")
+
+        reports[level_id] = report
+        prior = report
+
+    roi_cache = reports.get(f"standard_{profile}")
+    return {
+        "regenerated": list(reports.keys()),
+        "prompt_version": PROMPT_VERSION,
+    }
 
 
 @app.get("/report/export/csv")
