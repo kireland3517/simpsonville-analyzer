@@ -554,6 +554,8 @@ This is CALL 3 OF 3. Return ONLY the repairs array — no upgrades, no other fie
 
 {_GREENVILLE_COST_ANCHORS}
 
+{_KNOWN_REPAIR_FACTS}
+
 ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
@@ -694,6 +696,26 @@ Staging — basic furniture rental (90 days):                        $1,500–$3
 # Short fingerprint of the cost anchor table. Changes automatically when
 # _GREENVILLE_COST_ANCHORS is edited — used to detect stale cached reports.
 PROMPT_VERSION = hashlib.sha1(_GREENVILLE_COST_ANCHORS.encode()).hexdigest()[:8]
+
+# Photo-analysis-derived facts that Gemini must treat as ground truth.
+# These override any ambiguous flag language (e.g. "panel OR full door").
+_KNOWN_REPAIR_FACTS = """\
+KNOWN REPAIR FACTS — DERIVED FROM PHOTO ANALYSIS (treat as ground truth)
+-------------------------------------------------------------------------
+These are confirmed findings from direct photo inspection. Do not downgrade,
+reinterpret, or substitute a cheaper alternative scope.
+
+1. GARAGE DOOR — FULL REPLACEMENT REQUIRED
+   Photos show structural crack penetrating through the panel material with
+   spider-web fracture pattern, exposed void/interior, and panel separation
+   at the crack. Inspector flagged: "recommend full door replacement."
+   Scope: Replace full 2-car garage door (steel, insulated). Do NOT scope
+   this as a panel repair or partial repair. Cost: $1,600–$2,400 installed.
+
+2. WINDOW GLASS — BROKEN PANE REPLACEMENT
+   Cracked/broken window glass confirmed in photos. Safety hazard.
+   Scope: Replace broken pane(s). Cost: $150–$500 per window depending on type.\
+"""
 
 # ── Prompt builders ────────────────────────────────────────────────────────
 
