@@ -794,7 +794,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <div class="card-label">Estimated ARV</div>
               <div class="card-value accent" id="card-arv">—</div>
               <div class="card-sub" id="card-arv-sub">After-repair value ceiling</div>
-              <div class="card-sub" style="margin-top:3px;font-style:italic">Based on completing all high-priority items</div>
+              <div class="card-sub" id="card-arv-note" style="margin-top:3px;font-style:italic">Anchored to River Ridge sold comps</div>
             </div>
             <div class="summary-card">
               <div class="card-label">Total Upgrade Investment</div>
@@ -1500,13 +1500,16 @@ function recalculate() {
       ? `${checkedU.length} upgrade${checkedU.length!==1?'s':''} + ${checkedR.length} repair${checkedR.length!==1?'s':''} selected`
       : 'No items selected';
 
-  // 2. Projected net gain
+  // 2. Projected net gain (market value from ATTOM in report when available)
+  const market = Number(ex.current_value) || CURRENT_MARKET_VALUE;
   const arv = ex.estimated_arv ?? 0;
-  const netGain = arv - CURRENT_MARKET_VALUE - totalInv;
+  const netGain = arv - market - totalInv;
   const gainEl = $('card-gain');
   gainEl.textContent = fmt$(netGain);
   gainEl.className = 'card-value ' + (netGain >= 0 ? 'green' : 'red');
-  $('card-gain-range').textContent = arv > 0 ? `ARV ${fmt$(arv)} − market ${fmt$(CURRENT_MARKET_VALUE)} − investment` : '';
+  $('card-gain-range').textContent = arv > 0
+    ? `ARV ${fmt$(arv)} − market ${fmt$(market)} − investment`
+    : '';
 
   // 3. Critical repairs
   const critCount = checkedR.filter(r => r.priority?.toLowerCase() === 'critical').length;
@@ -1601,7 +1604,13 @@ function populateReport(report) {
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
+  const arvNotes = {
+    executive: 'Comp anchor: fix objections — $295K achievable sale',
+    standard:  'Comp anchor: market bar — $300K (4 Kingfisher / 305 Kingfisher)',
+    deep_dive: 'Comp anchor: top ceiling — $305K (307 Blue Heron + sqft advantage)',
+  };
   $('card-arv-sub').textContent = 'After-repair value ceiling';
+  $('card-arv-note').textContent = arvNotes[level] || 'Anchored to River Ridge sold comps';
 
   // Reset unchecked sets on fresh data load (all start checked)
   unchecked.upgrades.clear();

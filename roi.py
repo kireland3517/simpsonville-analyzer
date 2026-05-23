@@ -621,6 +621,24 @@ _DEEP_DIVE_EXHAUSTIVE = (
     "ROI items. The homeowner wants the complete picture."
 )
 
+# Comp-anchored ARV ceilings — grounded in River Ridge sold comps, not open-ended AI estimates.
+# Subject is 2,019 sqft (largest in comp set); ceiling tops out at $305K (307 Blue Heron $301K).
+_ARV_BY_LEVEL: dict[str, int] = {
+    "executive":  295_000,  # Quick Wins: fix objections, conservative achievable sale
+    "standard":   300_000,  # Balanced: mid-market bar for $295–305K range
+    "deep_dive":  305_000,  # Leave Nothing Behind: top realistic comp-supported ceiling
+}
+_DEFAULT_MARKET_VALUE = 276_810.0
+
+# Tokens that indicate a repair addresses photo-flagged critical/high deal-risk issues.
+_CRITICAL_REPAIR_TOKENS = frozenset({
+    "water", "stain", "moisture", "leak", "intrusion", "mold",
+    "garage", "door", "panel", "window", "glass", "crack", "broken",
+    "deck", "post", "structural", "split", "electrical", "wiring", "safety",
+})
+
+_PRI_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
 
 def _max_upgrades(detail_level: str) -> int:
     return _RECOMMENDATION_LIMITS[detail_level]["max_upgrades"]
@@ -628,6 +646,102 @@ def _max_upgrades(detail_level: str) -> int:
 
 def _max_repairs(detail_level: str) -> int:
     return _RECOMMENDATION_LIMITS[detail_level]["max_repairs"]
+
+
+def _market_value(property_summary: dict) -> float:
+    """ATTOM AVM — baseline for net gain math."""
+    try:
+        v = property_summary.get("market_value")
+        return float(v) if v is not None else _DEFAULT_MARKET_VALUE
+    except (TypeError, ValueError):
+        return _DEFAULT_MARKET_VALUE
+
+
+def _comp_anchored_arv(detail_level: str) -> int:
+    return _ARV_BY_LEVEL.get(detail_level, 300_000)
+
+
+def _total_investment(upgrades: list, repairs: list) -> float:
+    total = sum(float(u.get("estimated_cost") or 0) for u in upgrades)
+    total += sum(float(r.get("estimated_cost") or 0) for r in repairs)
+    return total
+
+
+def _normalize_upgrade(u: dict) -> dict:
+    """Recalculate roi_percent from cost and value_add so row math is consistent."""
+    out = dict(u)
+    cost = float(out.get("estimated_cost") or 0)
+    value_add = float(out.get("estimated_value_add") or 0)
+    if cost > 0 and value_add > 0:
+        out["roi_percent"] = round((value_add - cost) / cost * 100, 1)
+    return out
+
+
+def _issue_tokens(text: str) -> set[str]:
+    return set(_norm_name(text).split())
+
+
+def _repair_is_critical(repair: dict, summary: dict) -> bool:
+    """True when repair clearly addresses a photo-flagged critical/high issue."""
+    if repair.get("safety_concern"):
+        return True
+    blob = _norm_name(f"{repair.get('name', '')} {repair.get('description', '')}")
+    words = set(blob.split())
+    if not words:
+        return False
+
+    crit_issues = summary.get("critical_and_high_issues") or []
+    for issue in crit_issues[:30]:
+        overlap = words & _issue_tokens(issue)
+        if len(overlap) >= 2:
+            return True
+
+    if len(words & _CRITICAL_REPAIR_TOKENS) >= 2:
+        return True
+    if words & {"water", "leak", "moisture", "stain", "intrusion"}:
+        return True
+    if words & {"garage", "door"} and words & {"panel", "damage", "dent", "crack"}:
+        return True
+    if words & {"window", "glass", "crack", "broken"}:
+        return True
+    if words & {"deck", "post"} and words & {"crack", "split", "structural"}:
+        return True
+    return False
+
+
+def _enforce_repair_priorities(repairs: list, summary: dict) -> list:
+    """Never let known deal-risk repairs be tagged below critical/high."""
+    out: list[dict] = []
+    for r in repairs:
+        item = dict(r)
+        pri = (item.get("priority") or "medium").lower()
+        if _repair_is_critical(item, summary) and _PRI_ORDER.get(pri, 9) > _PRI_ORDER["high"]:
+            item["priority"] = "critical"
+        out.append(item)
+    return out
+
+
+def _sync_executive_summary(
+    ex: dict,
+    detail_level: str,
+    property_summary: dict,
+    upgrades: list,
+    repairs: list,
+) -> dict:
+    """Override AI ARV/investment/net with comp-anchored values tied to line items."""
+    out = dict(ex or {})
+    market = _market_value(property_summary)
+    arv = _comp_anchored_arv(detail_level)
+    investment = _total_investment(upgrades, repairs)
+    net = arv - market - investment
+
+    out["current_value"] = round(market)
+    out["estimated_arv"] = arv
+    out["total_investment_low"] = round(investment)
+    out["total_investment_high"] = round(investment * 1.10)
+    out["net_gain_low"] = round(net - investment * 0.10)
+    out["net_gain_high"] = round(net)
+    return out
 
 
 def _upgrades_instructions(detail_level: str, prior_count: int = 0) -> str:
@@ -808,8 +922,11 @@ INSTRUCTIONS
 assessing buyer impact in executive_summary
 6. In executive_summary.recommendation, write for a homeowner in plain English and \
 reference the comp anchoring frame (buyer objections / same-era comps / newer-build comps)
-7. project_timeline should cover ONLY the upgrades and repairs selected at this detail level
-8. Return ONLY the assessment JSON — no upgrades array, no repairs array
+7. executive_summary.estimated_arv MUST be exactly ${_comp_anchored_arv(detail_level):,} \
+(comp-anchored — do not exceed this ceiling)
+8. executive_summary.current_value MUST be the ATTOM AVM (${_DEFAULT_MARKET_VALUE:,.0f} unless updated)
+9. project_timeline should cover ONLY the upgrades and repairs selected at this detail level
+10. Return ONLY the assessment JSON — no upgrades array, no repairs array
 
 Return this exact JSON (no markdown, no explanation):
 
@@ -898,14 +1015,19 @@ def generate_roi_report(
         limits["max_upgrades"],
         sort_key=lambda u: float(u.get("roi_percent") or 0),
     )
+    upgrades = [_normalize_upgrade(u) for u in upgrades]
 
-    _pri_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     repairs = _merge_recommendations(
         prior_repairs,
         repairs,
         limits["max_repairs"],
-        sort_key=lambda r: _pri_order.get((r.get("priority") or "low").lower(), 9),
+        sort_key=lambda r: _PRI_ORDER.get((r.get("priority") or "low").lower(), 9),
         reverse=False,
+    )
+    repairs = _enforce_repair_priorities(repairs, summary)
+
+    executive_summary = _sync_executive_summary(
+        executive_summary, detail_level, property_summary, upgrades, repairs,
     )
 
     return {
