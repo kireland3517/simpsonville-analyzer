@@ -583,6 +583,53 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   .dated-grid { grid-template-columns: 1fr 1fr; }
 }
 
+/* ── Checkbox rows ───────────────────────────────────────────────── */
+.cb-col { width: 36px; padding-left: 14px !important; }
+.row-cb {
+  width: 15px; height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+tr.row-unchecked td { color: var(--gray-400) !important; }
+tr.row-unchecked .item-name { text-decoration: line-through; color: var(--gray-400); }
+tr.row-unchecked .badge, tr.row-unchecked .check, tr.row-unchecked .cross,
+tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
+
+.table-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.table-ctrl-links { display: flex; gap: 10px; }
+.table-ctrl-link {
+  font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 500;
+  text-decoration: none; background: none; border: none; padding: 0;
+}
+.table-ctrl-link:hover { text-decoration: underline; }
+
+.tfoot-row td {
+  background: var(--gray-50) !important;
+  border-top: 2px solid var(--gray-200) !important;
+  padding: 9px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: var(--gray-600) !important;
+}
+.tfoot-val { font-family: var(--mono); color: var(--accent) !important; }
+
+.selection-bar {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--gray-600);
+  box-shadow: var(--shadow-sm);
+}
+.selection-bar strong { color: var(--accent); }
+.selection-hint { font-size: 11.5px; color: var(--gray-400); }
+
 /* ── Print styles ────────────────────────────────────────────────── */
 @media print {
   @page { margin: 20mm 15mm; }
@@ -705,6 +752,7 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
               <div class="card-label">Estimated ARV</div>
               <div class="card-value accent" id="card-arv">—</div>
               <div class="card-sub">After-repair value ceiling</div>
+              <div class="card-sub" style="margin-top:3px;font-style:italic">Based on completing all high-priority items</div>
             </div>
             <div class="summary-card">
               <div class="card-label">Total Upgrade Investment</div>
@@ -722,6 +770,16 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
               <div class="card-sub" id="card-critical-sub"></div>
             </div>
           </div>
+        </div>
+
+        <!-- Selection status bar -->
+        <div class="selection-bar" id="selection-bar" style="display:none">
+          <div>
+            <strong id="sel-upgrades-text">0 of 0 upgrades selected</strong>
+            <span style="margin: 0 10px; color:var(--gray-300)">|</span>
+            <strong id="sel-repairs-text">0 of 0 repairs selected</strong>
+          </div>
+          <div class="selection-hint">Uncheck items to exclude them from the investment calculation</div>
         </div>
 
         <!-- 2. Recommendation -->
@@ -775,11 +833,17 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
             <span class="badge count" id="upgrades-count">0</span>
             <div class="section-divider"></div>
           </div>
+          <div class="table-controls">
+            <div class="table-ctrl-links">
+              <button class="table-ctrl-link" onclick="selectAll('upgrades')">Select All</button>
+              <button class="table-ctrl-link" onclick="deselectAll('upgrades')">Deselect All</button>
+            </div>
+          </div>
           <div class="table-wrap">
             <table class="data-table" id="upgrades-table">
               <thead>
                 <tr>
-                  <th></th>
+                  <th class="cb-col"></th>
                   <th class="sortable" data-col="priority" data-table="upgrades">Priority <span class="sort-icon"></span></th>
                   <th class="sortable" data-col="name" data-table="upgrades">Upgrade <span class="sort-icon"></span></th>
                   <th class="sortable" data-col="estimated_cost" data-table="upgrades">Cost <span class="sort-icon"></span></th>
@@ -790,6 +854,14 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
                 </tr>
               </thead>
               <tbody id="upgrades-tbody"></tbody>
+              <tfoot id="upgrades-tfoot">
+                <tr class="tfoot-row">
+                  <td colspan="3" style="text-align:right">Selected total:</td>
+                  <td class="tfoot-val mono" id="tfoot-upgrades-cost">—</td>
+                  <td class="tfoot-val mono" id="tfoot-upgrades-val">—</td>
+                  <td colspan="3"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -801,11 +873,17 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
             <span class="badge count" id="repairs-count">0</span>
             <div class="section-divider"></div>
           </div>
+          <div class="table-controls">
+            <div class="table-ctrl-links">
+              <button class="table-ctrl-link" onclick="selectAll('repairs')">Select All</button>
+              <button class="table-ctrl-link" onclick="deselectAll('repairs')">Deselect All</button>
+            </div>
+          </div>
           <div class="table-wrap">
             <table class="data-table" id="repairs-table">
               <thead>
                 <tr>
-                  <th></th>
+                  <th class="cb-col"></th>
                   <th class="sortable" data-col="priority" data-table="repairs">Priority <span class="sort-icon"></span></th>
                   <th class="sortable" data-col="name" data-table="repairs">Repair <span class="sort-icon"></span></th>
                   <th class="sortable" data-col="estimated_cost" data-table="repairs">Cost <span class="sort-icon"></span></th>
@@ -815,6 +893,13 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
                 </tr>
               </thead>
               <tbody id="repairs-tbody"></tbody>
+              <tfoot id="repairs-tfoot">
+                <tr class="tfoot-row">
+                  <td colspan="3" style="text-align:right">Selected total:</td>
+                  <td class="tfoot-val mono" id="tfoot-repairs-cost">—</td>
+                  <td colspan="3"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -1124,6 +1209,9 @@ function renderDeepPanel(d, el) {
     + timeBreakdown;
 }
 
+/* ── Checkbox state: sets of UNCHECKED item names ──────────────── */
+const unchecked = { upgrades: new Set(), repairs: new Set() };
+
 /* ── Render upgrades ─────────────────────────────────────────────── */
 function renderUpgrades(data) {
   $('upgrades-count').textContent = data.length;
@@ -1131,13 +1219,19 @@ function renderUpgrades(data) {
   tbody.innerHTML = '';
 
   data.forEach((u, i) => {
+    const isChecked = !unchecked.upgrades.has(u.name);
     const row = document.createElement('tr');
-    row.className = 'data-row';
+    row.className = 'data-row' + (isChecked ? '' : ' row-unchecked');
     row.dataset.index = i;
+    row.dataset.name = u.name;
     row.innerHTML = `
-      <td><span class="expand-icon">▾</span></td>
+      <td class="cb-col" onclick="event.stopPropagation()">
+        <input type="checkbox" class="row-cb" data-table="upgrades" data-name="${esc(u.name)}"
+          ${isChecked ? 'checked' : ''}>
+      </td>
       <td>${priorityBadge(u.priority)}</td>
-      <td style="max-width:260px;font-weight:500">${esc(u.name)}</td>
+      <td class="name-cell" style="max-width:260px;font-weight:500">
+        <span class="expand-icon" style="margin-right:6px;vertical-align:middle">▾</span><span class="item-name">${esc(u.name)}</span></td>
       <td class="mono">${fmt$(u.estimated_cost)}</td>
       <td class="mono" style="color:var(--green-700)">${fmt$(u.estimated_value_add)}</td>
       <td class="roi-value">${u.roi_percent != null ? Number(u.roi_percent).toFixed(0) + '%' : '—'}</td>
@@ -1172,10 +1266,14 @@ function renderUpgrades(data) {
       <div class="deep-detail-panel" id="${panelId}" style="display:none"></div>
     </div></td>`;
 
-    row.addEventListener('click', () => toggleDetail(row, detail));
+    row.addEventListener('click', (e) => { if (!e.target.classList.contains('row-cb')) toggleDetail(row, detail); });
     tbody.appendChild(row);
     tbody.appendChild(detail);
   });
+
+  // wire checkbox events after DOM insertion
+  tbody.querySelectorAll('.row-cb').forEach(cb => cb.addEventListener('change', onCheckboxChange));
+  recalculate();
 }
 
 /* ── Render repairs ─────────────────────────────────────────────── */
@@ -1185,13 +1283,19 @@ function renderRepairs(data) {
   tbody.innerHTML = '';
 
   data.forEach((r, i) => {
+    const isChecked = !unchecked.repairs.has(r.name);
     const row = document.createElement('tr');
-    row.className = 'data-row';
+    row.className = 'data-row' + (isChecked ? '' : ' row-unchecked');
     row.dataset.index = i;
+    row.dataset.name = r.name;
     row.innerHTML = `
-      <td><span class="expand-icon">▾</span></td>
+      <td class="cb-col" onclick="event.stopPropagation()">
+        <input type="checkbox" class="row-cb" data-table="repairs" data-name="${esc(r.name)}"
+          ${isChecked ? 'checked' : ''}>
+      </td>
       <td>${priorityBadge(r.priority)}</td>
-      <td style="max-width:280px;font-weight:500">${esc(r.name)}</td>
+      <td class="name-cell" style="max-width:280px;font-weight:500">
+        <span class="expand-icon" style="margin-right:6px;vertical-align:middle">▾</span><span class="item-name">${esc(r.name)}</span></td>
       <td class="mono">${fmt$(r.estimated_cost)}</td>
       <td>${diyIcon(r.diy_friendly)}</td>
       <td>${r.sc_disclosure_required
@@ -1228,10 +1332,104 @@ function renderRepairs(data) {
       <div class="deep-detail-panel" id="${panelId}" style="display:none"></div>
     </div></td>`;
 
-    row.addEventListener('click', () => toggleDetail(row, detail));
+    row.addEventListener('click', (e) => { if (!e.target.classList.contains('row-cb')) toggleDetail(row, detail); });
     tbody.appendChild(row);
     tbody.appendChild(detail);
   });
+
+  tbody.querySelectorAll('.row-cb').forEach(cb => cb.addEventListener('change', onCheckboxChange));
+  recalculate();
+}
+
+/* ── Checkbox change handler ─────────────────────────────────────── */
+function onCheckboxChange(e) {
+  const cb    = e.target;
+  const tbl   = cb.dataset.table;   // 'upgrades' | 'repairs'
+  const name  = cb.dataset.name;
+  const row   = cb.closest('tr');
+  if (cb.checked) {
+    unchecked[tbl].delete(name);
+    row.classList.remove('row-unchecked');
+  } else {
+    unchecked[tbl].add(name);
+    row.classList.add('row-unchecked');
+  }
+  recalculate();
+}
+
+/* ── Select / Deselect All ───────────────────────────────────────── */
+function selectAll(tbl) {
+  unchecked[tbl].clear();
+  document.querySelectorAll(`#${tbl}-tbody .row-cb`).forEach(cb => {
+    cb.checked = true;
+    cb.closest('tr').classList.remove('row-unchecked');
+  });
+  recalculate();
+}
+
+function deselectAll(tbl) {
+  document.querySelectorAll(`#${tbl}-tbody .row-cb`).forEach(cb => {
+    unchecked[tbl].add(cb.dataset.name);
+    cb.checked = false;
+    cb.closest('tr').classList.add('row-unchecked');
+  });
+  recalculate();
+}
+
+/* ── Recalculate metrics from checked items ──────────────────────── */
+const CURRENT_MARKET_VALUE = 276810;
+
+function recalculate() {
+  if (!reportData.upgrades && !reportData.repairs) return;
+  const upgrades = reportData.upgrades || [];
+  const repairs  = reportData.repairs  || [];
+  const ex       = (reportData.executive_summary || {});
+
+  // checked subsets
+  const checkedU = upgrades.filter(u => !unchecked.upgrades.has(u.name));
+  const checkedR = repairs.filter(r  => !unchecked.repairs.has(r.name));
+
+  // 1. Total investment (checked upgrades + checked repairs)
+  const totalU = checkedU.reduce((s, u) => s + (u.estimated_cost ?? 0), 0);
+  const totalR = checkedR.reduce((s, r) => s + (r.estimated_cost ?? 0), 0);
+  const totalInv = totalU + totalR;
+
+  $('card-investment').textContent = fmt$(totalInv);
+  $('card-investment-range').textContent =
+    checkedU.length + checkedR.length > 0
+      ? `${checkedU.length} upgrade${checkedU.length!==1?'s':''} + ${checkedR.length} repair${checkedR.length!==1?'s':''} selected`
+      : 'No items selected';
+
+  // 2. Projected net gain
+  const arv = ex.estimated_arv ?? 0;
+  const netGain = arv - CURRENT_MARKET_VALUE - totalInv;
+  const gainEl = $('card-gain');
+  gainEl.textContent = fmt$(netGain);
+  gainEl.className = 'card-value ' + (netGain >= 0 ? 'green' : 'red');
+  $('card-gain-range').textContent = arv > 0 ? `ARV ${fmt$(arv)} − market ${fmt$(CURRENT_MARKET_VALUE)} − investment` : '';
+
+  // 3. Critical repairs
+  const critCount = checkedR.filter(r => r.priority?.toLowerCase() === 'critical').length;
+  const critEl = $('card-critical');
+  critEl.textContent = critCount;
+  if (critCount > 0) { critEl.className = 'card-value red'; $('card-critical-sub').textContent = 'Require immediate attention'; }
+  else { critEl.className = 'card-value'; $('card-critical-sub').textContent = `${checkedR.length} repairs in scope`; }
+
+  // 4. Selection bar
+  const selBar = $('selection-bar');
+  if (upgrades.length || repairs.length) {
+    selBar.style.display = '';
+    $('sel-upgrades-text').textContent = `${checkedU.length} of ${upgrades.length} upgrade${upgrades.length!==1?'s':''} selected`;
+    $('sel-repairs-text').textContent  = `${checkedR.length} of ${repairs.length} repair${repairs.length!==1?'s':''} selected`;
+  } else {
+    selBar.style.display = 'none';
+  }
+
+  // 5. Totals rows
+  $('tfoot-upgrades-cost').textContent = fmt$(totalU);
+  const totalValueAdd = checkedU.reduce((s, u) => s + (u.estimated_value_add ?? 0), 0);
+  $('tfoot-upgrades-val').textContent  = fmt$(totalValueAdd);
+  $('tfoot-repairs-cost').textContent  = fmt$(totalR);
 }
 
 function toggleDeepDetail(panelId, name, type) {
@@ -1286,23 +1484,16 @@ function populateReport(report) {
   const ex       = report.executive_summary || {};
   const upgrades = report.upgrades || [];
   const repairs  = report.repairs  || [];
-  const critCount = repairs.filter(r => r.priority?.toLowerCase() === 'critical').length;
 
-  // Summary cards
+  // Store on reportData so recalculate() can access
+  reportData.executive_summary = ex;
+
+  // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
-  const inv = ex.total_investment_high ?? upgrades.reduce((s,u) => s+(u.estimated_cost??0),0);
-  $('card-investment').textContent = fmt$(inv);
-  $('card-investment-range').textContent =
-    (ex.total_investment_low && ex.total_investment_high && ex.total_investment_low !== ex.total_investment_high)
-      ? `Range: ${fmt$(ex.total_investment_low)} – ${fmt$(ex.total_investment_high)}` : '';
-  $('card-gain').textContent = fmt$(ex.net_gain_low);
-  $('card-gain-range').textContent =
-    (ex.net_gain_low && ex.net_gain_high && ex.net_gain_low !== ex.net_gain_high)
-      ? `High estimate: ${fmt$(ex.net_gain_high)}` : '';
-  const critEl = $('card-critical');
-  critEl.textContent = critCount;
-  if (critCount > 0) { critEl.classList.add('red'); $('card-critical-sub').textContent = 'Require immediate attention'; }
-  else { critEl.classList.remove('red'); $('card-critical-sub').textContent = `${repairs.length} total repairs identified`; }
+
+  // Reset unchecked sets on fresh data load (all start checked)
+  unchecked.upgrades.clear();
+  unchecked.repairs.clear();
 
   // Recommendation
   if (ex.recommendation || ex.market_position) {
