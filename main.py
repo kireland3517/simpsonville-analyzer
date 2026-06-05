@@ -40,6 +40,9 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -127,6 +130,10 @@ class AnalyzeRequest(BaseModel):
 class BulkPhotoItem(BaseModel):
     base_url: str
     photo_id: str
+
+
+class BulkAnalyzeRequest(BaseModel):
+    photos: list[BulkPhotoItem]
 
 
 class ReportRequest(BaseModel):
