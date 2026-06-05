@@ -331,14 +331,16 @@ def report_generate(body: ReportRequest):
     if not analyses:
         # Fall back to Supabase analyses when memory cache is cold
         sb = _sb()
-        if sb:
-            try:
-                rows = sb.table("photo_analyses").select("analysis").execute()
-                analyses = [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
-            except Exception:
-                pass
+        if not sb:
+            raise HTTPException(status_code=503, detail="Supabase not configured — check SUPABASE_URL and SUPABASE_SERVICE_KEY env vars")
+        try:
+            rows = sb.table("photo_analyses").select("analysis").execute()
+            analyses = [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+            print(f"Loaded {len(analyses)} analyses from Supabase")
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Supabase query failed: {exc}")
     if not analyses:
-        raise HTTPException(status_code=422, detail="No analyses available — run run_analysis.py first")
+        raise HTTPException(status_code=422, detail="No analyses found in Supabase photo_analyses table — run run_analysis.py first")
 
     summary = build_analysis_summary(analyses)
     property_summary = get_property_summary()
