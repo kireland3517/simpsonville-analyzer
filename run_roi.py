@@ -416,41 +416,85 @@ _TYPICAL_ROOM_COUNTS: dict[str, dict] = {
 
 # Maps the freeform room_type strings Claude returns to canonical names.
 _ROOM_ALIASES: dict[str, str] = {
-    "master bedroom":        "primary bedroom",
-    "master bath":           "primary bathroom",
-    "master bathroom":       "primary bathroom",
-    "primary bath":          "primary bathroom",
-    "owners bath":           "primary bathroom",
-    "owner bath":            "primary bathroom",
-    "half bath":             "full bath",
-    "guest bath":            "full bath",
-    "guest bathroom":        "full bath",
-    "hall bath":             "full bath",
-    "bathroom":              "full bath",
-    "second bedroom":        "bedroom 2",
-    "third bedroom":         "bedroom 3",
-    "kitchen/breakfast":     "kitchen",
-    "kitchen breakfast":     "kitchen",
-    "eat-in kitchen":        "kitchen",
-    "breakfast nook":        "breakfast area",
-    "breakfast room":        "breakfast area",
-    "family room":           "living room",
-    "great room":            "living room",
-    "upstairs bonus":        "bonus room",
-    "bonus":                 "bonus room",
-    "rec room":              "bonus room",
-    "recreation room":       "bonus room",
-    "loft":                  "bonus room",
-    "utility room":          "laundry room",
-    "laundry":               "laundry room",
-    "mudroom":               "laundry room",
-    "entry":                 "entry hallway",
-    "foyer":                 "entry hallway",
-    "hallway":               "entry hallway",
-    "hall":                  "entry hallway",
-    "2-car garage":          "garage",
-    "attached garage":       "garage",
-    "exterior front":        "garage",   # exterior shots sometimes land here
+    # Primary bedroom
+    "master bedroom":           "primary bedroom",
+    "master suite":             "primary bedroom",
+    "owner's bedroom":          "primary bedroom",
+    "owners bedroom":           "primary bedroom",
+    # Primary bathroom
+    "master bath":              "primary bathroom",
+    "master bathroom":          "primary bathroom",
+    "primary bath":             "primary bathroom",
+    "owners bath":              "primary bathroom",
+    "owner bath":               "primary bathroom",
+    "owner's bath":             "primary bathroom",
+    "ensuite":                  "primary bathroom",
+    # Full bath
+    "half bath":                "full bath",
+    "guest bath":               "full bath",
+    "guest bathroom":           "full bath",
+    "hall bath":                "full bath",
+    "hall bathroom":            "full bath",
+    "bathroom":                 "full bath",
+    "second bathroom":          "full bath",
+    "full bathroom":            "full bath",
+    # Bedrooms
+    "second bedroom":           "bedroom 2",
+    "bed 2":                    "bedroom 2",
+    "third bedroom":            "bedroom 3",
+    "bed 3":                    "bedroom 3",
+    # Kitchen
+    "kitchen/breakfast":        "kitchen",
+    "kitchen breakfast":        "kitchen",
+    "eat-in kitchen":           "kitchen",
+    "kitchen area":             "kitchen",
+    # Breakfast area
+    "breakfast nook":           "breakfast area",
+    "breakfast room":           "breakfast area",
+    "breakfast":                "breakfast area",
+    "nook":                     "breakfast area",
+    # Living room
+    "family room":              "living room",
+    "great room":               "living room",
+    "living area":              "living room",
+    "main living":              "living room",
+    # Dining room
+    "formal dining":            "dining room",
+    "dining area":              "dining room",
+    "dining":                   "dining room",
+    # Bonus room
+    "upstairs bonus":           "bonus room",
+    "bonus":                    "bonus room",
+    "rec room":                 "bonus room",
+    "recreation room":          "bonus room",
+    "loft":                     "bonus room",
+    "office":                   "bonus room",
+    "flex room":                "bonus room",
+    # Laundry
+    "utility room":             "laundry room",
+    "laundry":                  "laundry room",
+    "mudroom":                  "laundry room",
+    "laundry/utility":          "laundry room",
+    # Entry hallway
+    "entry":                    "entry hallway",
+    "foyer":                    "entry hallway",
+    "hallway":                  "entry hallway",
+    "hall":                     "entry hallway",
+    "entryway":                 "entry hallway",
+    "foyer/entry":              "entry hallway",
+    "entry hallway/foyer":      "entry hallway",
+    "entryway/foyer":           "entry hallway",
+    "foyer/entryway":           "entry hallway",
+    "foyer or stairwell":       "entry hallway",
+    "entry foyer":              "entry hallway",
+    "front entry":              "entry hallway",
+    "stairwell":                "entry hallway",
+    "staircase":                "entry hallway",
+    # Garage
+    "2-car garage":             "garage",
+    "attached garage":          "garage",
+    "two car garage":           "garage",
+    "two-car garage":           "garage",
 }
 
 _INVENTORY_FIELDS = [
@@ -520,11 +564,15 @@ def aggregate_inventory(
     room_buckets: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
     room_sqft_buckets: dict[str, list[int]] = defaultdict(list)
 
+    canonical_set = set(_CANONICAL_ROOMS)
+
     for row in inventory_rows:
         raw_room = (row.get("room_type") or "").strip()
         if not raw_room:
             continue
         room = _normalize_room(raw_room)
+        if room not in canonical_set:
+            continue  # discard AI labels that don't map to a known room
 
         for field in _INVENTORY_FIELDS:
             val = row.get(field)
