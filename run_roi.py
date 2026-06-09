@@ -380,6 +380,7 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
 
 # Canonical room list for 130 Kingfisher Dr (River Ridge Phase 1 Section 1, 3/2, 2019 sqft).
 # Derived from comparable analysis: main-floor bedrooms, split layout, upstairs bonus room.
+# Canonical rooms derived from "The King B" Seppala Homes floor plan (130 Kingfisher Dr).
 _CANONICAL_ROOMS: list[str] = [
     "primary bedroom",
     "bedroom 2",
@@ -387,31 +388,40 @@ _CANONICAL_ROOMS: list[str] = [
     "primary bathroom",
     "full bath",
     "kitchen",
-    "breakfast area",
-    "living room",
+    "great room",
     "dining room",
-    "bonus room",
+    "den",
     "laundry room",
     "entry hallway",
     "garage",
 ]
 
-# Per-room item estimates for rooms that were not photographed.
-# Keys match _CANONICAL_ROOMS exactly.
+# Per-room counts based on actual floor plan dimensions.
 _TYPICAL_ROOM_COUNTS: dict[str, dict] = {
-    "primary bedroom":  {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 280},
-    "bedroom 2":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 160},
-    "bedroom 3":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 140},
-    "primary bathroom": {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 4, "sqft": 90},
-    "full bath":        {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 2, "sqft": 55},
-    "kitchen":          {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 20, "sqft": 180},
-    "breakfast area":   {"doors": 0, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 2, "cabinet_doors": 0, "sqft": 80},
-    "living room":      {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 1, "windows": 3, "cabinet_doors": 0, "sqft": 280},
-    "dining room":      {"doors": 0, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 2, "cabinet_doors": 0, "sqft": 140},
-    "bonus room":       {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 220},
-    "laundry room":     {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 55},
-    "entry hallway":    {"doors": 0, "outlets": 2, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 80},
-    "garage":           {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 0, "sqft": 440},
+    # ~25'×13' per plan
+    "primary bedroom":  {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 325},
+    # ~10'×11' per plan
+    "bedroom 2":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 110},
+    # ~10'×10' per plan
+    "bedroom 3":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 100},
+    # Connected to master bedroom, with closet
+    "primary bathroom": {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 4, "sqft": 80},
+    # Shared bath between bedroom 2 and 3
+    "full bath":        {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 2, "sqft": 50},
+    # Center kitchen with bar and pantry
+    "kitchen":          {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 20, "sqft": 160},
+    # Large open great room, center of house
+    "great room":       {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 1, "windows": 3, "cabinet_doors": 0, "sqft": 340},
+    # Dining area, lower center
+    "dining room":      {"doors": 0, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 2, "cabinet_doors": 0, "sqft": 130},
+    # Den, top left ~13'×12'
+    "den":              {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 156},
+    # Laundry closet area near kitchen
+    "laundry room":     {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 40},
+    # Entry/foyer
+    "entry hallway":    {"doors": 0, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 60},
+    # 2-car garage ~20'×20'
+    "garage":           {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 0, "sqft": 400},
 }
 
 # Maps the freeform room_type strings Claude returns to canonical names.
@@ -448,28 +458,32 @@ _ROOM_ALIASES: dict[str, str] = {
     "kitchen breakfast":        "kitchen",
     "eat-in kitchen":           "kitchen",
     "kitchen area":             "kitchen",
-    # Breakfast area
-    "breakfast nook":           "breakfast area",
-    "breakfast room":           "breakfast area",
-    "breakfast":                "breakfast area",
-    "nook":                     "breakfast area",
-    # Living room
-    "family room":              "living room",
-    "great room":               "living room",
-    "living area":              "living room",
-    "main living":              "living room",
+    # Breakfast nook — open to great room/kitchen in this layout
+    "breakfast nook":           "great room",
+    "breakfast room":           "great room",
+    "breakfast area":           "great room",
+    "breakfast":                "great room",
+    "nook":                     "great room",
+    # Great room
+    "family room":              "great room",
+    "living room":              "great room",
+    "living area":              "great room",
+    "main living":              "great room",
+    # Den
+    "den":                      "den",
+    "office":                   "den",
+    "study":                    "den",
+    "flex room":                "den",
     # Dining room
     "formal dining":            "dining room",
     "dining area":              "dining room",
     "dining":                   "dining room",
-    # Bonus room
-    "upstairs bonus":           "bonus room",
-    "bonus":                    "bonus room",
-    "rec room":                 "bonus room",
-    "recreation room":          "bonus room",
-    "loft":                     "bonus room",
-    "office":                   "bonus room",
-    "flex room":                "bonus room",
+    # Bonus/loft — no dedicated bonus room in this layout, map to den
+    "upstairs bonus":           "den",
+    "bonus":                    "den",
+    "rec room":                 "den",
+    "recreation room":          "den",
+    "loft":                     "den",
     # Laundry
     "utility room":             "laundry room",
     "laundry":                  "laundry room",
