@@ -882,6 +882,108 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .inv-summary-grid { grid-template-columns: 1fr; }
 }
 
+/* ── Notes tab ───────────────────────────────────────────────────── */
+.notes-wrap {
+  max-width: 820px;
+}
+.notes-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.notes-title { font-size: 17px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.01em; }
+.notes-meta { font-size: 12px; color: var(--gray-400); }
+.notes-textarea {
+  width: 100%; min-height: 480px;
+  border: 1px solid var(--gray-200); border-radius: var(--radius);
+  padding: 16px; font-size: 14px; font-family: var(--font);
+  line-height: 1.65; color: var(--gray-800);
+  background: var(--white); resize: vertical;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s;
+}
+.notes-textarea:focus { outline: none; border-color: var(--accent); }
+.notes-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.btn-notes-save {
+  padding: 8px 20px; background: var(--accent); color: #fff;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-notes-save:hover { opacity: 0.88; }
+.btn-notes-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.notes-status { font-size: 12px; color: var(--green-700); }
+
+/* ── Floor Plan tab ──────────────────────────────────────────────── */
+.fp-layout {
+  display: flex; gap: 24px; align-items: flex-start;
+}
+.fp-map-wrap {
+  flex: 1; position: relative; min-width: 0;
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.fp-map-wrap img { width: 100%; display: block; }
+.fp-hotspots { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.fp-hotspot {
+  position: absolute; cursor: pointer;
+  border: 2px solid transparent; border-radius: 4px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fp-hotspot:hover { background: rgba(37,99,235,0.12); border-color: var(--accent); }
+.fp-hotspot.active { background: rgba(37,99,235,0.18); border-color: var(--accent); }
+.fp-hotspot-label {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--accent); background: rgba(255,255,255,0.85);
+  padding: 1px 5px; border-radius: 3px; white-space: nowrap; pointer-events: none;
+}
+.fp-panel {
+  width: 300px; flex-shrink: 0;
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  display: none;
+}
+.fp-panel.visible { display: block; }
+.fp-panel-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.fp-panel-title { font-size: 15px; font-weight: 700; color: var(--gray-900); text-transform: capitalize; }
+.fp-panel-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 99px; }
+.fp-panel-body { padding: 14px 18px; }
+.fp-field-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 0; border-bottom: 1px solid var(--gray-50);
+}
+.fp-field-row:last-child { border-bottom: none; }
+.fp-field-label { font-size: 13px; color: var(--gray-600); }
+.fp-field-input {
+  width: 58px; padding: 4px 6px;
+  border: 1px solid var(--gray-200); border-radius: 4px;
+  font-size: 13px; font-family: var(--mono); text-align: center;
+  color: var(--gray-800); background: var(--white);
+  transition: border-color 0.15s, background 0.15s;
+}
+.fp-field-input:focus { outline: none; border-color: var(--accent); background: var(--accent-light); }
+.fp-field-input.dirty { border-color: var(--green-600); background: #f0fdf4; }
+.fp-panel-footer {
+  padding: 12px 18px; border-top: 1px solid var(--gray-100);
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-fp-save {
+  flex: 1; padding: 7px; background: var(--accent); color: #fff;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-fp-save:hover { opacity: 0.88; }
+.btn-fp-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.fp-save-status { font-size: 11px; color: var(--green-700); }
+
+@media (max-width: 900px) {
+  .fp-layout { flex-direction: column; }
+  .fp-panel { width: 100%; }
+}
+
 /* ── Print styles ────────────────────────────────────────────────── */
 @media print {
   @page { margin: 20mm 15mm; size: auto; }
@@ -1038,6 +1140,14 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <div class="nav-item" data-tab="materials">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Materials List
+      </div>
+      <div class="nav-item" data-tab="floorplan">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M2 7h5M7 2v5M7 7h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Floor Plan
+      </div>
+      <div class="nav-item" data-tab="notes">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Notes
       </div>
     </nav>
 
@@ -1518,6 +1628,42 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div><!-- /inv-content -->
 
       </div><!-- /tab-materials -->
+
+      <!-- Floor Plan Tab -->
+      <div id="tab-floorplan" class="tab-pane">
+        <div class="fp-layout">
+          <div class="fp-map-wrap">
+            <img src="/media/ChatGPT%20Image%20Jun%209%2C%202026%2C%2005_23_53%20PM.png" id="fp-img" alt="Floor Plan">
+            <div class="fp-hotspots" id="fp-hotspots"></div>
+          </div>
+          <div class="fp-panel" id="fp-panel">
+            <div class="fp-panel-header">
+              <span class="fp-panel-title" id="fp-panel-title">Room</span>
+              <span class="fp-panel-badge inv-source-badge observed" id="fp-panel-badge">Observed</span>
+            </div>
+            <div class="fp-panel-body" id="fp-panel-body"></div>
+            <div class="fp-panel-footer">
+              <button class="btn-fp-save" id="btn-fp-save" onclick="saveFpRoom()">Save</button>
+              <span class="fp-save-status" id="fp-save-status"></span>
+            </div>
+          </div>
+        </div>
+      </div><!-- /tab-floorplan -->
+
+      <!-- Notes Tab -->
+      <div id="tab-notes" class="tab-pane">
+        <div class="notes-wrap">
+          <div class="notes-header">
+            <div class="notes-title">Property Notes</div>
+            <div class="notes-meta" id="notes-meta"></div>
+          </div>
+          <textarea class="notes-textarea" id="notes-textarea" placeholder="Add notes about the property, work priorities, contractor info, etc…"></textarea>
+          <div class="notes-actions">
+            <button class="btn-notes-save" id="btn-notes-save" onclick="saveNotes()">Save Notes</button>
+            <span class="notes-status" id="notes-status"></span>
+          </div>
+        </div>
+      </div><!-- /tab-notes -->
 
     </div><!-- /content-area -->
   </div><!-- /main-wrapper -->
@@ -2482,9 +2628,222 @@ document.querySelectorAll('.nav-item').forEach(item => {
       if (!invLoaded) { invLoaded = true; loadInventory(); }
     });
   }
+  if (item.dataset.tab === 'floorplan') {
+    item.addEventListener('click', () => {
+      if (!fpLoaded) { fpLoaded = true; initFloorPlan(); }
+    });
+  }
+  if (item.dataset.tab === 'notes') {
+    item.addEventListener('click', () => {
+      if (!notesLoaded) { notesLoaded = true; loadNotes(); }
+    });
+  }
 });
 
 init();
+
+/* ── Notes ───────────────────────────────────────────────────────── */
+let notesLoaded = false;
+
+async function loadNotes() {
+  try {
+    const res = await fetch('/notes');
+    if (!res.ok) return;
+    const data = await res.json();
+    $('notes-textarea').value = data.content || '';
+    if (data.updated_at) {
+      const d = new Date(data.updated_at);
+      $('notes-meta').textContent = 'Last saved ' + d.toLocaleDateString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    }
+  } catch(e) {}
+}
+
+async function saveNotes() {
+  const btn = $('btn-notes-save');
+  const status = $('notes-status');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  status.textContent = '';
+  try {
+    const res = await fetch('/notes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content: $('notes-textarea').value})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    status.textContent = 'Saved ✓';
+    $('notes-meta').textContent = 'Last saved ' + new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    setTimeout(() => status.textContent = '', 3000);
+  } catch(e) {
+    status.style.color = 'var(--red-600)';
+    status.textContent = 'Save failed';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Notes';
+  }
+}
+
+/* ── Floor Plan ──────────────────────────────────────────────────── */
+let fpLoaded    = false;
+let fpRoomData  = {};   // room name → current counts
+let fpDirty     = {};   // room name → {field: value}
+let fpActiveRoom = null;
+
+// Hotspot definitions as % of image width/height: [left%, top%, width%, height%]
+const FP_HOTSPOTS = {
+  'den':              [2,   3,  22, 28],
+  'bedroom 2':        [2,  32,  22, 22],
+  'full bath':        [2,  55,  22, 12],
+  'bedroom 3':        [2,  68,  22, 22],
+  'great room':       [26,  3,  38, 45],
+  'kitchen':          [38, 42,  18, 22],
+  'dining room':      [26, 60,  22, 30],
+  'primary bedroom':  [65,  3,  33, 38],
+  'primary bathroom': [65, 40,  33, 22],
+  'entry hallway':    [38, 63,  10, 15],
+  'laundry room':     [52, 48,  10, 12],
+  'garage':           [65, 63,  33, 30],
+};
+
+const FP_FIELDS = [
+  {key:'doors',         label:'Doors'},
+  {key:'outlets',       label:'Outlets'},
+  {key:'switch_plates', label:'Switches'},
+  {key:'light_fixtures',label:'Fixtures'},
+  {key:'ceiling_fans',  label:'Ceiling Fans'},
+  {key:'windows',       label:'Windows'},
+  {key:'cabinet_doors', label:'Cabinet Doors'},
+  {key:'door_knobs',    label:'Door Knobs'},
+  {key:'sqft',          label:'Sq Ft'},
+];
+
+function initFloorPlan() {
+  if (!invData) {
+    if (!invLoaded) { invLoaded = true; loadInventory(); }
+    // wait for inventory then init
+    const poll = setInterval(() => {
+      if (invData) { clearInterval(poll); buildFloorPlan(); }
+    }, 300);
+  } else {
+    buildFloorPlan();
+  }
+}
+
+function buildFloorPlan() {
+  // Index room data by name
+  fpRoomData = {};
+  for (const r of (invData?.rooms || [])) {
+    fpRoomData[r.room] = {...r};
+  }
+
+  const container = $('fp-hotspots');
+  container.innerHTML = '';
+
+  for (const [room, coords] of Object.entries(FP_HOTSPOTS)) {
+    const [l, t, w, h] = coords;
+    const div = document.createElement('div');
+    div.className = 'fp-hotspot';
+    div.style.cssText = `left:${l}%;top:${t}%;width:${w}%;height:${h}%`;
+    div.dataset.room = room;
+    div.title = room;
+    const lbl = document.createElement('div');
+    lbl.className = 'fp-hotspot-label';
+    lbl.textContent = room;
+    div.appendChild(lbl);
+    div.addEventListener('click', () => openFpPanel(room));
+    container.appendChild(div);
+  }
+}
+
+function openFpPanel(room) {
+  // Deactivate previous
+  document.querySelectorAll('.fp-hotspot').forEach(h => h.classList.remove('active'));
+  document.querySelector(`.fp-hotspot[data-room="${room}"]`)?.classList.add('active');
+
+  fpActiveRoom = room;
+  fpDirty[room] = fpDirty[room] || {};
+
+  const data = fpRoomData[room] || {};
+  const overrides = invData?.overrides || {};
+  const src = data.source || 'estimated';
+
+  $('fp-panel-title').textContent = room;
+  $('fp-panel-badge').textContent = src.charAt(0).toUpperCase() + src.slice(1);
+  $('fp-panel-badge').className = `fp-panel-badge inv-source-badge ${src}`;
+  $('fp-save-status').textContent = '';
+
+  const body = $('fp-panel-body');
+  body.innerHTML = '';
+
+  FP_FIELDS.forEach(({key, label}) => {
+    const row = document.createElement('div');
+    row.className = 'fp-field-row';
+    const lbl = document.createElement('div');
+    lbl.className = 'fp-field-label';
+    lbl.textContent = label;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '0';
+    inp.className = 'fp-field-input';
+    inp.dataset.field = key;
+    const isOverridden = overrides[room]?.[key] !== undefined;
+    inp.value = isOverridden ? overrides[room][key] : (data[key] ?? 0);
+    if (isOverridden) inp.classList.add('dirty');
+    inp.addEventListener('input', () => {
+      fpDirty[room][key] = Number(inp.value);
+      inp.classList.add('dirty');
+    });
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    body.appendChild(row);
+  });
+
+  $('fp-panel').classList.add('visible');
+}
+
+async function saveFpRoom() {
+  if (!fpActiveRoom) return;
+  const btn = $('btn-fp-save');
+  const status = $('fp-save-status');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  status.textContent = '';
+
+  const edits = fpDirty[fpActiveRoom] || {};
+  if (!Object.keys(edits).length) {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+    status.textContent = 'No changes';
+    return;
+  }
+
+  try {
+    const res = await fetch('/inventory/override', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({overrides: {[fpActiveRoom]: edits}})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Merge into local invData overrides and room data
+    if (!invData.overrides) invData.overrides = {};
+    invData.overrides[fpActiveRoom] = {...(invData.overrides[fpActiveRoom] || {}), ...edits};
+    fpRoomData[fpActiveRoom] = {...(fpRoomData[fpActiveRoom] || {}), ...edits, source: 'edited'};
+    fpDirty[fpActiveRoom] = {};
+    // Also refresh materials table if loaded
+    if (invData.rooms) {
+      const idx = invData.rooms.findIndex(r => r.room === fpActiveRoom);
+      if (idx >= 0) { invData.rooms[idx] = {...invData.rooms[idx], ...edits, source: 'edited'}; }
+      renderInventory();
+    }
+    status.textContent = 'Saved ✓';
+    setTimeout(() => status.textContent = '', 3000);
+  } catch(e) {
+    status.style.color = 'var(--red-600)';
+    status.textContent = 'Failed';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
 </script>
 </body>
 </html>

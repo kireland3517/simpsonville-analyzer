@@ -153,6 +153,15 @@ def serve_index():
     return PlainTextResponse("UI not built yet")
 
 
+@app.get("/media/{filename:path}")
+def serve_media(filename: str):
+    """Serve files from the local media/ folder (floor plan image, etc.)."""
+    path = Path("media") / filename
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path)
+
+
 @app.get("/auth/login")
 def auth_login():
     return {"auth_url": get_auth_url()}
@@ -900,6 +909,52 @@ def repair_detail(
 ):
     """Return deep how-to detail for a single repair item (cached in Supabase)."""
     return _get_or_generate_detail(name, "repair", description=description, issues=issues)
+
+
+# ─── Notes endpoints ─────────────────────────────────────────────────────────
+# Supabase table (run once):
+#   CREATE TABLE notes (
+#       id         TEXT PRIMARY KEY,   -- always "130_kingfisher"
+#       content    TEXT NOT NULL DEFAULT '',
+#       updated_at TIMESTAMPTZ DEFAULT now()
+#   );
+
+NOTES_TABLE = "notes"
+NOTES_ID    = "130_kingfisher"
+
+
+class NotesSaveRequest(BaseModel):
+    content: str
+
+
+@app.get("/notes")
+def notes_get():
+    sb = _sb()
+    if not sb:
+        return {"content": "", "updated_at": None}
+    try:
+        result = sb.table(NOTES_TABLE).select("content, updated_at").eq("id", NOTES_ID).execute()
+        if result.data:
+            return {"content": result.data[0].get("content") or "", "updated_at": result.data[0].get("updated_at")}
+        return {"content": "", "updated_at": None}
+    except Exception:
+        return {"content": "", "updated_at": None}
+
+
+@app.post("/notes")
+def notes_save(body: NotesSaveRequest):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        sb.table(NOTES_TABLE).upsert({
+            "id":         NOTES_ID,
+            "content":    body.content,
+            "updated_at": "now()",
+        }).execute()
+        return {"saved": True}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────
