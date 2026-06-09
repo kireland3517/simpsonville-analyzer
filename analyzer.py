@@ -15,7 +15,7 @@ from typing import Optional
 
 from PIL import Image
 
-from gemini_client import generate_vision, get_api_key
+from claude_client import generate_vision, get_api_key
 
 # Optional HEIC support
 try:
@@ -101,6 +101,38 @@ otherwise limits your ability to assess the space accurately. Write "good" if cl
 Return only valid JSON. No explanation, no markdown, no preamble.\
 """
 
+INVENTORY_PROMPT = """\
+Count the physical items visible in this photo. Return a JSON object with exactly these fields:
+
+- room_type: string — be specific: "kitchen", "master bathroom", "living room", \
+"bonus room", "garage", etc.
+
+- doors_visible: integer — count of interior door panels visible (0 if none)
+
+- outlets_visible: integer — count of electrical outlet covers/receptacles visible (0 if none)
+
+- switch_plates_visible: integer — count of switch plates (light switches, dimmers) visible \
+(0 if none)
+
+- light_fixtures_visible: integer — count of ceiling/wall light fixtures visible, including \
+fans with lights (0 if none)
+
+- ceiling_fans_visible: integer — count of ceiling fans visible, with or without lights \
+(0 if none)
+
+- windows_visible: integer — count of window units visible, not individual glass panes \
+(0 if none)
+
+- cabinet_doors_visible: integer — count of cabinet door panels visible: kitchen cabinets, \
+bathroom vanity doors, built-ins (0 if none)
+
+- estimated_room_sqft: integer or null — your best estimate of the floor square footage of \
+this room based on visual cues. Use null if you cannot estimate (e.g., detail shot with no \
+floor visible).
+
+Return only valid JSON. No explanation, no markdown, no preamble.\
+"""
+
 _MEDIA_TYPES: dict[str, str] = {
     ".jpg":  "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -120,6 +152,18 @@ _ERROR_RESULT: dict = {
     "buyer_psychology_notes": None,
     "inspection_flags":       None,
     "photo_quality":          None,
+}
+
+_INVENTORY_ERROR_RESULT: dict = {
+    "room_type":              None,
+    "doors_visible":          None,
+    "outlets_visible":        None,
+    "switch_plates_visible":  None,
+    "light_fixtures_visible": None,
+    "ceiling_fans_visible":   None,
+    "windows_visible":        None,
+    "cabinet_doors_visible":  None,
+    "estimated_room_sqft":    None,
 }
 
 
@@ -170,6 +214,48 @@ def analyze_image(image_path: Path) -> dict:
     )
     if err:
         return {**_ERROR_RESULT, "error": err}
+    return result
+
+
+def analyze_image_inventory(image_path: Path) -> dict:
+    """
+    Second vision pass — count physical items only (doors, outlets, fixtures, etc.).
+    Lightweight: max_tokens=512. Returns _INVENTORY_ERROR_RESULT + 'error' on failure.
+    """
+    media_type = _media_type(image_path)
+    if media_type is None:
+        return {**_INVENTORY_ERROR_RESULT, "error": f"Unsupported image type: {image_path.suffix!r}"}
+
+    try:
+        if image_path.suffix.lower() == ".heic":
+            if not _HEIC_AVAILABLE:
+                return {**_INVENTORY_ERROR_RESULT, "error": "HEIC support requires pillow-heif: pip install pillow-heif"}
+            heif = _pillow_heif.read_heif(str(image_path))
+            img = Image.frombytes(heif.mode, heif.size, heif.data, "raw")
+        else:
+            img = Image.open(image_path)
+
+        img = img.convert("RGB")
+        img.thumbnail((2000, 2000), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        image_bytes = buf.getvalue()
+        mime_type = "image/jpeg"
+    except (FileNotFoundError, OSError) as exc:
+        return {**_INVENTORY_ERROR_RESULT, "error": str(exc)}
+
+    if not get_api_key():
+        return {**_INVENTORY_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
+
+    result, err = generate_vision(
+        image_bytes,
+        mime_type,
+        INVENTORY_PROMPT,
+        system=SYSTEM_PROMPT,
+        max_tokens=512,
+    )
+    if err:
+        return {**_INVENTORY_ERROR_RESULT, "error": err}
     return result
 
 

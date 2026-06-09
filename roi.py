@@ -14,7 +14,7 @@ import json
 import re
 from typing import Any
 
-from gemini_client import generate_text, get_api_key, get_detail_model
+from claude_client import generate_text, get_api_key, get_detail_model
 # Valid parameter values
 DETAIL_LEVELS  = {"executive", "standard", "deep_dive"}
 DETAIL_LEVEL_ORDER = ["executive", "standard", "deep_dive"]

@@ -26,6 +26,9 @@ GET  /upgrade-detail         Deep how-to detail for one upgrade (cached in Supab
 GET  /repair-detail          Deep how-to detail for one repair (cached in Supabase)
 GET  /dated-features         Aggregated dated_features across all photo analyses
 GET  /inspection-flags       Top 20 inspection flags across all photo analyses
+GET  /inventory              Materials shopping list with room-by-room breakdown
+POST /inventory/override     Save user-edited room counts to Supabase
+GET  /inventory/override     Return saved room-level overrides
 
 Run:
     uvicorn main:app --port 8000 --reload
@@ -306,6 +309,19 @@ def analyze_bulk(body: BulkAnalyzeRequest):
                 tmp_path.unlink()
 
         analysis_cache[item.photo_id] = result
+
+        sb = _sb()
+        if sb:
+            try:
+                sb.table("photo_analyses").upsert({
+                    "id":       item.photo_id,
+                    "filename": item.photo_id,
+                    "base_url": item.base_url,
+                    "analysis": result,
+                }).execute()
+            except Exception as exc:
+                print(f"WARNING: could not save analysis {item.photo_id} to Supabase: {exc}")
+
         completed += 1
 
     return {"completed": completed, "total": total}
@@ -643,6 +659,164 @@ def inspection_flags_get():
         for k, c in counts.most_common(20)
     ]
     return {"flags": flags}
+
+
+@app.get("/inventory")
+def inventory_get():
+    """
+    Aggregate materials inventory across all photo analyses and gap-fill
+    unobserved rooms using known River Ridge property layout data.
+    Returns summary totals (for shopping list) and per-room breakdown.
+    """
+    from run_roi import aggregate_inventory
+    from attom import get_property_summary
+
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        rows = sb.table("photo_analyses") \
+                 .select("analysis, inventory") \
+                 .not_.is_("inventory", "null") \
+                 .execute()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase query failed: {exc}")
+
+    if not rows.data:
+        raise HTTPException(
+            status_code=404,
+            detail="No inventory data found. Run the inventory analysis pass first via POST /analyze/bulk or python run_inventory.py",
+        )
+
+    combined: list[dict] = []
+    for row in rows.data:
+        inv = row.get("inventory") or {}
+        analysis = row.get("analysis") or {}
+        # Use room_type from inventory if present, fall back to analysis
+        if not inv.get("room_type") and analysis.get("room_type"):
+            inv = {**inv, "room_type": analysis["room_type"]}
+        combined.append(inv)
+
+    try:
+        property_summary = get_property_summary()
+    except Exception:
+        property_summary = {}
+
+    result = aggregate_inventory(combined, property_summary=property_summary)
+
+    # Apply saved user overrides on top of AI-aggregated + gap-filled values
+    try:
+        ov_result = sb.table(INVENTORY_OVERRIDE_TABLE) \
+                      .select("overrides") \
+                      .eq("id", INVENTORY_OVERRIDE_ID) \
+                      .execute()
+        overrides = {}
+        if ov_result.data:
+            overrides = ov_result.data[0].get("overrides") or {}
+    except Exception:
+        overrides = {}
+
+    if overrides:
+        _FIELD_MAP = {
+            "doors": "doors", "outlets": "outlets", "switch_plates": "switch_plates",
+            "light_fixtures": "light_fixtures", "ceiling_fans": "ceiling_fans",
+            "windows": "windows", "cabinet_doors": "cabinet_doors", "sqft": "sqft",
+        }
+        for room_row in result["rooms"]:
+            room_key = room_row["room"]
+            if room_key in overrides:
+                for field, val in overrides[room_key].items():
+                    if field in _FIELD_MAP and isinstance(val, (int, float)):
+                        room_row[field] = int(val)
+                        room_row["source"] = "edited"  # mark as user-edited
+
+        # Recalculate summary totals from the (now-overridden) room rows
+        rooms = result["rooms"]
+        total_doors          = sum(r.get("doors", 0)          for r in rooms)
+        total_outlets        = sum(r.get("outlets", 0)        for r in rooms)
+        total_switch_plates  = sum(r.get("switch_plates", 0)  for r in rooms)
+        total_light_fixtures = sum(r.get("light_fixtures", 0) for r in rooms)
+        total_ceiling_fans   = sum(r.get("ceiling_fans", 0)   for r in rooms)
+        total_windows        = sum(r.get("windows", 0)        for r in rooms)
+        total_cabinet_doors  = sum(r.get("cabinet_doors", 0)  for r in rooms)
+        total_sqft           = sum(r.get("sqft") or 0         for r in rooms)
+        result["summary"].update({
+            "total_doors":            total_doors,
+            "total_hinges":           total_doors * 3,
+            "total_outlets":          total_outlets,
+            "total_switch_plates":    total_switch_plates,
+            "total_light_fixtures":   total_light_fixtures,
+            "total_ceiling_fans":     total_ceiling_fans,
+            "total_windows":          total_windows,
+            "total_cabinet_doors":    total_cabinet_doors,
+            "total_cabinet_hardware": total_cabinet_doors,
+            "estimated_total_sqft":   total_sqft,
+            "estimated_paint_gallons": round(total_sqft / 350) if total_sqft else 0,
+        })
+
+    result["overrides"] = overrides  # send to frontend so it knows which fields are edited
+    return result
+
+
+# ─── Inventory override endpoints ────────────────────────────────────────────
+# Supabase table (run once):
+#   CREATE TABLE inventory_overrides (
+#       id         TEXT PRIMARY KEY,   -- always "130_kingfisher"
+#       overrides  JSONB NOT NULL,     -- {room_name: {field: value, ...}, ...}
+#       updated_at TIMESTAMPTZ DEFAULT now()
+#   );
+
+INVENTORY_OVERRIDE_TABLE = "inventory_overrides"
+INVENTORY_OVERRIDE_ID    = "130_kingfisher"
+
+
+class InventoryOverrideRequest(BaseModel):
+    overrides: dict  # {room_name: {field: value, ...}, ...}
+
+
+@app.post("/inventory/override")
+def inventory_override_save(body: InventoryOverrideRequest):
+    """Save user-edited room counts to Supabase. Merges with any existing overrides."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        # Load existing overrides so we merge rather than replace
+        existing = {}
+        result = sb.table(INVENTORY_OVERRIDE_TABLE) \
+                   .select("overrides") \
+                   .eq("id", INVENTORY_OVERRIDE_ID) \
+                   .execute()
+        if result.data:
+            existing = result.data[0].get("overrides") or {}
+
+        merged = {**existing, **body.overrides}
+        sb.table(INVENTORY_OVERRIDE_TABLE).upsert({
+            "id":        INVENTORY_OVERRIDE_ID,
+            "overrides": merged,
+        }).execute()
+        return {"saved": True, "rooms_overridden": len(merged)}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.get("/inventory/override")
+def inventory_override_get():
+    """Return the saved room-level overrides."""
+    sb = _sb()
+    if not sb:
+        return {"overrides": {}}
+    try:
+        result = sb.table(INVENTORY_OVERRIDE_TABLE) \
+                   .select("overrides") \
+                   .eq("id", INVENTORY_OVERRIDE_ID) \
+                   .execute()
+        if result.data:
+            return {"overrides": result.data[0].get("overrides") or {}}
+        return {"overrides": {}}
+    except Exception:
+        return {"overrides": {}}
 
 
 # ─── Item detail endpoints ────────────────────────────────────────────────────

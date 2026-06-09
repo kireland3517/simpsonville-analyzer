@@ -771,6 +771,117 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .selection-bar strong { color: var(--accent); }
 .selection-hint { font-size: 11.5px; color: var(--gray-400); }
 
+/* ── Materials List tab ──────────────────────────────────────────── */
+.inv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.inv-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.inv-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-500); margin-bottom: 6px; }
+.inv-card-value { font-size: 30px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.03em; line-height: 1; }
+.inv-card-value.accent { color: var(--accent); }
+.inv-card-sub { font-size: 12px; color: var(--gray-400); margin-top: 5px; }
+
+.inv-coverage {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--accent-light); border: 1px solid var(--accent-mid);
+  border-radius: var(--radius); padding: 12px 16px;
+  font-size: 13px; color: var(--accent); margin-bottom: 24px;
+}
+.inv-coverage-bar {
+  flex: 1; height: 6px; background: var(--accent-mid); border-radius: 99px; overflow: hidden;
+}
+.inv-coverage-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s; }
+
+.inv-table-wrap {
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm);
+  margin-bottom: 28px;
+}
+.inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.inv-table thead th {
+  background: var(--gray-50); padding: 9px 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--gray-500); border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap; text-align: left;
+}
+.inv-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+.inv-table tbody tr:last-child { border-bottom: none; }
+.inv-table tbody tr.inv-row-estimated { background: var(--yellow-50); }
+.inv-table tbody tr.inv-row-edited { background: #f0fdf4; }
+.inv-table tbody td { padding: 9px 12px; vertical-align: middle; }
+.inv-room-name { font-weight: 600; color: var(--gray-800); text-transform: capitalize; }
+.inv-source-badge {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 1px 7px; border-radius: 99px; white-space: nowrap;
+}
+.inv-source-badge.observed { background: var(--accent-mid); color: var(--accent); }
+.inv-source-badge.estimated { background: var(--yellow-100); color: var(--amber-600); }
+.inv-source-badge.edited { background: #dcfce7; color: var(--green-700); }
+
+.inv-field {
+  width: 52px; padding: 4px 6px;
+  border: 1px solid var(--gray-200); border-radius: 4px;
+  font-size: 13px; font-family: var(--mono); text-align: center;
+  color: var(--gray-800); background: var(--white);
+  transition: border-color 0.15s, background 0.15s;
+}
+.inv-field:focus { outline: none; border-color: var(--accent); background: var(--accent-light); }
+.inv-field.dirty { border-color: var(--green-600); background: #f0fdf4; }
+
+.inv-save-bar {
+  display: none; align-items: center; gap: 12px;
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); padding: 10px 16px; margin-bottom: 20px;
+  box-shadow: var(--shadow-sm); font-size: 13px; color: var(--gray-600);
+}
+.inv-save-bar.visible { display: flex; }
+.btn-inv-save {
+  padding: 7px 16px; background: var(--accent); color: #fff;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+}
+.btn-inv-save:hover { opacity: 0.88; }
+.btn-inv-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-inv-discard {
+  padding: 7px 12px; background: transparent; color: var(--gray-500);
+  border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-inv-discard:hover { background: var(--gray-50); }
+
+.inv-tfoot td {
+  background: var(--gray-50) !important; border-top: 2px solid var(--gray-200) !important;
+  padding: 9px 12px !important; font-size: 12.5px !important; font-weight: 700 !important;
+  color: var(--gray-700) !important;
+}
+.inv-tfoot .inv-total { font-family: var(--mono); color: var(--accent) !important; font-size: 14px !important; }
+
+.inv-not-ready {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40vh; gap: 10px; color: var(--gray-500); text-align: center;
+}
+.inv-not-ready h3 { font-size: 17px; font-weight: 600; color: var(--gray-700); }
+.inv-not-ready p { font-size: 13.5px; max-width: 420px; line-height: 1.6; }
+.inv-not-ready code { font-family: var(--mono); font-size: 12px; background: var(--gray-100); padding: 2px 6px; border-radius: 4px; }
+
+@media (max-width: 900px) {
+  .inv-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .inv-table-wrap { overflow-x: auto; }
+  .inv-table { min-width: 700px; }
+}
+@media (max-width: 600px) {
+  .inv-summary-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Print styles ────────────────────────────────────────────────── */
 @media print {
   @page { margin: 20mm 15mm; size: auto; }
@@ -924,9 +1035,13 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 7v7h4v-4h4v4h4V7L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Property Data
       </div>
+      <div class="nav-item" data-tab="materials">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Materials List
+      </div>
     </nav>
 
-    <div class="sidebar-footer">Powered by Gemini AI</div>
+    <div class="sidebar-footer">Powered by Claude AI</div>
   </aside>
 
   <!-- ── Main ───────────────────────────────────── -->
@@ -1271,6 +1386,132 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
 
       </div><!-- /tab-property -->
+
+      <!-- Materials List Tab -->
+      <div id="tab-materials" class="tab-pane">
+
+        <!-- Not ready state -->
+        <div id="inv-not-ready" class="inv-not-ready" style="display:none">
+          <div style="font-size:36px">🔧</div>
+          <h3>Inventory data not ready</h3>
+          <p>Run the inventory analysis pass first, then come back here.<br>
+          From your terminal: <code>python run_inventory.py</code><br>
+          Or trigger bulk analysis from the Google Photos tab.</p>
+        </div>
+
+        <!-- Main inventory content -->
+        <div id="inv-content" style="display:none">
+
+          <!-- Coverage bar -->
+          <div class="inv-coverage" id="inv-coverage">
+            <div>
+              <strong id="inv-coverage-pct">—</strong> of rooms photographed
+              <span id="inv-coverage-detail" style="margin-left:6px;opacity:0.75"></span>
+            </div>
+            <div class="inv-coverage-bar"><div class="inv-coverage-fill" id="inv-coverage-fill" style="width:0%"></div></div>
+          </div>
+
+          <!-- Summary cards -->
+          <div class="inv-summary-grid">
+            <div class="inv-card">
+              <div class="inv-card-label">Hinges</div>
+              <div class="inv-card-value accent" id="inv-total-hinges">—</div>
+              <div class="inv-card-sub" id="inv-total-doors-sub">— doors × 3</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Outlet Covers</div>
+              <div class="inv-card-value" id="inv-total-outlets">—</div>
+              <div class="inv-card-sub">receptacles</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Switch Plates</div>
+              <div class="inv-card-value" id="inv-total-switches">—</div>
+              <div class="inv-card-sub">light switches + dimmers</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Light Fixtures</div>
+              <div class="inv-card-value" id="inv-total-fixtures">—</div>
+              <div class="inv-card-sub" id="inv-total-fans-sub">incl. — ceiling fans</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Windows</div>
+              <div class="inv-card-value" id="inv-total-windows">—</div>
+              <div class="inv-card-sub">window units</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Cabinet Hardware</div>
+              <div class="inv-card-value" id="inv-total-cabinet">—</div>
+              <div class="inv-card-sub">knobs / pulls</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Paint (Interior)</div>
+              <div class="inv-card-value accent" id="inv-total-paint">—</div>
+              <div class="inv-card-sub" id="inv-total-sqft-sub">— sqft ÷ 350</div>
+            </div>
+            <div class="inv-card">
+              <div class="inv-card-label">Sq Ft Estimate</div>
+              <div class="inv-card-value" id="inv-total-sqft">—</div>
+              <div class="inv-card-sub">paintable area</div>
+            </div>
+          </div>
+
+          <!-- Unsaved changes bar -->
+          <div class="inv-save-bar" id="inv-save-bar">
+            <span>You have unsaved changes.</span>
+            <button class="btn-inv-save" id="btn-inv-save" onclick="saveInventoryOverrides()">Save Changes</button>
+            <button class="btn-inv-discard" onclick="discardInventoryChanges()">Discard</button>
+            <span id="inv-save-status" style="font-size:12px;color:var(--green-700);display:none"></span>
+          </div>
+
+          <!-- Room-by-room table -->
+          <div class="section">
+            <div class="section-header">
+              <span class="section-title">Room-by-Room Breakdown</span>
+              <div class="section-divider"></div>
+            </div>
+            <p style="font-size:12.5px;color:var(--gray-500);margin-bottom:12px">
+              <span style="background:var(--accent-mid);color:var(--accent);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;text-transform:uppercase">Observed</span> counts came from photo analysis. &nbsp;
+              <span style="background:var(--yellow-100);color:var(--amber-600);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;text-transform:uppercase">Estimated</span> rooms were not photographed — numbers based on River Ridge layout research. &nbsp;
+              <span style="background:#dcfce7;color:var(--green-700);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;text-transform:uppercase">Edited</span> = your saved corrections.
+              <br><span style="margin-top:6px;display:inline-block">Click any number to edit it. Totals update instantly. Hit <strong>Save Changes</strong> to persist.</span>
+            </p>
+            <div class="inv-table-wrap">
+              <table class="inv-table">
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Source</th>
+                    <th>Doors</th>
+                    <th>Outlets</th>
+                    <th>Switches</th>
+                    <th>Fixtures</th>
+                    <th>Fans</th>
+                    <th>Windows</th>
+                    <th>Cabinet Doors</th>
+                    <th>Sq Ft</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-tbody"></tbody>
+                <tfoot class="inv-tfoot" id="inv-tfoot">
+                  <tr>
+                    <td colspan="2">Totals</td>
+                    <td class="inv-total" id="inv-ft-doors">—</td>
+                    <td class="inv-total" id="inv-ft-outlets">—</td>
+                    <td class="inv-total" id="inv-ft-switches">—</td>
+                    <td class="inv-total" id="inv-ft-fixtures">—</td>
+                    <td class="inv-total" id="inv-ft-fans">—</td>
+                    <td class="inv-total" id="inv-ft-windows">—</td>
+                    <td class="inv-total" id="inv-ft-cabinet">—</td>
+                    <td class="inv-total" id="inv-ft-sqft">—</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /inv-content -->
+
+      </div><!-- /tab-materials -->
 
     </div><!-- /content-area -->
   </div><!-- /main-wrapper -->
@@ -1977,12 +2218,232 @@ function printReport() {
   window.print();
 }
 
+/* ── Materials List ──────────────────────────────────────────────── */
+let invData       = null;   // full /inventory response
+let invDirty      = {};     // {room: {field: newValue}} — unsaved edits this session
+let invOriginal   = {};     // original values before edits (for discard)
+
+const INV_FIELDS = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','sqft'];
+const INV_COL_IDS = {
+  doors:          'inv-ft-doors',
+  outlets:        'inv-ft-outlets',
+  switch_plates:  'inv-ft-switches',
+  light_fixtures: 'inv-ft-fixtures',
+  ceiling_fans:   'inv-ft-fans',
+  windows:        'inv-ft-windows',
+  cabinet_doors:  'inv-ft-cabinet',
+  sqft:           'inv-ft-sqft',
+};
+
+async function loadInventory() {
+  try {
+    const res = await fetch('/inventory');
+    if (res.status === 404) {
+      $('inv-not-ready').style.display = '';
+      $('inv-content').style.display = 'none';
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    invData = await res.json();
+    $('inv-not-ready').style.display = 'none';
+    $('inv-content').style.display = '';
+    renderInventory();
+  } catch(e) {
+    $('inv-not-ready').style.display = '';
+    $('inv-content').style.display = 'none';
+  }
+}
+
+function renderInventory() {
+  if (!invData) return;
+  const s = invData.summary || {};
+  const rooms = invData.rooms || [];
+
+  // Coverage
+  const pct = s.coverage_pct ?? 0;
+  $('inv-coverage-pct').textContent = pct + '%';
+  $('inv-coverage-fill').style.width = pct + '%';
+  const obs  = (invData.rooms_observed  || []).length;
+  const est  = (invData.rooms_estimated || []).length;
+  $('inv-coverage-detail').textContent = `(${obs} observed, ${est} estimated)`;
+
+  renderInvSummaryCards(rooms);
+  renderInvTable(rooms);
+}
+
+function currentRoomTotals(rooms) {
+  const t = { doors:0, outlets:0, switch_plates:0, light_fixtures:0, ceiling_fans:0, windows:0, cabinet_doors:0, sqft:0 };
+  for (const r of rooms) {
+    for (const f of INV_FIELDS) {
+      t[f] += Number(r[f] ?? 0);
+    }
+  }
+  return t;
+}
+
+function renderInvSummaryCards(rooms) {
+  const t = currentRoomTotals(rooms);
+  const paintGallons = Math.round(t.sqft / 350) || 0;
+
+  $('inv-total-hinges').textContent   = t.doors * 3;
+  $('inv-total-doors-sub').textContent = `${t.doors} door${t.doors !== 1 ? 's' : ''} × 3`;
+  $('inv-total-outlets').textContent   = t.outlets;
+  $('inv-total-switches').textContent  = t.switch_plates;
+  $('inv-total-fixtures').textContent  = t.light_fixtures;
+  $('inv-total-fans-sub').textContent  = `incl. ${t.ceiling_fans} ceiling fan${t.ceiling_fans !== 1 ? 's' : ''}`;
+  $('inv-total-windows').textContent   = t.windows;
+  $('inv-total-cabinet').textContent   = t.cabinet_doors;
+  $('inv-total-paint').textContent     = paintGallons + ' gal';
+  $('inv-total-sqft-sub').textContent  = `${t.sqft.toLocaleString()} sqft ÷ 350`;
+  $('inv-total-sqft').textContent      = t.sqft.toLocaleString();
+
+  // Footer totals row
+  $('inv-ft-doors').textContent    = t.doors;
+  $('inv-ft-outlets').textContent  = t.outlets;
+  $('inv-ft-switches').textContent = t.switch_plates;
+  $('inv-ft-fixtures').textContent = t.light_fixtures;
+  $('inv-ft-fans').textContent     = t.ceiling_fans;
+  $('inv-ft-windows').textContent  = t.windows;
+  $('inv-ft-cabinet').textContent  = t.cabinet_doors;
+  $('inv-ft-sqft').textContent     = t.sqft.toLocaleString();
+}
+
+function renderInvTable(rooms) {
+  const tbody = $('inv-tbody');
+  tbody.innerHTML = '';
+  const overrides = invData.overrides || {};
+
+  rooms.forEach(room => {
+    const roomKey = room.room;
+    const src     = room.source || 'observed';
+    const rowClass = src === 'estimated' ? 'inv-row-estimated' : src === 'edited' ? 'inv-row-edited' : '';
+    const badgeClass = src;
+    const badgeText  = src.charAt(0).toUpperCase() + src.slice(1);
+
+    const tr = document.createElement('tr');
+    if (rowClass) tr.className = rowClass;
+    tr.dataset.room = roomKey;
+
+    // Room name + source badge
+    tr.innerHTML = `
+      <td><span class="inv-room-name">${esc(roomKey)}</span>
+        ${room.note ? `<div style="font-size:11px;color:var(--gray-400);margin-top:2px">${esc(room.note)}</div>` : ''}
+      </td>
+      <td><span class="inv-source-badge ${badgeClass}">${badgeText}</span></td>
+    `;
+
+    // Editable number fields
+    const fieldCols = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','sqft'];
+    fieldCols.forEach(field => {
+      const td = document.createElement('td');
+      const val = room[field] ?? 0;
+      const isOverridden = overrides[roomKey]?.[field] !== undefined;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min  = '0';
+      input.className = 'inv-field' + (isOverridden ? ' dirty' : '');
+      input.value = val;
+      input.dataset.room  = roomKey;
+      input.dataset.field = field;
+      input.addEventListener('input', onInvFieldChange);
+      td.appendChild(input);
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+function onInvFieldChange(e) {
+  const input = e.target;
+  const room  = input.dataset.room;
+  const field = input.dataset.field;
+  const val   = parseInt(input.value, 10);
+  if (isNaN(val) || val < 0) return;
+
+  input.classList.add('dirty');
+
+  // Track in invDirty
+  if (!invDirty[room]) invDirty[room] = {};
+  invDirty[room][field] = val;
+
+  // Update the in-memory room row so recalculation is accurate
+  const roomRow = invData.rooms.find(r => r.room === room);
+  if (roomRow) {
+    roomRow[field] = val;
+    roomRow.source = 'edited';
+    // Update source badge in the row
+    const tr = input.closest('tr');
+    if (tr) {
+      const badge = tr.querySelector('.inv-source-badge');
+      if (badge) { badge.className = 'inv-source-badge edited'; badge.textContent = 'Edited'; }
+    }
+  }
+
+  // Recalculate summary cards + footer live
+  renderInvSummaryCards(invData.rooms);
+
+  // Show save bar
+  if (Object.keys(invDirty).length > 0) {
+    $('inv-save-bar').classList.add('visible');
+  }
+}
+
+async function saveInventoryOverrides() {
+  if (!Object.keys(invDirty).length) return;
+  const btn = $('btn-inv-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  const statusEl = $('inv-save-status');
+  statusEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/inventory/override', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ overrides: invDirty }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Merge saved overrides into invData.overrides so page knows what's saved
+    invData.overrides = { ...(invData.overrides || {}), ...invDirty };
+    invDirty = {};
+    $('inv-save-bar').classList.remove('visible');
+    statusEl.textContent = 'Saved ✓';
+    statusEl.style.display = '';
+    setTimeout(() => { statusEl.style.display = 'none'; }, 2500);
+  } catch(err) {
+    statusEl.textContent = 'Save failed: ' + err.message;
+    statusEl.style.color = 'var(--red-600)';
+    statusEl.style.display = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
+function discardInventoryChanges() {
+  invDirty = {};
+  // Reload inventory from server to reset all values
+  loadInventory();
+  $('inv-save-bar').classList.remove('visible');
+}
+
 /* ── Boot ────────────────────────────────────────────────────────── */
 async function init() {
   loadDatedFeatures();
   loadInspectionFlags();
   loadReport();
 }
+
+// Load materials tab on first click (lazy — avoids 404 noise if inventory not run yet)
+let invLoaded = false;
+document.querySelectorAll('.nav-item').forEach(item => {
+  if (item.dataset.tab === 'materials') {
+    item.addEventListener('click', () => {
+      if (!invLoaded) { invLoaded = true; loadInventory(); }
+    });
+  }
+});
 
 init();
 </script>

@@ -376,6 +376,232 @@ def build_analysis_summary(analyses: list[dict]) -> dict:
     }
 
 
+# ─── Inventory aggregation ────────────────────────────────────────────────────
+
+# Canonical room list for 130 Kingfisher Dr (River Ridge Phase 1 Section 1, 3/2, 2019 sqft).
+# Derived from comparable analysis: main-floor bedrooms, split layout, upstairs bonus room.
+_CANONICAL_ROOMS: list[str] = [
+    "primary bedroom",
+    "bedroom 2",
+    "bedroom 3",
+    "primary bathroom",
+    "full bath",
+    "kitchen",
+    "breakfast area",
+    "living room",
+    "dining room",
+    "bonus room",
+    "laundry room",
+    "entry hallway",
+    "garage",
+]
+
+# Per-room item estimates for rooms that were not photographed.
+# Keys match _CANONICAL_ROOMS exactly.
+_TYPICAL_ROOM_COUNTS: dict[str, dict] = {
+    "primary bedroom":  {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 280},
+    "bedroom 2":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 160},
+    "bedroom 3":        {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 140},
+    "primary bathroom": {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 4, "sqft": 90},
+    "full bath":        {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 2, "sqft": 55},
+    "kitchen":          {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 20, "sqft": 180},
+    "breakfast area":   {"doors": 0, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 2, "cabinet_doors": 0, "sqft": 80},
+    "living room":      {"doors": 0, "outlets": 6, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 1, "windows": 3, "cabinet_doors": 0, "sqft": 280},
+    "dining room":      {"doors": 0, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 2, "cabinet_doors": 0, "sqft": 140},
+    "bonus room":       {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 1, "windows": 2, "cabinet_doors": 0, "sqft": 220},
+    "laundry room":     {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 55},
+    "entry hallway":    {"doors": 0, "outlets": 2, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 80},
+    "garage":           {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 0, "sqft": 440},
+}
+
+# Maps the freeform room_type strings Claude returns to canonical names.
+_ROOM_ALIASES: dict[str, str] = {
+    "master bedroom":        "primary bedroom",
+    "master bath":           "primary bathroom",
+    "master bathroom":       "primary bathroom",
+    "primary bath":          "primary bathroom",
+    "owners bath":           "primary bathroom",
+    "owner bath":            "primary bathroom",
+    "half bath":             "full bath",
+    "guest bath":            "full bath",
+    "guest bathroom":        "full bath",
+    "hall bath":             "full bath",
+    "bathroom":              "full bath",
+    "second bedroom":        "bedroom 2",
+    "third bedroom":         "bedroom 3",
+    "kitchen/breakfast":     "kitchen",
+    "kitchen breakfast":     "kitchen",
+    "eat-in kitchen":        "kitchen",
+    "breakfast nook":        "breakfast area",
+    "breakfast room":        "breakfast area",
+    "family room":           "living room",
+    "great room":            "living room",
+    "upstairs bonus":        "bonus room",
+    "bonus":                 "bonus room",
+    "rec room":              "bonus room",
+    "recreation room":       "bonus room",
+    "loft":                  "bonus room",
+    "utility room":          "laundry room",
+    "laundry":               "laundry room",
+    "mudroom":               "laundry room",
+    "entry":                 "entry hallway",
+    "foyer":                 "entry hallway",
+    "hallway":               "entry hallway",
+    "hall":                  "entry hallway",
+    "2-car garage":          "garage",
+    "attached garage":       "garage",
+    "exterior front":        "garage",   # exterior shots sometimes land here
+}
+
+_INVENTORY_FIELDS = [
+    "doors_visible",
+    "outlets_visible",
+    "switch_plates_visible",
+    "light_fixtures_visible",
+    "ceiling_fans_visible",
+    "windows_visible",
+    "cabinet_doors_visible",
+]
+
+
+def _normalize_room(raw: str) -> str:
+    """Map a freeform room_type string to a canonical room name."""
+    key = raw.strip().lower()
+    return _ROOM_ALIASES.get(key, key)
+
+
+def _gap_fill_inventory(
+    observed_rooms: set[str],
+    property_summary: dict,
+) -> list[dict]:
+    """
+    Return estimated inventory rows for canonical rooms not covered by photos.
+    Uses _TYPICAL_ROOM_COUNTS tuned to the confirmed River Ridge layout.
+    """
+    estimated = []
+    for room in _CANONICAL_ROOMS:
+        if room in observed_rooms:
+            continue
+        counts = _TYPICAL_ROOM_COUNTS.get(room)
+        if counts is None:
+            continue
+        estimated.append({
+            "room":           room,
+            "source":         "estimated",
+            "note":           "Not photographed — estimated from River Ridge layout research",
+            "doors":          counts["doors"],
+            "outlets":        counts["outlets"],
+            "switch_plates":  counts["switch_plates"],
+            "light_fixtures": counts["light_fixtures"],
+            "ceiling_fans":   counts["ceiling_fans"],
+            "windows":        counts["windows"],
+            "cabinet_doors":  counts["cabinet_doors"],
+            "sqft":           counts["sqft"],
+        })
+    return estimated
+
+
+def aggregate_inventory(
+    inventory_rows: list[dict],
+    property_summary: dict | None = None,
+) -> dict:
+    """
+    Aggregate per-photo inventory counts into a shopping-list summary.
+
+    Phase 1: Group photos by canonical room, take max() per field per room
+             (most-complete photo wins), sum across distinct rooms.
+    Phase 2: Gap-fill unobserved canonical rooms from _TYPICAL_ROOM_COUNTS.
+
+    Returns summary totals + room-by-room breakdown with source labels.
+    """
+    from collections import defaultdict
+
+    # ── Phase 1: aggregate observed photos ───────────────────────────────────
+    room_buckets: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(list))
+    room_sqft_buckets: dict[str, list[int]] = defaultdict(list)
+
+    for row in inventory_rows:
+        raw_room = (row.get("room_type") or "").strip()
+        if not raw_room:
+            continue
+        room = _normalize_room(raw_room)
+
+        for field in _INVENTORY_FIELDS:
+            val = row.get(field)
+            if isinstance(val, int) and val >= 0:
+                room_buckets[room][field].append(val)
+
+        sqft = row.get("estimated_room_sqft")
+        if isinstance(sqft, int) and sqft > 0:
+            room_sqft_buckets[room].append(sqft)
+
+    observed_room_rows: list[dict] = []
+    observed_rooms: set[str] = set()
+
+    for room, fields in room_buckets.items():
+        observed_rooms.add(room)
+        row_out: dict = {"room": room, "source": "observed"}
+        for field in _INVENTORY_FIELDS:
+            vals = fields.get(field, [])
+            short = field.replace("_visible", "").replace("light_fixtures", "light_fixtures")
+            # map field names to output names
+            out_key = {
+                "doors_visible":          "doors",
+                "outlets_visible":        "outlets",
+                "switch_plates_visible":  "switch_plates",
+                "light_fixtures_visible": "light_fixtures",
+                "ceiling_fans_visible":   "ceiling_fans",
+                "windows_visible":        "windows",
+                "cabinet_doors_visible":  "cabinet_doors",
+            }[field]
+            row_out[out_key] = max(vals) if vals else 0
+        sqft_vals = room_sqft_buckets.get(room, [])
+        row_out["sqft"] = max(sqft_vals) if sqft_vals else None
+        observed_room_rows.append(row_out)
+
+    # ── Phase 2: gap-fill unobserved canonical rooms ──────────────────────────
+    estimated_room_rows = _gap_fill_inventory(observed_rooms, property_summary or {})
+
+    all_room_rows = observed_room_rows + estimated_room_rows
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    total_doors          = sum(r["doors"]          for r in all_room_rows)
+    total_outlets        = sum(r["outlets"]        for r in all_room_rows)
+    total_switch_plates  = sum(r["switch_plates"]  for r in all_room_rows)
+    total_light_fixtures = sum(r["light_fixtures"] for r in all_room_rows)
+    total_ceiling_fans   = sum(r["ceiling_fans"]   for r in all_room_rows)
+    total_windows        = sum(r["windows"]        for r in all_room_rows)
+    total_cabinet_doors  = sum(r["cabinet_doors"]  for r in all_room_rows)
+
+    total_sqft = sum(
+        r["sqft"] for r in all_room_rows if isinstance(r.get("sqft"), int)
+    )
+    paint_gallons = round(total_sqft / 350) if total_sqft else 0
+
+    total_canonical = len(_CANONICAL_ROOMS)
+    coverage_pct = round(len(observed_rooms) / total_canonical * 100) if total_canonical else 0
+
+    return {
+        "summary": {
+            "total_doors":           total_doors,
+            "total_hinges":          total_doors * 3,
+            "total_outlets":         total_outlets,
+            "total_switch_plates":   total_switch_plates,
+            "total_light_fixtures":  total_light_fixtures,
+            "total_ceiling_fans":    total_ceiling_fans,
+            "total_windows":         total_windows,
+            "total_cabinet_doors":   total_cabinet_doors,
+            "total_cabinet_hardware": total_cabinet_doors,
+            "estimated_total_sqft":  total_sqft,
+            "estimated_paint_gallons": paint_gallons,
+            "coverage_pct":          coverage_pct,
+        },
+        "rooms":           all_room_rows,
+        "rooms_observed":  sorted(observed_rooms),
+        "rooms_estimated": [r["room"] for r in estimated_room_rows],
+    }
+
+
 def _print_report_summary(report: dict, detail_level: str, buyer_profile: str) -> None:
     """Print executive summary block for one generated report."""
     print("\n" + "-" * 60)
