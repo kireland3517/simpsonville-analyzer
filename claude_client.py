@@ -111,7 +111,7 @@ def generate_text(
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=0.2 if "claude-3" in model or "claude-sonnet" in model or "claude-haiku" in model or "claude-opus" in model else 1,
+            temperature=0,
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -136,7 +136,7 @@ def generate_text(
         retry_response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=1,
+            temperature=0,
             system=system,
             messages=[
                 {"role": "user",      "content": prompt},
