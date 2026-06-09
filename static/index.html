@@ -1560,6 +1560,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const tab = item.dataset.tab;
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     $('tab-' + tab)?.classList.add('active');
+    document.querySelector('.content-area')?.scrollTo(0, 0);
   });
 });
 
