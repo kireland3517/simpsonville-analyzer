@@ -1561,6 +1561,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     $('tab-' + tab)?.classList.add('active');
     document.querySelector('.content-area')?.scrollTo(0, 0);
+    $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
   });
 });
 
