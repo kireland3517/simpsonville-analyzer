@@ -2285,7 +2285,7 @@ function currentRoomTotals(rooms) {
 
 function renderInvSummaryCards(rooms) {
   const t = currentRoomTotals(rooms);
-  const paintGallons = Math.round(t.sqft / 350) || 0;
+  const paintGallons = Math.round(t.sqft / 175) || 0;
 
   $('inv-total-hinges').textContent   = t.doors * 3;
   $('inv-total-doors-sub').textContent = `${t.doors} door${t.doors !== 1 ? 's' : ''} × 3`;
@@ -2296,7 +2296,7 @@ function renderInvSummaryCards(rooms) {
   $('inv-total-windows').textContent   = t.windows;
   $('inv-total-cabinet').textContent   = t.cabinet_doors;
   $('inv-total-paint').textContent     = paintGallons + ' gal';
-  $('inv-total-sqft-sub').textContent  = `${t.sqft.toLocaleString()} sqft ÷ 350`;
+  $('inv-total-sqft-sub').textContent  = `${t.sqft.toLocaleString()} sqft ÷ 175 (2 coats)`;
   $('inv-total-sqft').textContent      = t.sqft.toLocaleString();
 
   // Footer totals row
