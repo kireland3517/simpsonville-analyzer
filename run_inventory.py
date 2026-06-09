@@ -98,13 +98,12 @@ def load_analyzed_ids(client) -> set[str]:
 # ─── Local file scan ──────────────────────────────────────────────────────────
 
 def scan_local_files() -> list[Path]:
-    """Return all image files in the current directory tree, skipping junk folders."""
+    """Return all image files under the media/ folder (or repo root if absent)."""
+    media_dir = Path("media")
+    search_root = media_dir if media_dir.is_dir() else Path(".")
     results = []
-    for p in sorted(Path(".").rglob("*")):
+    for p in sorted(search_root.rglob("*")):
         if not p.is_file():
-            continue
-        rel = p.relative_to(".")
-        if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts[:-1]):
             continue
         if p.suffix.lower() in IMAGE_EXTS:
             results.append(p)
