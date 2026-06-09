@@ -1,14 +1,14 @@
 """
 run_analysis.py
 ───────────────
-Batch-analyzes house photos and video frames using Gemini Vision,
+Batch-analyzes house photos and video frames using Claude Vision,
 saving results to Supabase.
 
 Usage:
-    python run_analysis.py
+    python run_analysis.py [--local]
 
 Requires:
-    GEMINI_API_KEY        — Google Gemini API key
+    ANTHROPIC_API_KEY     — Anthropic API key
     SUPABASE_URL          — Supabase project URL
     SUPABASE_SERVICE_KEY  — Supabase service role key
 
@@ -32,6 +32,7 @@ from supabase import create_client
 load_dotenv()
 
 from analyzer import analyze_image, extract_video_frames
+from claude_client import get_api_key
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -76,13 +77,12 @@ def load_existing_ids(client, reanalyze_outdated: bool = False) -> set[str]:
 
 
 def scan_files() -> list[Path]:
-    """Return all image and video files in the current folder tree."""
+    """Return all image and video files under media/ (or repo root if absent)."""
+    media_dir = Path("media")
+    search_root = media_dir if media_dir.is_dir() else Path(".")
     results: list[Path] = []
-    for p in sorted(Path(".").rglob("*")):
+    for p in sorted(search_root.rglob("*")):
         if not p.is_file():
-            continue
-        rel = p.relative_to(".")
-        if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts[:-1]):
             continue
         if p.suffix.lower() in IMAGE_EXTS | VIDEO_EXTS:
             results.append(p)
@@ -108,8 +108,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
-        print("ERROR: GEMINI_API_KEY must be set.", file=sys.stderr)
+    if not get_api_key():
+        print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     client = get_supabase()
