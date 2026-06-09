@@ -1053,6 +1053,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       </div>
       <div class="top-bar-right">
         <div class="top-bar-meta" id="report-meta"></div>
+        <button class="btn-print" id="btn-regenerate" onclick="regenerateReport()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Regenerate
+        </button>
         <button class="btn-print" onclick="printReport()">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Report
@@ -1564,6 +1568,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     $('tab-' + tab)?.classList.add('active');
     document.querySelector('.content-area')?.scrollTo(0, 0);
     $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
+    $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
   });
 });
 
@@ -1585,6 +1590,34 @@ function showState(id) {
   });
   const el = $(id);
   if (el) el.classList.add('active');
+}
+
+/* ── Regenerate report (force re-run current level) ─────────────── */
+async function regenerateReport() {
+  const btn = $('btn-regenerate');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner sm"></div> Regenerating…';
+  showState('state-loading');
+  try {
+    const res = await fetch('/report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const report = await res.json();
+    populateReport(report);
+    showState('tab-roi');
+  } catch(err) {
+    $('error-msg').textContent = 'Regeneration failed: ' + err.message;
+    showState('state-error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Regenerate';
+  }
 }
 
 /* ── Generate report ─────────────────────────────────────────────── */
