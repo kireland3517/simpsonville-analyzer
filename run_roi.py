@@ -624,7 +624,7 @@ def aggregate_inventory(
     total_sqft = sum(
         r["sqft"] for r in all_room_rows if isinstance(r.get("sqft"), int)
     )
-    paint_gallons = round(total_sqft / 350) if total_sqft else 0
+    paint_gallons = round(total_sqft / 175) if total_sqft else 0
 
     total_canonical = len(_CANONICAL_ROOMS)
     coverage_pct = round(len(observed_rooms) / total_canonical * 100) if total_canonical else 0
