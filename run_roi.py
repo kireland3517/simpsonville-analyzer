@@ -519,6 +519,7 @@ _INVENTORY_FIELDS = [
     "ceiling_fans_visible",
     "windows_visible",
     "cabinet_doors_visible",
+    "door_knobs_visible",
 ]
 
 
@@ -554,6 +555,7 @@ def _gap_fill_inventory(
             "ceiling_fans":   counts["ceiling_fans"],
             "windows":        counts["windows"],
             "cabinet_doors":  counts["cabinet_doors"],
+            "door_knobs":     counts["doors"],  # one knob per door
             "sqft":           counts["sqft"],
         })
     return estimated
@@ -615,6 +617,7 @@ def aggregate_inventory(
                 "ceiling_fans_visible":   "ceiling_fans",
                 "windows_visible":        "windows",
                 "cabinet_doors_visible":  "cabinet_doors",
+                "door_knobs_visible":     "door_knobs",
             }[field]
             row_out[out_key] = max(vals) if vals else 0
         sqft_vals = room_sqft_buckets.get(room, [])
@@ -634,6 +637,7 @@ def aggregate_inventory(
     total_ceiling_fans   = sum(r["ceiling_fans"]   for r in all_room_rows)
     total_windows        = sum(r["windows"]        for r in all_room_rows)
     total_cabinet_doors  = sum(r["cabinet_doors"]  for r in all_room_rows)
+    total_door_knobs     = sum(r.get("door_knobs", 0) for r in all_room_rows)
 
     total_sqft = sum(
         r["sqft"] for r in all_room_rows if isinstance(r.get("sqft"), int)
@@ -654,6 +658,7 @@ def aggregate_inventory(
             "total_windows":         total_windows,
             "total_cabinet_doors":   total_cabinet_doors,
             "total_cabinet_hardware": total_cabinet_doors,
+            "total_door_knobs":      total_door_knobs,
             "estimated_total_sqft":  total_sqft,
             "estimated_paint_gallons": paint_gallons,
             "coverage_pct":          coverage_pct,

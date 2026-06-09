@@ -43,13 +43,15 @@ from supabase import create_client
 
 load_dotenv()
 
-from analyzer import analyze_image_inventory
+from analyzer import analyze_image_inventory, extract_video_frames
 from claude_client import get_api_key
 
 TABLE = "photo_analyses"
 FULL_RES_WIDTH = 0  # width=0 → full-resolution download
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
+VIDEO_EXTS = {".mp4"}
+VIDEO_FRAMES_DIR = Path(".video_frames")
 SKIP_DIRS  = {".git", "node_modules", "__pycache__", ".venv", "venv", ".video_frames", "static"}
 
 
@@ -97,17 +99,30 @@ def load_analyzed_ids(client) -> set[str]:
 
 # ─── Local file scan ──────────────────────────────────────────────────────────
 
-def scan_local_files() -> list[Path]:
-    """Return all image files under the media/ folder (or repo root if absent)."""
+def scan_local_files() -> list[tuple[Path, str]]:
+    """Return (path_to_analyze, row_id) pairs from media/ folder.
+
+    Images are returned as-is. Videos are expanded into extracted frames,
+    one frame every 5 seconds, using ffmpeg.
+    """
     media_dir = Path("media")
     search_root = media_dir if media_dir.is_dir() else Path(".")
-    results = []
+    work: list[tuple[Path, str]] = []
     for p in sorted(search_root.rglob("*")):
         if not p.is_file():
             continue
-        if p.suffix.lower() in IMAGE_EXTS:
-            results.append(p)
-    return results
+        ext = p.suffix.lower()
+        if ext in IMAGE_EXTS:
+            work.append((p, p.name))
+        elif ext in VIDEO_EXTS:
+            frames_dir = VIDEO_FRAMES_DIR / p.stem
+            frames = extract_video_frames(p, frames_dir, every_n_seconds=5)
+            if not frames:
+                print(f"  SKIP  {p.name} — ffmpeg not found or no frames extracted")
+                continue
+            for frame in frames:
+                work.append((frame, frame.name))
+    return work
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -131,15 +146,15 @@ def main() -> None:
 
     # ── Local mode ────────────────────────────────────────────────────────────
     if args.local:
-        files = scan_local_files()
-        if not files:
-            print("No image files found in current directory.")
+        all_work = scan_local_files()
+        if not all_work:
+            print("No image or video files found.")
             return
 
         already_done = load_analyzed_ids(client)
-        to_run = [f for f in files if f.name not in already_done]
+        to_run = [(path, row_id) for path, row_id in all_work if row_id not in already_done]
 
-        print(f"{len(files)} images found on disk.")
+        print(f"{len(all_work)} files found on disk (images + video frames).")
         print(f"{len(already_done)} already have inventory in Supabase.")
         print(f"{len(to_run)} to analyze.")
 
@@ -147,10 +162,10 @@ def main() -> None:
             print("Nothing to do.")
             return
 
-        succeeded = failed = skipped = 0
+        succeeded = failed = 0
 
-        for i, path in enumerate(to_run, start=1):
-            print(f"  [{i}/{len(to_run)}] {path.name}", end="", flush=True)
+        for i, (path, row_id) in enumerate(to_run, start=1):
+            print(f"  [{i}/{len(to_run)}] {row_id}", end="", flush=True)
 
             result = analyze_image_inventory(path)
 
@@ -159,9 +174,8 @@ def main() -> None:
                 failed += 1
                 continue
 
-            # Update only the inventory column on the matching row (keyed by filename)
             try:
-                client.table(TABLE).update({"inventory": result}).eq("id", path.name).execute()
+                client.table(TABLE).update({"inventory": result}).eq("id", row_id).execute()
                 print(f" — OK ({result.get('room_type', '?')})")
                 succeeded += 1
             except Exception as exc:

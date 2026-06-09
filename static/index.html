@@ -1488,6 +1488,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                     <th>Fans</th>
                     <th>Windows</th>
                     <th>Cabinet Doors</th>
+                    <th>Door Knobs</th>
                     <th>Sq Ft</th>
                   </tr>
                 </thead>
@@ -1502,6 +1503,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                     <td class="inv-total" id="inv-ft-fans">—</td>
                     <td class="inv-total" id="inv-ft-windows">—</td>
                     <td class="inv-total" id="inv-ft-cabinet">—</td>
+                    <td class="inv-total" id="inv-ft-knobs">—</td>
                     <td class="inv-total" id="inv-ft-sqft">—</td>
                   </tr>
                 </tfoot>
@@ -2225,7 +2227,7 @@ let invData       = null;   // full /inventory response
 let invDirty      = {};     // {room: {field: newValue}} — unsaved edits this session
 let invOriginal   = {};     // original values before edits (for discard)
 
-const INV_FIELDS = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','sqft'];
+const INV_FIELDS = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','door_knobs','sqft'];
 const INV_COL_IDS = {
   doors:          'inv-ft-doors',
   outlets:        'inv-ft-outlets',
@@ -2234,6 +2236,7 @@ const INV_COL_IDS = {
   ceiling_fans:   'inv-ft-fans',
   windows:        'inv-ft-windows',
   cabinet_doors:  'inv-ft-cabinet',
+  door_knobs:     'inv-ft-knobs',
   sqft:           'inv-ft-sqft',
 };
 
@@ -2274,7 +2277,7 @@ function renderInventory() {
 }
 
 function currentRoomTotals(rooms) {
-  const t = { doors:0, outlets:0, switch_plates:0, light_fixtures:0, ceiling_fans:0, windows:0, cabinet_doors:0, sqft:0 };
+  const t = { doors:0, outlets:0, switch_plates:0, light_fixtures:0, ceiling_fans:0, windows:0, cabinet_doors:0, door_knobs:0, sqft:0 };
   for (const r of rooms) {
     for (const f of INV_FIELDS) {
       t[f] += Number(r[f] ?? 0);
@@ -2307,6 +2310,7 @@ function renderInvSummaryCards(rooms) {
   $('inv-ft-fans').textContent     = t.ceiling_fans;
   $('inv-ft-windows').textContent  = t.windows;
   $('inv-ft-cabinet').textContent  = t.cabinet_doors;
+  $('inv-ft-knobs').textContent    = t.door_knobs;
   $('inv-ft-sqft').textContent     = t.sqft.toLocaleString();
 }
 
@@ -2335,7 +2339,7 @@ function renderInvTable(rooms) {
     `;
 
     // Editable number fields
-    const fieldCols = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','sqft'];
+    const fieldCols = ['doors','outlets','switch_plates','light_fixtures','ceiling_fans','windows','cabinet_doors','door_knobs','sqft'];
     fieldCols.forEach(field => {
       const td = document.createElement('td');
       const val = room[field] ?? 0;

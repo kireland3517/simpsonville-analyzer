@@ -126,6 +126,9 @@ fans with lights (0 if none)
 - cabinet_doors_visible: integer — count of cabinet door panels visible: kitchen cabinets, \
 bathroom vanity doors, built-ins (0 if none)
 
+- door_knobs_visible: integer — count of door knobs or lever handles visible on interior \
+doors (0 if none)
+
 - estimated_room_sqft: integer or null — your best estimate of the floor square footage of \
 this room based on visual cues. Use null if you cannot estimate (e.g., detail shot with no \
 floor visible).
@@ -163,6 +166,7 @@ _INVENTORY_ERROR_RESULT: dict = {
     "ceiling_fans_visible":   None,
     "windows_visible":        None,
     "cabinet_doors_visible":  None,
+    "door_knobs_visible":     None,
     "estimated_room_sqft":    None,
 }
 
