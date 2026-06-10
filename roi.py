@@ -449,6 +449,7 @@ def _build_upgrades_prompt(
     detail_level: str,
     buyer_profile: str,
     prior_report: dict | None = None,
+    walkthrough_block: str = "",
 ) -> str:
     """Call 2: return upgrades array only."""
     top_issues, top_upgrades = _INPUT_COUNTS[detail_level]
@@ -486,6 +487,8 @@ This is CALL 2 OF 3. Return ONLY the upgrades array — no repairs, no other fie
 
 {_GREENVILLE_COST_ANCHORS}
 
+{walkthrough_block}
+
 ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
 {ex_json}
@@ -513,6 +516,7 @@ def _build_repairs_prompt(
     detail_level: str,
     buyer_profile: str,
     prior_report: dict | None = None,
+    walkthrough_block: str = "",
 ) -> str:
     """Call 3: return repairs array only."""
     top_issues, _ = _INPUT_COUNTS[detail_level]
@@ -555,6 +559,8 @@ This is CALL 3 OF 3. Return ONLY the repairs array — no upgrades, no other fie
 {_GREENVILLE_COST_ANCHORS}
 
 {_KNOWN_REPAIR_FACTS}
+
+{walkthrough_block}
 
 ASSESSMENT CONTEXT (from prior analysis)
 -----------------------------------------
@@ -690,6 +696,15 @@ Crown molding installation (per room, labor + materials):            $400–$900
 Crown molding — whole house:                                       $2,000–$4,500
 Landscaping refresh — mulch, shrub trim, minor plantings:            $500–$1,500
 Pressure wash — driveway + exterior:                                 $200–$500
+Driveway crack repair — seal/fill (asphalt, whole driveway):         $300–$900
+Driveway crack repair — concrete patch (sections):                   $400–$1,200
+Roof drainage — gutter/downspout extension or French drain:          $400–$1,500
+Fireplace service — gas log inspection + cleaning:                   $150–$350
+Fireplace repair — non-functional gas fireplace:                     $300–$900
+Exterior lighting — fixture replacement (per fixture):               $150–$400
+Exterior lighting — whole-house refresh (6–10 fixtures):             $800–$2,000
+Appliance assessment — technician visit (all major appliances):      $100–$250
+Crawlspace access door — repair/replace:                             $150–$400
 Staging — basic furniture rental (90 days):                        $1,500–$3,500"""
 
 
@@ -750,7 +765,7 @@ _INPUT_COUNTS = {
 _RECOMMENDATION_LIMITS = {
     "executive":  {"max_upgrades": 3, "max_repairs": 3},
     "standard":   {"max_upgrades": 5, "max_repairs": 5},
-    "deep_dive":  {"max_upgrades": 8, "max_repairs": 8},
+    "deep_dive":  {"max_upgrades": 12, "max_repairs": 12},
 }
 
 _DEEP_DIVE_EXHAUSTIVE = (
@@ -1077,6 +1092,7 @@ def generate_roi_report(
     detail_level: str = "standard",
     buyer_profile: str = "general",
     prior_report: dict | None = None,
+    walkthrough_block: str = "",
 ) -> dict:
     """
     Generate a pre-sale ROI report using three sequential Gemini calls (all levels):
@@ -1117,6 +1133,7 @@ def generate_roi_report(
     upgrades_result, err = generate_text(
         _build_upgrades_prompt(
             summary, executive_summary, detail_level, buyer_profile, prior_report,
+            walkthrough_block=walkthrough_block,
         ),
         system=SYSTEM_PROMPT,
         max_tokens=_PRO_MAX_TOKENS,
@@ -1130,6 +1147,7 @@ def generate_roi_report(
     repairs_result, err = generate_text(
         _build_repairs_prompt(
             summary, executive_summary, detail_level, buyer_profile, prior_report,
+            walkthrough_block=walkthrough_block,
         ),
         system=SYSTEM_PROMPT,
         max_tokens=_PRO_MAX_TOKENS,
@@ -1195,6 +1213,7 @@ def generate_all_roi_reports(
     property_summary: dict,
     last_sale: dict,
     buyer_profile: str = "general",
+    walkthrough_block: str = "",
 ) -> dict[str, dict]:
     """
     Generate executive → standard → deep_dive in sequence so each level
@@ -1212,6 +1231,7 @@ def generate_all_roi_reports(
             detail_level=level,
             buyer_profile=buyer_profile,
             prior_report=prior,
+            walkthrough_block=walkthrough_block,
         )
         if report.get("error"):
             return {"error": report["error"], "partial": reports}

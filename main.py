@@ -29,6 +29,11 @@ GET  /inspection-flags       Top 20 inspection flags across all photo analyses
 GET  /inventory              Materials shopping list with room-by-room breakdown
 POST /inventory/override     Save user-edited room counts to Supabase
 GET  /inventory/override     Return saved room-level overrides
+GET  /walkthrough-items      List walkthrough checklist rows
+POST /walkthrough-items      Create a walkthrough row
+PATCH /walkthrough-items/{id} Update a walkthrough row
+DELETE /walkthrough-items/{id} Delete a walkthrough row
+POST /walkthrough-items/seed   Seed template rows (idempotent)
 
 Run:
     uvicorn main:app --port 8000 --reload
@@ -81,6 +86,12 @@ from roi import (
     DETAIL_LEVEL_ORDER,
 )
 from run_roi import build_analysis_summary
+from walkthrough import (
+    PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
+    build_walkthrough_prompt_block,
+    load_walkthrough_items,
+    seed_walkthrough_items,
+)
 
 # ─── Module-level state ───────────────────────────────────────────────────────
 
@@ -109,6 +120,13 @@ STATIC_INDEX = Path("static/index.html")
 
 
 # ─── Supabase helper ──────────────────────────────────────────────────────────
+
+def _walkthrough_prompt_block(sb=None) -> str:
+    """Build Gemini prompt block from saved walkthrough rows."""
+    client = sb or _sb()
+    rows = load_walkthrough_items(client, WALKTHROUGH_PROPERTY_ID)
+    return build_walkthrough_prompt_block(rows)
+
 
 def _sb():
     """Return a Supabase client if credentials are configured, else None."""
@@ -379,6 +397,7 @@ def report_generate(body: ReportRequest):
     prior: dict | None = None
     report: dict | None = None
     sb = _sb()
+    walkthrough_block = _walkthrough_prompt_block(sb)
 
     for level in chain:
         level_id = f"{level}_{buyer_profile}"
@@ -389,6 +408,7 @@ def report_generate(body: ReportRequest):
             detail_level=level,
             buyer_profile=buyer_profile,
             prior_report=prior,
+            walkthrough_block=walkthrough_block,
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=report["error"])
@@ -516,6 +536,7 @@ def report_regenerate_all(profile: str = Query(default="general")):
 
     prior: dict | None = None
     reports: dict[str, dict] = {}
+    walkthrough_block = _walkthrough_prompt_block(sb)
 
     for level in DETAIL_LEVEL_ORDER:
         print(f"\n=== Regenerating [{level}_{profile}] ===")
@@ -524,6 +545,7 @@ def report_regenerate_all(profile: str = Query(default="general")):
             detail_level=level,
             buyer_profile=profile,
             prior_report=prior,
+            walkthrough_block=walkthrough_block,
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=f"[{level}] {report['error']}")
@@ -939,6 +961,120 @@ def notes_get():
         return {"content": "", "updated_at": None}
     except Exception:
         return {"content": "", "updated_at": None}
+
+
+# ─── Walkthrough checklist endpoints ─────────────────────────────────────────
+# Supabase table: see migrations/walkthrough_items.sql
+
+class WalkthroughItemCreate(BaseModel):
+    zone: str
+    component: str
+    layer: str = "room"
+    category: str | None = None
+    condition_score: int | None = None
+    action: str = "assess"
+    owner_note: str | None = None
+    buyer_visibility: str | None = None
+    inspection_risk: str | None = None
+    estimated_cost_low: int | None = None
+    estimated_cost_high: int | None = None
+    priority_score: int | None = None
+    sort_order: int = 0
+    include_in_report: bool = True
+    source: str = "user"
+
+
+class WalkthroughItemPatch(BaseModel):
+    zone: str | None = None
+    component: str | None = None
+    layer: str | None = None
+    category: str | None = None
+    condition_score: int | None = None
+    action: str | None = None
+    owner_note: str | None = None
+    buyer_visibility: str | None = None
+    inspection_risk: str | None = None
+    estimated_cost_low: int | None = None
+    estimated_cost_high: int | None = None
+    priority_score: int | None = None
+    sort_order: int | None = None
+    include_in_report: bool | None = None
+    source: str | None = None
+
+
+@app.get("/walkthrough-items")
+def walkthrough_items_list(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        return {"items": [], "property_id": property_id}
+    items = load_walkthrough_items(sb, property_id)
+    return {"items": items, "property_id": property_id, "count": len(items)}
+
+
+@app.post("/walkthrough-items/seed")
+def walkthrough_items_seed(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+    force: bool = Query(default=False),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    return seed_walkthrough_items(sb, property_id, force=force)
+
+
+@app.post("/walkthrough-items")
+def walkthrough_items_create(
+    body: WalkthroughItemCreate,
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    row = {"property_id": property_id, **body.model_dump()}
+    try:
+        result = sb.table("walkthrough_items").insert(row).execute()
+        return {"item": (result.data or [row])[0]}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.patch("/walkthrough-items/{item_id}")
+def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+    updates["updated_at"] = "now()"
+    try:
+        result = (
+            sb.table("walkthrough_items")
+            .update(updates)
+            .eq("id", item_id)
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return {"item": result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.delete("/walkthrough-items/{item_id}")
+def walkthrough_items_delete(item_id: str):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        sb.table("walkthrough_items").delete().eq("id", item_id).execute()
+        return {"deleted": True, "id": item_id}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
 
 
 @app.post("/notes")

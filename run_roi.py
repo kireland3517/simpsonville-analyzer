@@ -48,6 +48,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from attom import get_last_sale, get_property_summary
+from walkthrough import PROPERTY_ID, build_walkthrough_prompt_block, load_walkthrough_items
 from roi import (
     generate_roi_report,
     generate_all_roi_reports,
@@ -393,6 +394,7 @@ _CANONICAL_ROOMS: list[str] = [
     "den",
     "laundry room",
     "entry hallway",
+    "sun room",
     "garage",
 ]
 
@@ -420,6 +422,8 @@ _TYPICAL_ROOM_COUNTS: dict[str, dict] = {
     "laundry room":     {"doors": 1, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 40},
     # Entry/foyer
     "entry hallway":    {"doors": 0, "outlets": 2, "switch_plates": 1, "light_fixtures": 1, "ceiling_fans": 0, "windows": 0, "cabinet_doors": 0, "sqft": 60},
+    # Sun room — owner walkthrough counts
+    "sun room":         {"doors": 2, "outlets": 7, "switch_plates": 2, "light_fixtures": 1, "ceiling_fans": 1, "windows": 0, "cabinet_doors": 0, "sqft": 200},
     # 2-car garage ~20'×20'
     "garage":           {"doors": 1, "outlets": 4, "switch_plates": 1, "light_fixtures": 2, "ceiling_fans": 0, "windows": 1, "cabinet_doors": 0, "sqft": 400},
 }
@@ -504,6 +508,11 @@ _ROOM_ALIASES: dict[str, str] = {
     "front entry":              "entry hallway",
     "stairwell":                "entry hallway",
     "staircase":                "entry hallway",
+    # Sun room
+    "sunroom":                  "sun room",
+    "sun room":                 "sun room",
+    "sunroom / patio":          "sun room",
+    "sunroom/patio":            "sun room",
     # Garage
     "2-car garage":             "garage",
     "attached garage":          "garage",
@@ -814,11 +823,14 @@ def main() -> None:
     # 4. Generate ROI report(s) in additive sequence
     property_summary = get_property_summary()
     last_sale        = get_last_sale()
+    wt_rows = load_walkthrough_items(client, PROPERTY_ID)
+    walkthrough_block = build_walkthrough_prompt_block(wt_rows)
 
     if generate_all:
         print(f"\nGenerating all ROI reports for [{buyer_profile}] buyer with Gemini...")
         result = generate_all_roi_reports(
             summary, property_summary, last_sale, buyer_profile=buyer_profile,
+            walkthrough_block=walkthrough_block,
         )
         if result.get("error"):
             print(f"ERROR generating reports: {result['error']}", file=sys.stderr)
@@ -842,6 +854,7 @@ def main() -> None:
             detail_level=level,
             buyer_profile=buyer_profile,
             prior_report=prior,
+            walkthrough_block=walkthrough_block,
         )
         if report.get("error"):
             print(f"ERROR generating report: {report['error']}", file=sys.stderr)

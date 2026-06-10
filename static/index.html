@@ -537,6 +537,47 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 }
 .deep-detail-loading { display: flex; align-items: center; gap: 8px; color: var(--gray-500); font-size: 13px; }
 .deep-detail-section { margin-bottom: 12px; }
+
+/* ── Walkthrough checklist ───────────────────────────────────────── */
+.wt-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--gray-500); margin-bottom: 12px; }
+.wt-legend span::before { content: '●'; margin-right: 4px; }
+.wt-cat-cosmetic::before { color: #6366f1; }
+.wt-cat-functional::before { color: #0891b2; }
+.wt-cat-dated::before { color: #d97706; }
+.wt-cat-inspection_risk::before { color: #dc2626; }
+.wt-layer-title { font-size: 13px; font-weight: 700; color: var(--gray-700); margin: 16px 0 8px; }
+.wt-zone-block { margin-bottom: 12px; }
+.wt-zone-name { font-size: 12px; font-weight: 600; text-transform: capitalize; color: var(--gray-600); margin-bottom: 6px; }
+.wt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wt-table th {
+  text-align: left; padding: 6px 8px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400);
+  border-bottom: 1px solid var(--gray-200);
+}
+.wt-table td { padding: 5px 6px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+.wt-table tr.wt-row-owner td { background: #fffbeb; }
+.wt-field, .wt-select {
+  width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--gray-200);
+  border-radius: 4px; font-size: 12px; background: #fff;
+}
+.wt-field:focus, .wt-select:focus { outline: none; border-color: var(--accent); }
+.wt-field.dirty, .wt-select.dirty { border-color: #f59e0b; background: #fffbeb; }
+.wt-note { min-width: 140px; }
+.wt-cost { width: 64px; }
+.wt-inc { text-align: center; }
+.wt-del { color: var(--gray-400); background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.wt-del:hover { color: var(--red-600); }
+.wt-save-bar { display: none; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 12px;
+  background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; font-size: 12px; }
+.wt-save-bar.visible { display: flex; }
+.wt-hint { font-size: 11px; color: var(--gray-400); margin-top: 8px; }
+.wt-add-row {
+  margin-top: 6px; font-size: 11px; color: var(--accent); background: none; border: none;
+  cursor: pointer; padding: 4px 0; font-weight: 600;
+}
+.wt-add-row:hover { text-decoration: underline; }
+.nav-scroll { padding-left: 28px; font-size: 13px; opacity: 0.85; }
+.nav-scroll.active { opacity: 1; }
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -1096,7 +1137,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     display: table-row !important;
     visibility: visible !important;
   }
-  .deep-detail-panel { display: none !important; }
+  .deep-detail-panel { display: block !important; visibility: visible !important; }
+  .wt-del, .wt-save-bar, .wt-hint { display: none !important; }
+  .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
 
   .table-wrap { box-shadow: none; border-radius: 0; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
@@ -1116,6 +1159,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   #section-upgrades, #section-repairs, #section-timeline {
     page-break-before: always;
   }
+  .deep-detail-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
 </style>
 </head>
@@ -1132,6 +1179,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <div class="nav-item active" data-tab="roi">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         ROI Report
+      </div>
+      <div class="nav-item nav-scroll" data-scroll="section-walkthrough" title="Jump to walkthrough checklist">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Walkthrough
       </div>
       <div class="nav-item" data-tab="property">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 7v7h4v-4h4v4h4V7L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1300,6 +1351,27 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                 <div class="dated-grid" id="dated-grid"></div>
                 <div class="dated-note">Frequency = number of photos where this feature was flagged by AI analysis</div>
               </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- 5b. Seller Walkthrough Checklist -->
+        <div class="section" id="section-walkthrough" style="display:none">
+          <details class="report-collapse">
+            <summary class="report-collapse-summary report-collapse-summary--blue">Seller Walkthrough Checklist</summary>
+            <div class="report-collapse-body">
+              <div class="wt-legend">
+                <span class="wt-cat-cosmetic">Cosmetic</span>
+                <span class="wt-cat-functional">Functional</span>
+                <span class="wt-cat-dated">Dated</span>
+                <span class="wt-cat-inspection_risk">Inspection risk</span>
+              </div>
+              <div class="wt-save-bar" id="wt-save-bar">
+                <span>Saving changes…</span>
+                <span id="wt-save-status" style="color:var(--green-700)"></span>
+              </div>
+              <div id="wt-layers"></div>
+              <p class="wt-hint">Edit rows below, then Regenerate report to apply <strong>Include in report</strong> changes to upgrades and repairs.</p>
             </div>
           </details>
         </div>
@@ -1563,6 +1635,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <div class="inv-card-sub" id="inv-total-sqft-sub">— sqft ÷ 175 (2 coats)</div>
             </div>
             <div class="inv-card">
+              <div class="inv-card-label">Trim Paint</div>
+              <div class="inv-card-value accent" id="inv-total-trim-paint">2 gal</div>
+              <div class="inv-card-sub">baseboards + door frames</div>
+            </div>
+            <div class="inv-card">
               <div class="inv-card-label">Sq Ft Estimate</div>
               <div class="inv-card-value" id="inv-total-sqft">—</div>
               <div class="inv-card-sub">paintable area</div>
@@ -1674,6 +1751,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 const fmt$ = n => n != null ? '$' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}) : '—';
 const fmtN = n => n != null ? Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}) : '—';
 const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escAttr = s => esc(s).replace(/"/g, '&quot;');
 
 /** Append text with **bold** markdown rendered as <strong> elements. */
 function appendRichText(parent, text) {
@@ -1707,6 +1785,23 @@ let reportData     = {};
 /* ── Tab switching (main nav) ───────────────────────────────────── */
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
+    const scrollTarget = item.dataset.scroll;
+    if (scrollTarget) {
+      document.querySelectorAll('.nav-item[data-tab]').forEach(n => n.classList.remove('active'));
+      document.querySelector('.nav-item[data-tab="roi"]')?.classList.add('active');
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      $('tab-roi')?.classList.add('active');
+      $('detail-tabs').style.display = '';
+      $('btn-regenerate').style.display = '';
+      const sec = $(scrollTarget);
+      if (sec) {
+        sec.style.display = 'block';
+        const details = sec.querySelector('details.report-collapse');
+        if (details) details.open = true;
+        setTimeout(() => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      }
+      return;
+    }
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
     const tab = item.dataset.tab;
@@ -1851,7 +1946,7 @@ const deepCache = {};
 const deepItemMeta = {}; // name → {description, issues} populated at render time
 
 async function fetchDeepDetail(name, type, panelEl) {
-  if (window.isPrinting) return;
+  if (window.isPrinting && !window.printPrepMode) return;
   if (deepCache[name]) { renderDeepPanel(deepCache[name], panelEl); return; }
   panelEl.innerHTML = `<div class="deep-detail-loading"><div class="spinner sm"></div> Loading deep detail…</div>`;
   try {
@@ -2323,6 +2418,8 @@ function populateReport(report) {
     <span style="font-weight:600;color:var(--gray-600)">${upgrades.length} upgrades · ${repairs.length} repairs</span>
     <span>${labelFor(report.detail_level || currentLevel)}</span>
   `;
+
+  loadWalkthrough();
 }
 
 /* ── Load dated features ─────────────────────────────────────────── */
@@ -2363,13 +2460,235 @@ async function loadInspectionFlags() {
   } catch(e) { /* non-fatal */ }
 }
 
+/* ── Walkthrough checklist ───────────────────────────────────────── */
+let wtItems = [];
+const wtPatchTimers = {};
+
+const WT_LAYER_TITLES = {
+  room: 'Layer 1: Room-by-Room Seller Assessment',
+  systems: 'Layer 2: Hidden Issues & Transaction Risk',
+};
+
+async function loadWalkthrough() {
+  try {
+    await fetch('/walkthrough-items/seed', { method: 'POST' });
+    const res = await fetch('/walkthrough-items');
+    if (!res.ok) return;
+    const data = await res.json();
+    wtItems = data.items || [];
+    if (wtItems.length) {
+      $('section-walkthrough').style.display = '';
+      renderWalkthrough(wtItems);
+    }
+  } catch (e) { /* non-fatal */ }
+}
+
+function wtOpts(values, selected, blankLabel) {
+  const opts = blankLabel ? [`<option value="">${blankLabel}</option>`] : [];
+  values.forEach(v => {
+    opts.push(`<option value="${v}"${selected === v ? ' selected' : ''}>${v}</option>`);
+  });
+  return opts.join('');
+}
+
+function renderWalkthrough(items) {
+  const container = $('wt-layers');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const byLayer = { room: {}, systems: {} };
+  items.forEach(item => {
+    const layer = item.layer === 'systems' ? 'systems' : 'room';
+    const zone = item.zone || 'other';
+    if (!byLayer[layer][zone]) byLayer[layer][zone] = [];
+    byLayer[layer][zone].push(item);
+  });
+
+  ['room', 'systems'].forEach(layer => {
+    const zones = byLayer[layer];
+    const zoneNames = Object.keys(zones).sort();
+    if (!zoneNames.length) return;
+
+    const layerEl = document.createElement('div');
+    layerEl.className = 'wt-layer';
+    const title = document.createElement('div');
+    title.className = 'wt-layer-title';
+    title.textContent = WT_LAYER_TITLES[layer];
+    layerEl.appendChild(title);
+
+    zoneNames.forEach(zone => {
+      const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const block = document.createElement('div');
+      block.className = 'wt-zone-block';
+      block.dataset.zone = zone;
+      block.dataset.layer = layer;
+
+      const table = document.createElement('table');
+      table.className = 'wt-table';
+      table.innerHTML = `
+        <thead><tr>
+          <th>Zone</th><th>Component</th><th>Category</th><th>Cond</th><th>Action</th>
+          <th>Visibility</th><th>Risk</th><th>Note</th><th>Cost</th><th>Pri</th><th>Incl</th><th></th>
+        </tr></thead>`;
+      const tbody = document.createElement('tbody');
+
+      sorted.forEach(item => {
+        const tr = document.createElement('tr');
+        if (item.source === 'owner') tr.className = 'wt-row-owner';
+        tr.dataset.id = item.id;
+
+        const costLo = item.estimated_cost_low ?? '';
+        const costHi = item.estimated_cost_high ?? '';
+        const pri = item.priority_score ?? '';
+        tr.innerHTML = `
+          <td><input class="wt-field" data-field="zone" value="${escAttr(item.zone || '')}"></td>
+          <td><input class="wt-field" data-field="component" value="${escAttr(item.component || '')}"></td>
+          <td><select class="wt-select" data-field="category">${wtOpts(['cosmetic','functional','dated','inspection_risk'], item.category, '—')}</select></td>
+          <td><select class="wt-select" data-field="condition_score">${wtOpts(['1','2','3','4','5'], item.condition_score != null ? String(item.condition_score) : '', '—')}</select></td>
+          <td><select class="wt-select" data-field="action">${wtOpts(['assess','fix','upgrade','skip'], item.action, '')}</select></td>
+          <td><select class="wt-select" data-field="buyer_visibility">${wtOpts(['high','medium','low'], item.buyer_visibility, '—')}</select></td>
+          <td><select class="wt-select" data-field="inspection_risk">${wtOpts(['high','medium','low'], item.inspection_risk, '—')}</select></td>
+          <td><input class="wt-field wt-note" data-field="owner_note" value="${escAttr(item.owner_note || '')}"></td>
+          <td class="wt-cost-cell">
+            <input class="wt-field wt-cost" data-field="estimated_cost_low" type="number" min="0" placeholder="lo" value="${costLo}">
+            <input class="wt-field wt-cost" data-field="estimated_cost_high" type="number" min="0" placeholder="hi" value="${costHi}">
+          </td>
+          <td><input class="wt-field wt-cost" data-field="priority_score" type="number" min="0" max="100" placeholder="—" value="${pri}"></td>
+          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false ? 'checked' : ''}></td>
+          <td><button type="button" class="wt-del" title="Delete row">×</button></td>`;
+
+        tr.querySelectorAll('[data-field]').forEach(el => {
+          const field = el.dataset.field;
+          const handler = () => {
+            el.classList.add('dirty');
+            let val;
+            if (el.type === 'checkbox') val = el.checked;
+            else if (el.type === 'number') val = el.value === '' ? null : parseInt(el.value, 10);
+            else if (field === 'condition_score' || field === 'priority_score') val = el.value === '' ? null : parseInt(el.value, 10);
+            else val = el.value || null;
+            scheduleWtPatch(item.id, field, val);
+          };
+          el.addEventListener('change', handler);
+          if (el.tagName === 'INPUT' && el.type !== 'checkbox') el.addEventListener('input', handler);
+        });
+
+        tr.querySelector('.wt-del').addEventListener('click', () => deleteWtItem(item.id));
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      block.appendChild(table);
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'wt-add-row';
+      addBtn.textContent = '+ Add row';
+      addBtn.addEventListener('click', () => addWtRow(zone, layer));
+      block.appendChild(addBtn);
+
+      layerEl.appendChild(block);
+    });
+
+    container.appendChild(layerEl);
+  });
+}
+
+async function addWtRow(zone, layer) {
+  const zoneItems = wtItems.filter(i => i.zone === zone && i.layer === layer);
+  const maxSort = zoneItems.reduce((m, i) => Math.max(m, i.sort_order || 0), 0);
+  try {
+    const res = await fetch('/walkthrough-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        zone,
+        layer,
+        component: 'New item',
+        category: 'functional',
+        action: 'assess',
+        sort_order: maxSort + 1,
+        source: 'user',
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    wtItems.push(data.item);
+    renderWalkthrough(wtItems);
+  } catch (e) {
+    alert('Could not add row — is the walkthrough_items table created in Supabase?');
+  }
+}
+
+function scheduleWtPatch(id, field, value) {
+  clearTimeout(wtPatchTimers[id]);
+  $('wt-save-bar')?.classList.add('visible');
+  $('wt-save-status').textContent = '';
+  wtPatchTimers[id] = setTimeout(() => patchWtItem(id, { [field]: value }), 500);
+}
+
+async function patchWtItem(id, updates) {
+  try {
+    const res = await fetch(`/walkthrough-items/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const idx = wtItems.findIndex(i => i.id === id);
+    if (idx >= 0) wtItems[idx] = data.item;
+    $('wt-save-status').textContent = 'Saved';
+    setTimeout(() => $('wt-save-bar')?.classList.remove('visible'), 1200);
+  } catch (err) {
+    $('wt-save-status').textContent = 'Save failed';
+    $('wt-save-status').style.color = 'var(--red-600)';
+  }
+}
+
+async function deleteWtItem(id) {
+  if (!confirm('Delete this walkthrough row?')) return;
+  try {
+    await fetch(`/walkthrough-items/${id}`, { method: 'DELETE' });
+    wtItems = wtItems.filter(i => i.id !== id);
+    renderWalkthrough(wtItems);
+  } catch (e) { alert('Delete failed'); }
+}
+
+async function prefetchAllDeepDetails() {
+  const jobs = [];
+  const collect = (tbodyId, type) => {
+    document.querySelectorAll(`#${tbodyId} tr.data-row`).forEach(row => {
+      const name = row.dataset.name;
+      const panel = $(`${type === 'upgrade' ? 'upgrade' : 'repair'}-deep-${row.dataset.index}`);
+      if (!name || !panel) return;
+      panel.style.display = 'block';
+      panel.dataset.loaded = '1';
+      jobs.push(fetchDeepDetail(name, type, panel));
+    });
+  };
+  collect('upgrades-tbody', 'upgrade');
+  collect('repairs-tbody', 'repair');
+  await Promise.all(jobs);
+}
+
 /* ── Print ───────────────────────────────────────────────────────── */
-function printReport() {
+async function printReport() {
   if (!$('tab-roi')?.classList.contains('active')) {
     alert('Please wait until the report finishes loading before printing.');
     return;
   }
 
+  const printBtns = document.querySelectorAll('.btn-print');
+  const origLabels = [];
+  printBtns.forEach((btn, i) => {
+    origLabels[i] = btn.innerHTML;
+    if (btn.getAttribute('onclick') === 'printReport()') {
+      btn.disabled = true;
+      btn.textContent = 'Preparing print…';
+    }
+  });
+
+  window.printPrepMode = true;
   window.isPrinting = true;
   document.body.classList.add('is-printing');
 
@@ -2387,13 +2706,25 @@ function printReport() {
   document.querySelectorAll('#tab-roi tr.detail-row[hidden]').forEach(row => {
     restoredDetails.push(row);
     row.hidden = false;
+    row.classList.remove('hidden');
   });
+
+  try {
+    await prefetchAllDeepDetails();
+  } catch (e) {
+    console.warn('Deep detail prefetch failed:', e);
+  }
 
   const finishPrint = () => {
     window.isPrinting = false;
+    window.printPrepMode = false;
     document.body.classList.remove('is-printing');
     restoredSections.forEach(([sec, display]) => { sec.style.display = display; });
     restoredDetails.forEach(row => { row.hidden = true; });
+    printBtns.forEach((btn, i) => {
+      btn.disabled = false;
+      btn.innerHTML = origLabels[i];
+    });
     window.removeEventListener('afterprint', finishPrint);
   };
 
