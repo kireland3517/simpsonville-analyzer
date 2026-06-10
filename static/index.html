@@ -1311,53 +1311,57 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     border-bottom: 1px solid #ccc;
   }
 
-  /* Dedicated walkthrough field worksheet — handwriting-first */
-  @page wt-worksheet { size: letter landscape; margin: 12mm 14mm; }
+  /* Walkthrough field worksheet — portrait, room two-column */
+  @page wt-worksheet { size: letter portrait; margin: 10mm 12mm; }
 
   body.is-printing-walkthrough .wt-print-doc {
     page: wt-worksheet;
     font-family: "Segoe UI", system-ui, sans-serif;
-    font-size: 10pt;
-    line-height: 1.35;
+    font-size: 9.5pt;
+    line-height: 1.3;
     color: #000;
     width: 100%;
     max-width: 100%;
   }
-  .wt-print-header { margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #000; break-after: avoid; }
-  .wt-print-header h1 { font-size: 13pt; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
-  .wt-print-subtitle { font-size: 10pt; font-weight: 600; margin: 3px 0 0; }
+  .wt-print-header { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #000; break-after: avoid; }
+  .wt-print-header h1 { font-size: 12pt; font-weight: 700; margin: 0; }
+  .wt-print-subtitle { font-size: 9.5pt; font-weight: 600; margin: 2px 0 0; }
   .wt-print-desc { font-size: 8pt; color: #555; margin: 2px 0 0; }
   .wt-print-body { width: 100%; }
-  .wt-print-layer-label { font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.14em; color: #666; margin: 18px 0 8px; break-after: avoid; }
+  .wt-print-layer-label { font-size: 7pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #666; margin: 14px 0 6px; break-after: avoid; }
   .wt-print-layer-label:first-child { margin-top: 0; }
-  .wt-print-room { margin-bottom: 16px; width: 100%; }
-  .wt-print-room-title { font-size: 11pt; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; margin: 0 0 10px; padding: 0 0 4px; border-bottom: 1px solid #bbb;
-    break-after: avoid; }
-  .wt-print-room-items { width: 100%; }
-  .wt-print-item {
-    margin-bottom: 16px;
+  .wt-print-room {
+    margin-bottom: 14px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  .wt-print-item:last-child { margin-bottom: 0; }
-  .wt-print-item-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+  .wt-print-room-title { font-size: 10pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; margin: 0 0 6px; padding: 0; break-after: avoid; }
+  .wt-print-room-grid {
+    display: grid;
+    grid-template-columns: 38% 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .wt-print-checklist { display: flex; flex-direction: column; gap: 1px; }
+  .wt-print-check-row { display: flex; align-items: center; gap: 7px; padding: 1px 0;
+    line-height: 1.25; font-size: 9pt; }
   .wt-print-check {
     display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 1.5px solid #000;
+    width: 13px;
+    height: 13px;
+    border: 2px solid #000;
     flex-shrink: 0;
-    margin-top: 3px;
     box-sizing: border-box;
   }
-  .wt-print-comp-name { font-size: 10.5pt; font-weight: 600; line-height: 1.35; }
-  .wt-print-saved-note { font-size: 8.5pt; color: #888; line-height: 1.4;
-    margin: 0 0 6px 20px; }
-  .wt-print-rules { margin-left: 20px; display: flex; flex-direction: column; gap: 0; }
-  .wt-print-rule { border-bottom: 1px solid #bbb; height: 26px; width: 100%; }
-  body.is-printing-wt-summary .wt-print-item { margin-bottom: 20px; }
+  .wt-print-notes-col { min-width: 0; }
+  .wt-print-notes-label { font-size: 9pt; font-weight: 600; margin-bottom: 4px; }
+  .wt-print-bullets { margin: 0 0 6px 0; padding-left: 16px; font-size: 8.5pt; color: #555;
+    line-height: 1.35; }
+  .wt-print-bullets li { margin-bottom: 2px; }
+  .wt-print-rules { display: flex; flex-direction: column; }
+  .wt-print-rule { border-bottom: 1px solid #bbb; height: 18px; width: 100%; }
   .wt-print-empty { font-size: 10pt; color: #666; margin: 16px 0; }
 
   /* Force every report section visible for print */
@@ -1776,7 +1780,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Use <strong>Print Worksheet</strong> for a clipboard-ready form with space to write, or <strong>Print Summary</strong> for recorded observations only.</p>
+          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. <strong>Print Worksheet</strong> gives a portrait room checklist; <strong>Print Summary</strong> shows rooms with observations only.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -3610,28 +3614,55 @@ function wtItemsByLayer(items) {
   return byLayer;
 }
 
-const WT_PRINT_RULE_COUNT = 3;
+const WT_PRINT_RULE_LINES_FIELD = 10;
+const WT_PRINT_RULE_LINES_SUMMARY = 8;
 
-function wtPrintItemBlock(item) {
-  const note = (item.owner_note || '').trim();
-  const rules = Array.from({ length: WT_PRINT_RULE_COUNT }, () => '<div class="wt-print-rule"></div>').join('');
+function wtPrintRuleLines(mode) {
+  return mode === 'summary' ? WT_PRINT_RULE_LINES_SUMMARY : WT_PRINT_RULE_LINES_FIELD;
+}
 
-  return `<div class="wt-print-item">
-    <div class="wt-print-item-head">
+function buildWalkthroughPrintRoom(zone, sorted, mode) {
+  const isSummary = mode === 'summary';
+  const checklistItems = isSummary
+    ? sorted.filter(i => (i.owner_note || '').trim())
+    : sorted;
+  const noted = sorted.filter(i => (i.owner_note || '').trim());
+  const ruleCount = wtPrintRuleLines(mode);
+
+  const checklist = checklistItems.map(item =>
+    `<div class="wt-print-check-row">
       <span class="wt-print-check" aria-hidden="true"></span>
-      <span class="wt-print-comp-name">${esc(item.component || '')}</span>
+      <span>${esc(item.component || '')}</span>
+    </div>`
+  ).join('');
+
+  const bullets = noted.length
+    ? `<ul class="wt-print-bullets">${noted.map(i =>
+        `<li>${esc((i.owner_note || '').trim())}</li>`
+      ).join('')}</ul>`
+    : '';
+
+  const rules = Array.from({ length: ruleCount }, () => '<div class="wt-print-rule"></div>').join('');
+
+  return `<section class="wt-print-room">
+    <h2 class="wt-print-room-title">${esc(wtPrintZoneTitle(zone))}</h2>
+    <div class="wt-print-room-grid">
+      <div class="wt-print-checklist">${checklist}</div>
+      <div class="wt-print-notes-col">
+        <div class="wt-print-notes-label">Notes:</div>
+        ${bullets}
+        <div class="wt-print-rules">${rules}</div>
+      </div>
     </div>
-    ${note ? `<div class="wt-print-saved-note">${esc(note)}</div>` : ''}
-    <div class="wt-print-rules">${rules}</div>
-  </div>`;
+  </section>`;
 }
 
 function buildWalkthroughPrintHtml(mode) {
   const isSummary = mode === 'summary';
   const title = isSummary ? 'Assessment Summary' : 'Walkthrough Field Worksheet';
   const subtitle = isSummary
-    ? 'Recorded observations — add notes on site'
-    : 'Carry on a clipboard — check each item and write observations';
+    ? 'Rooms with recorded observations'
+    : 'Check items per room — write consolidated notes on the right';
   const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const byLayer = wtItemsByLayer(wtItems);
   let body = '';
@@ -3652,15 +3683,7 @@ function buildWalkthroughPrintHtml(mode) {
 
     visibleZones.forEach(zone => {
       const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      const items = isSummary
-        ? sorted.filter(i => (i.owner_note || '').trim())
-        : sorted;
-
-      body += `<section class="wt-print-room">`;
-      body += `<h2 class="wt-print-room-title">${esc(wtPrintZoneTitle(zone))}</h2>`;
-      body += `<div class="wt-print-room-items">`;
-      items.forEach(item => { body += wtPrintItemBlock(item); });
-      body += `</div></section>`;
+      body += buildWalkthroughPrintRoom(zone, sorted, mode);
     });
   });
 
