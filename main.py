@@ -34,6 +34,7 @@ POST /walkthrough-items      Create a walkthrough row
 PATCH /walkthrough-items/{id} Update a walkthrough row
 DELETE /walkthrough-items/{id} Delete a walkthrough row
 POST /walkthrough-items/seed   Seed template rows (idempotent)
+POST /walkthrough-items/recalculate  Recalculate AI/system fields for all rows
 
 Run:
     uvicorn main:app --port 8000 --reload
@@ -88,8 +89,12 @@ from roi import (
 from run_roi import build_analysis_summary
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
+    apply_calculated_persist_fields,
     build_walkthrough_prompt_block,
+    enrich_walkthrough_item,
+    enrich_walkthrough_items,
     load_walkthrough_items,
+    recalculate_all_items,
     seed_walkthrough_items,
 )
 
@@ -1009,7 +1014,7 @@ def walkthrough_items_list(
     sb = _sb()
     if not sb:
         return {"items": [], "property_id": property_id}
-    items = load_walkthrough_items(sb, property_id)
+    items = enrich_walkthrough_items(load_walkthrough_items(sb, property_id))
     return {"items": items, "property_id": property_id, "count": len(items)}
 
 
@@ -1035,7 +1040,12 @@ def walkthrough_items_create(
     row = {"property_id": property_id, **body.model_dump()}
     try:
         result = sb.table("walkthrough_items").insert(row).execute()
-        return {"item": (result.data or [row])[0]}
+        inserted = (result.data or [row])[0]
+        calc_fields = apply_calculated_persist_fields(inserted)
+        sb.table("walkthrough_items").update({**calc_fields, "updated_at": "now()"}).eq("id", inserted["id"]).execute()
+        fresh = sb.table("walkthrough_items").select("*").eq("id", inserted["id"]).maybe_single().execute()
+        item = fresh.data if fresh and fresh.data else inserted
+        return {"item": enrich_walkthrough_item(item)}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
 
@@ -1045,9 +1055,13 @@ def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
     sb = _sb()
     if not sb:
         raise HTTPException(status_code=503, detail="Supabase not configured")
-    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    updates = body.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=422, detail="No fields to update")
+    if "estimated_cost_low" in updates or "estimated_cost_high" in updates:
+        updates["cost_overridden"] = True
+    if "priority_score" in updates:
+        updates["priority_overridden"] = True
     updates["updated_at"] = "now()"
     try:
         result = (
@@ -1058,11 +1072,28 @@ def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
         )
         if not result.data:
             raise HTTPException(status_code=404, detail="Item not found")
-        return {"item": result.data[0]}
+        row = result.data[0]
+        calc_fields = apply_calculated_persist_fields(row)
+        sb.table("walkthrough_items").update({**calc_fields, "updated_at": "now()"}).eq("id", item_id).execute()
+        fresh = (
+            sb.table("walkthrough_items").select("*").eq("id", item_id).maybe_single().execute()
+        )
+        row = fresh.data if fresh and fresh.data else row
+        return {"item": enrich_walkthrough_item(row)}
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.post("/walkthrough-items/recalculate")
+def walkthrough_items_recalculate(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    return recalculate_all_items(sb, property_id)
 
 
 @app.delete("/walkthrough-items/{item_id}")

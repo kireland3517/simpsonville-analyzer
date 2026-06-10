@@ -28,3 +28,13 @@ create index if not exists walkthrough_items_property_idx
 
 create unique index if not exists walkthrough_items_unique_seed
   on walkthrough_items (property_id, zone, component, layer);
+
+-- Calculated + override columns (also in walkthrough_items_v2.sql for existing installs)
+alter table walkthrough_items add column if not exists recommendation_bucket text;
+alter table walkthrough_items add column if not exists report_type text;
+alter table walkthrough_items add column if not exists roi_confidence text;
+alter table walkthrough_items add column if not exists buyer_impact text;
+alter table walkthrough_items add column if not exists urgency text;
+alter table walkthrough_items add column if not exists project_group text;
+alter table walkthrough_items add column if not exists cost_overridden boolean default false;
+alter table walkthrough_items add column if not exists priority_overridden boolean default false;

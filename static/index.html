@@ -571,13 +571,19 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; font-size: 12px; }
 .wt-save-bar.visible { display: flex; }
 .wt-hint { font-size: 11px; color: var(--gray-400); margin-top: 8px; }
+.wt-page { max-width: 100%; }
+.wt-page-header { margin-bottom: 16px; }
+.wt-page-title { font-size: 20px; font-weight: 700; color: var(--gray-800); margin: 0 0 4px; }
+.wt-page-sub { font-size: 13px; color: var(--gray-500); margin: 0; }
+.wt-computed { font-size: 11.5px; color: var(--gray-600); background: #f8fafc; border-radius: 4px; padding: 3px 6px; white-space: nowrap; }
+.wt-computed.bucket-fix { background: #fef2f2; color: #991b1b; }
+.wt-computed.bucket-upgrade { background: #eff6ff; color: #1d4ed8; }
+.wt-computed.bucket-skip { background: #f3f4f6; color: #6b7280; }
 .wt-add-row {
   margin-top: 6px; font-size: 11px; color: var(--accent); background: none; border: none;
   cursor: pointer; padding: 4px 0; font-weight: 600;
 }
 .wt-add-row:hover { text-decoration: underline; }
-.nav-scroll { padding-left: 28px; font-size: 13px; opacity: 0.85; }
-.nav-scroll.active { opacity: 1; }
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -1180,7 +1186,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         ROI Report
       </div>
-      <div class="nav-item nav-scroll" data-scroll="section-walkthrough" title="Jump to walkthrough checklist">
+      <div class="nav-item" data-tab="walkthrough">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Walkthrough
       </div>
@@ -1218,7 +1224,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Regenerate
         </button>
-        <button class="btn-print" onclick="printReport()">
+        <button class="btn-print" id="btn-wt-recalc" onclick="recalculateWalkthrough()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Recalculate
+        </button>
+        <button class="btn-print" id="btn-print-report" onclick="printReport()">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Report
         </button>
@@ -1355,27 +1365,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </details>
         </div>
 
-        <!-- 5b. Seller Walkthrough Checklist -->
-        <div class="section" id="section-walkthrough" style="display:none">
-          <details class="report-collapse">
-            <summary class="report-collapse-summary report-collapse-summary--blue">Seller Walkthrough Checklist</summary>
-            <div class="report-collapse-body">
-              <div class="wt-legend">
-                <span class="wt-cat-cosmetic">Cosmetic</span>
-                <span class="wt-cat-functional">Functional</span>
-                <span class="wt-cat-dated">Dated</span>
-                <span class="wt-cat-inspection_risk">Inspection risk</span>
-              </div>
-              <div class="wt-save-bar" id="wt-save-bar">
-                <span>Saving changes…</span>
-                <span id="wt-save-status" style="color:var(--green-700)"></span>
-              </div>
-              <div id="wt-layers"></div>
-              <p class="wt-hint">Edit rows below, then Regenerate report to apply <strong>Include in report</strong> changes to upgrades and repairs.</p>
-            </div>
-          </details>
-        </div>
-
         <!-- 6. Upgrades Table -->
         <div class="section" id="section-upgrades">
           <div class="section-header">
@@ -1500,6 +1489,30 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
 
       </div><!-- /tab-roi -->
+
+      <!-- Walkthrough Tab -->
+      <div id="tab-walkthrough" class="tab-pane">
+        <div class="wt-page">
+          <div class="wt-page-header">
+            <div>
+              <h2 class="wt-page-title">Seller Walkthrough Checklist</h2>
+              <p class="wt-page-sub">Layer 1: Room-by-Room Seller Assessment · Layer 2: Hidden Issues &amp; Transaction Risk</p>
+            </div>
+          </div>
+          <div class="wt-legend">
+            <span class="wt-cat-cosmetic">Cosmetic</span>
+            <span class="wt-cat-functional">Functional</span>
+            <span class="wt-cat-dated">Dated</span>
+            <span class="wt-cat-inspection_risk">Inspection risk</span>
+          </div>
+          <div class="wt-save-bar" id="wt-save-bar">
+            <span>Saving changes…</span>
+            <span id="wt-save-status" style="color:var(--green-700)"></span>
+          </div>
+          <div id="wt-layers"></div>
+          <p class="wt-hint">Calculated fields (bucket, impact, urgency, group) update automatically. Override <strong>cost</strong> or <strong>priority</strong> manually if needed. Regenerate the ROI report to apply <strong>Include in report</strong> changes.</p>
+        </div>
+      </div><!-- /tab-walkthrough -->
 
       <!-- Property Data Tab -->
       <div id="tab-property" class="tab-pane">
@@ -1782,34 +1795,35 @@ let currentLevel = 'standard';
 const BUYER_PROFILE = 'general';
 let reportData     = {};
 
+function updateTopBarForTab(tab) {
+  const sub = document.querySelector('.top-bar-sub');
+  if (sub) {
+    sub.textContent = tab === 'walkthrough'
+      ? 'Seller Walkthrough Checklist'
+      : 'Pre-Listing Analysis Report';
+  }
+  $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
+  $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
+  $('btn-print-report').style.display = tab === 'roi' ? '' : 'none';
+  $('btn-wt-recalc').style.display = tab === 'walkthrough' ? '' : 'none';
+  $('report-meta').style.display = tab === 'roi' ? '' : 'none';
+}
+
 /* ── Tab switching (main nav) ───────────────────────────────────── */
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
-    const scrollTarget = item.dataset.scroll;
-    if (scrollTarget) {
-      document.querySelectorAll('.nav-item[data-tab]').forEach(n => n.classList.remove('active'));
-      document.querySelector('.nav-item[data-tab="roi"]')?.classList.add('active');
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      $('tab-roi')?.classList.add('active');
-      $('detail-tabs').style.display = '';
-      $('btn-regenerate').style.display = '';
-      const sec = $(scrollTarget);
-      if (sec) {
-        sec.style.display = 'block';
-        const details = sec.querySelector('details.report-collapse');
-        if (details) details.open = true;
-        setTimeout(() => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-      }
-      return;
-    }
+    const tab = item.dataset.tab;
+    if (!tab) return;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
-    const tab = item.dataset.tab;
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     $('tab-' + tab)?.classList.add('active');
     document.querySelector('.content-area')?.scrollTo(0, 0);
-    $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
-    $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
+    updateTopBarForTab(tab);
+    if (tab === 'walkthrough' && !wtLoaded) {
+      wtLoaded = true;
+      loadWalkthrough();
+    }
   });
 });
 
@@ -2419,7 +2433,6 @@ function populateReport(report) {
     <span>${labelFor(report.detail_level || currentLevel)}</span>
   `;
 
-  loadWalkthrough();
 }
 
 /* ── Load dated features ─────────────────────────────────────────── */
@@ -2462,7 +2475,20 @@ async function loadInspectionFlags() {
 
 /* ── Walkthrough checklist ───────────────────────────────────────── */
 let wtItems = [];
+let wtLoaded = false;
 const wtPatchTimers = {};
+
+function wtBucketClass(bucket) {
+  if (!bucket) return '';
+  if (bucket.includes('Fix')) return 'bucket-fix';
+  if (bucket.includes('Upgrade')) return 'bucket-upgrade';
+  return 'bucket-skip';
+}
+
+function wtComputedCell(value, extraClass) {
+  if (!value && value !== 0) return '<span class="wt-computed">—</span>';
+  return `<span class="wt-computed ${extraClass || ''}">${esc(String(value))}</span>`;
+}
 
 const WT_LAYER_TITLES = {
   room: 'Layer 1: Room-by-Room Seller Assessment',
@@ -2476,11 +2502,24 @@ async function loadWalkthrough() {
     if (!res.ok) return;
     const data = await res.json();
     wtItems = data.items || [];
-    if (wtItems.length) {
-      $('section-walkthrough').style.display = '';
-      renderWalkthrough(wtItems);
-    }
+    renderWalkthrough(wtItems);
   } catch (e) { /* non-fatal */ }
+}
+
+async function recalculateWalkthrough() {
+  const btn = $('btn-wt-recalc');
+  if (btn) { btn.disabled = true; btn.textContent = 'Recalculating…'; }
+  try {
+    await fetch('/walkthrough-items/recalculate', { method: 'POST' });
+    await loadWalkthrough();
+  } catch (e) {
+    alert('Recalculate failed');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Recalculate';
+    }
+  }
 }
 
 function wtOpts(values, selected, blankLabel) {
@@ -2528,7 +2567,9 @@ function renderWalkthrough(items) {
       table.innerHTML = `
         <thead><tr>
           <th>Zone</th><th>Component</th><th>Category</th><th>Cond</th><th>Action</th>
-          <th>Visibility</th><th>Risk</th><th>Note</th><th>Cost</th><th>Pri</th><th>Incl</th><th></th>
+          <th>Vis</th><th>Risk</th><th>Note</th><th>Cost</th><th>Pri</th>
+          <th>Bucket</th><th>Type</th><th>Impact</th><th>Urgency</th><th>ROI</th><th>Group</th>
+          <th>Incl</th><th></th>
         </tr></thead>`;
       const tbody = document.createElement('tbody');
 
@@ -2553,7 +2594,13 @@ function renderWalkthrough(items) {
             <input class="wt-field wt-cost" data-field="estimated_cost_low" type="number" min="0" placeholder="lo" value="${costLo}">
             <input class="wt-field wt-cost" data-field="estimated_cost_high" type="number" min="0" placeholder="hi" value="${costHi}">
           </td>
-          <td><input class="wt-field wt-cost" data-field="priority_score" type="number" min="0" max="100" placeholder="—" value="${pri}"></td>
+          <td><input class="wt-field wt-cost" data-field="priority_score" type="number" min="0" max="100" placeholder="—" value="${pri}" title="${item.priority_overridden ? 'Manual override' : 'Auto-calculated'}"></td>
+          <td>${wtComputedCell(item.recommendation_bucket, wtBucketClass(item.recommendation_bucket))}</td>
+          <td>${wtComputedCell(item.report_type)}</td>
+          <td>${wtComputedCell(item.buyer_impact)}</td>
+          <td>${wtComputedCell(item.urgency)}</td>
+          <td>${wtComputedCell(item.roi_confidence)}</td>
+          <td>${wtComputedCell(item.project_group)}</td>
           <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false ? 'checked' : ''}></td>
           <td><button type="button" class="wt-del" title="Delete row">×</button></td>`;
 
@@ -2970,6 +3017,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
     });
   }
 });
+
+updateTopBarForTab('roi');
 
 init();
 

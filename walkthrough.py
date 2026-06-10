@@ -15,6 +15,67 @@ _VISIBILITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _RISK_ORDER = {"high": 0, "medium": 1, "low": 2}
 _ACTION_ORDER = {"fix": 0, "upgrade": 1, "assess": 2, "skip": 3}
 
+_CONDITION_WEIGHTS = {1: 40, 2: 30, 3: 15, 4: 5, 5: 0}
+_VISIBILITY_WEIGHTS = {"high": 25, "medium": 12, "low": 3}
+_RISK_WEIGHTS = {"high": 30, "medium": 15, "low": 3}
+_ACTION_WEIGHTS = {"fix": 20, "upgrade": 12, "assess": 8, "skip": -30}
+
+_HIGH_IMPACT_ZONES = frozenset({
+    "kitchen", "great room", "primary bathroom", "primary bedroom", "entry foyer", "exterior",
+})
+
+# (low, high) installed cost estimates keyed by component substring (lowercase).
+_COMPONENT_COST_ANCHORS: list[tuple[str, int, int]] = [
+    ("countertop", 1800, 4000),
+    ("cabinet", 1500, 3500),
+    ("interior paint", 3000, 5000),
+    ("trim paint", 200, 450),
+    ("closet paint", 400, 800),
+    ("popcorn ceiling", 2500, 4500),
+    ("garage door", 1600, 2400),
+    ("water damage", 300, 900),
+    ("ceiling water", 300, 900),
+    ("fireplace", 150, 900),
+    ("vanity", 500, 2000),
+    ("bath modernization", 4500, 9000),
+    ("flooring", 5000, 9500),
+    ("pressure wash", 200, 500),
+    ("front porch", 300, 1200),
+    ("driveway", 300, 1200),
+    ("gutters", 400, 1500),
+    ("drainage", 400, 1500),
+    ("exterior paint", 3500, 6500),
+    ("exterior lighting", 800, 2000),
+    ("landscaping", 500, 1500),
+    ("light fixture", 150, 350),
+    ("faucet", 150, 350),
+    ("sink", 150, 500),
+    ("appliance", 100, 4000),
+    ("gfci", 150, 250),
+    ("roof", 400, 14000),
+    ("hvac", 100, 9000),
+    ("water heater", 500, 1500),
+    ("deck", 600, 1200),
+    ("door", 100, 2500),
+    ("window", 150, 800),
+]
+
+_PROJECT_GROUP_RULES: list[tuple[str, list[str]]] = [
+    ("Interior Paint Refresh", ["interior paint", "trim paint", "closet paint", "walls / paint", "door paint", "popcorn ceiling"]),
+    ("Master Bathroom", ["vanity", "bath modernization", "shower / tub", "primary bathroom"]),
+    ("Kitchen Refresh", ["countertop", "cabinet", "sink", "appliance", "backsplash", "range", "dishwasher", "refrigerator"]),
+    ("Exterior Curb Appeal", ["pressure wash", "front porch", "landscaping", "exterior paint", "exterior lighting", "driveway"]),
+    ("Roof & Drainage", ["roof", "gutters", "drainage", "downspout"]),
+    ("Garage", ["garage door", "garage floor", "garage walls"]),
+    ("Ceiling & Moisture", ["ceiling water", "ceiling seam", "water intrusion", "water damage"]),
+    ("Doors & Hardware", ["door assessment", "exterior doors", "door hardware", "door operation", "interior doors"]),
+    ("Flooring", ["flooring"]),
+    ("Fireplace", ["fireplace"]),
+    ("HVAC & Mechanical", ["hvac", "water heater", "thermostat", "condensate", "dryer vent"]),
+    ("Electrical Safety", ["gfci", "electrical panel", "smoke detector", "co detector"]),
+    ("Plumbing", ["faucet", "leak", "drain", "toilet", "plumbing"]),
+]
+
 
 def _item(
     zone: str,
@@ -396,8 +457,182 @@ def seed_rows(property_id: str = PROPERTY_ID) -> list[dict[str, Any]]:
     return apply_owner_seeds(build_template_rows(property_id))
 
 
-def compute_priority_score(row: dict[str, Any]) -> int | None:
-    return row.get("priority_score")
+def _estimate_cost_range(row: dict[str, Any]) -> tuple[int | None, int | None]:
+    component = (row.get("component") or "").lower()
+    zone = (row.get("zone") or "").lower()
+    text = f"{component} {zone}"
+    for key, lo, hi in _COMPONENT_COST_ANCHORS:
+        if key in text:
+            return lo, hi
+    action = row.get("action") or "assess"
+    if action == "assess":
+        return 100, 500
+    if row.get("layer") == "systems":
+        return 200, 1500
+    return 150, 750
+
+
+def _derive_project_group(row: dict[str, Any]) -> str:
+    component = (row.get("component") or "").lower()
+    for group, keys in _PROJECT_GROUP_RULES:
+        if any(k in component for k in keys):
+            return group
+    zone = (row.get("zone") or "").replace("_", " ").title()
+    return zone or "General"
+
+
+def _derive_report_type(row: dict[str, Any], bucket: str) -> str:
+    action = row.get("action") or "assess"
+    if action == "skip" or bucket == "Leave Alone":
+        return "none"
+    if action == "fix" or row.get("layer") == "systems" or row.get("category") == "inspection_risk":
+        return "repair"
+    if action == "upgrade" or row.get("category") in ("cosmetic", "dated"):
+        return "upgrade"
+    if row.get("inspection_risk") == "high":
+        return "repair"
+    return "upgrade" if row.get("buyer_visibility") == "high" else "repair"
+
+
+def _derive_recommendation_bucket(row: dict[str, Any], priority: int) -> str:
+    action = row.get("action") or "assess"
+    if action == "skip":
+        return "Leave Alone"
+    if action == "fix" or row.get("inspection_risk") == "high":
+        return "Fix Before Listing"
+    if row.get("category") == "dated" and action == "skip":
+        return "Leave Alone"
+    if action == "upgrade":
+        return "Consider Upgrading"
+    if row.get("category") in ("cosmetic", "dated") and row.get("buyer_visibility") == "high":
+        return "Consider Upgrading"
+    if priority >= 55 and row.get("inspection_risk") in ("high", "medium"):
+        return "Fix Before Listing"
+    if priority >= 45 and row.get("buyer_visibility") == "high":
+        return "Consider Upgrading"
+    if priority < 25:
+        return "Leave Alone"
+    return "Consider Upgrading"
+
+
+def _derive_urgency(row: dict[str, Any]) -> str:
+    risk = row.get("inspection_risk") or "low"
+    condition = row.get("condition_score")
+    if risk == "high" or (condition is not None and condition <= 2):
+        return "high"
+    if risk == "medium" or (condition is not None and condition == 3):
+        return "medium"
+    return "low"
+
+
+def _derive_buyer_impact(row: dict[str, Any]) -> str:
+    visibility = row.get("buyer_visibility") or "medium"
+    zone = (row.get("zone") or "").lower()
+    if visibility == "high" or zone in _HIGH_IMPACT_ZONES:
+        return "high"
+    if visibility == "medium":
+        return "medium"
+    return "low"
+
+
+def _derive_roi_confidence(row: dict[str, Any], bucket: str) -> str:
+    if bucket == "Leave Alone":
+        return "low"
+    if row.get("category") in ("cosmetic", "dated") and row.get("buyer_visibility") == "high":
+        return "high"
+    if row.get("action") == "fix" and row.get("inspection_risk") == "high":
+        return "high"
+    if row.get("buyer_visibility") == "high":
+        return "medium"
+    return "low"
+
+
+def calculate_priority_score(row: dict[str, Any]) -> int:
+    score = 0
+    condition = row.get("condition_score")
+    if condition is not None:
+        score += _CONDITION_WEIGHTS.get(condition, 0)
+    score += _VISIBILITY_WEIGHTS.get(row.get("buyer_visibility") or "low", 3)
+    score += _RISK_WEIGHTS.get(row.get("inspection_risk") or "low", 3)
+    score += _ACTION_WEIGHTS.get(row.get("action") or "assess", 8)
+    return min(100, max(0, score))
+
+
+def calculate_walkthrough_fields(row: dict[str, Any]) -> dict[str, Any]:
+    """Compute system/AI fields from row inputs. Does not mutate row."""
+    priority = calculate_priority_score(row)
+    bucket = _derive_recommendation_bucket(row, priority)
+    cost_lo, cost_hi = _estimate_cost_range(row)
+    return {
+        "estimated_cost_low": cost_lo,
+        "estimated_cost_high": cost_hi,
+        "priority_score": priority,
+        "recommendation_bucket": bucket,
+        "report_type": _derive_report_type(row, bucket),
+        "roi_confidence": _derive_roi_confidence(row, bucket),
+        "buyer_impact": _derive_buyer_impact(row),
+        "urgency": _derive_urgency(row),
+        "project_group": _derive_project_group(row),
+    }
+
+
+def enrich_walkthrough_item(row: dict[str, Any]) -> dict[str, Any]:
+    """Merge calculated fields; respect user overrides for cost and priority."""
+    out = {**row}
+    calc = calculate_walkthrough_fields(row)
+
+    out["recommendation_bucket"] = calc["recommendation_bucket"]
+    out["report_type"] = calc["report_type"]
+    out["roi_confidence"] = calc["roi_confidence"]
+    out["buyer_impact"] = calc["buyer_impact"]
+    out["urgency"] = calc["urgency"]
+    out["project_group"] = calc["project_group"]
+
+    if not row.get("cost_overridden"):
+        out["estimated_cost_low"] = calc["estimated_cost_low"]
+        out["estimated_cost_high"] = calc["estimated_cost_high"]
+    if not row.get("priority_overridden"):
+        out["priority_score"] = calc["priority_score"]
+    elif row.get("priority_score") is None:
+        out["priority_score"] = calc["priority_score"]
+
+    return out
+
+
+def enrich_walkthrough_items(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [enrich_walkthrough_item(r) for r in rows]
+
+
+def apply_calculated_persist_fields(row: dict[str, Any]) -> dict[str, Any]:
+    """Return DB-safe fields to persist after calculation."""
+    enriched = enrich_walkthrough_item(row)
+    updates: dict[str, Any] = {
+        "recommendation_bucket": enriched.get("recommendation_bucket"),
+        "report_type": enriched.get("report_type"),
+        "roi_confidence": enriched.get("roi_confidence"),
+        "buyer_impact": enriched.get("buyer_impact"),
+        "urgency": enriched.get("urgency"),
+        "project_group": enriched.get("project_group"),
+    }
+    if not row.get("cost_overridden"):
+        updates["estimated_cost_low"] = enriched.get("estimated_cost_low")
+        updates["estimated_cost_high"] = enriched.get("estimated_cost_high")
+    if not row.get("priority_overridden"):
+        updates["priority_score"] = enriched.get("priority_score")
+    return updates
+
+
+def recalculate_all_items(sb, property_id: str = PROPERTY_ID) -> dict:
+    rows = load_walkthrough_items(sb, property_id)
+    updated = 0
+    for row in rows:
+        fields = apply_calculated_persist_fields(row)
+        try:
+            sb.table(WALKTHROUGH_TABLE).update({**fields, "updated_at": "now()"}).eq("id", row["id"]).execute()
+            updated += 1
+        except Exception:
+            pass
+    return {"recalculated": updated, "total": len(rows)}
 
 
 def _sort_rows_for_prompt(rows: list[dict], *, for_repairs: bool) -> list[dict]:
@@ -415,35 +650,45 @@ def _sort_rows_for_prompt(rows: list[dict], *, for_repairs: bool) -> list[dict]:
 
 
 def build_walkthrough_prompt_block(rows: list[dict[str, Any]]) -> str:
-    included = [r for r in rows if r.get("include_in_report", True)]
+    enriched = enrich_walkthrough_items(rows)
+    included = [r for r in enriched if r.get("include_in_report", True)]
     if not included:
         return ""
 
     upgrade_rows = _sort_rows_for_prompt(
-        [r for r in included if r.get("action") in ("upgrade", "assess") and r.get("layer") == "room"],
+        [r for r in included if r.get("report_type") == "upgrade" or r.get("action") == "upgrade"],
         for_repairs=False,
     )
     repair_rows = _sort_rows_for_prompt(
-        [r for r in included if r.get("action") in ("fix", "assess") or r.get("layer") == "systems"],
+        [r for r in included if r.get("report_type") == "repair" or r.get("action") == "fix"],
         for_repairs=True,
     )
+    assess_rows = [r for r in included if r.get("action") == "assess" and r not in upgrade_rows and r not in repair_rows]
+    upgrade_rows = upgrade_rows + assess_rows[:5]
 
     def fmt(r: dict) -> str:
         parts = [
             f"- [{r.get('zone', '').title()}] {r['component']}",
             f"category={r.get('category', '—')}",
             f"action={r.get('action', 'assess')}",
+            f"bucket={r.get('recommendation_bucket', '—')}",
             f"visibility={r.get('buyer_visibility', '—')}",
             f"risk={r.get('inspection_risk', '—')}",
         ]
         if r.get("condition_score"):
             parts.append(f"condition={r['condition_score']}/5")
+        if r.get("priority_score") is not None:
+            parts.append(f"priority={r['priority_score']}")
+        if r.get("project_group"):
+            parts.append(f"group=\"{r['project_group']}\"")
         if r.get("owner_note"):
             parts.append(f"note=\"{r['owner_note']}\"")
         if r.get("estimated_cost_low") or r.get("estimated_cost_high"):
             lo = r.get("estimated_cost_low") or "?"
             hi = r.get("estimated_cost_high") or "?"
             parts.append(f"cost=${lo}–${hi}")
+        if r.get("action") == "assess":
+            parts.append("scope=evaluate and quote")
         return " | ".join(parts)
 
     lines = [
@@ -511,4 +756,6 @@ def seed_walkthrough_items(sb, property_id: str = PROPERTY_ID, *, force: bool = 
             pass
 
     total = len(load_walkthrough_items(sb, property_id))
+    if seeded:
+        recalculate_all_items(sb, property_id)
     return {"seeded": seeded, "skipped": max(0, total - seeded), "total": total}
