@@ -584,7 +584,10 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   cursor: pointer; padding: 4px 0; font-weight: 600;
 }
 .wt-add-row:hover { text-decoration: underline; }
-.wt-advanced-toggle { font-size: 12px; color: var(--gray-500); display: flex; align-items: center; gap: 6px; }
+.wt-advanced-toggle { font-size: 12px; color: var(--gray-500); display: none; align-items: center; gap: 6px; }
+body.wt-dev-on .wt-advanced-toggle { display: flex; }
+.wt-dev-tools { display: none; font-size: 12px; color: var(--gray-500); gap: 8px; align-items: center; margin-bottom: 12px; }
+body.wt-dev-on .wt-dev-tools { display: flex; }
 .wt-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .wt-zone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .wt-zone-bulk { font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--gray-200);
@@ -1525,7 +1528,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <h2 class="wt-page-title">Seller Walkthrough</h2>
               <p class="wt-page-sub">Collect observations — budget recommendations are on the <a href="#" id="wt-goto-roi" style="color:var(--accent)">ROI tab</a></p>
             </div>
-            <label class="wt-advanced-toggle"><input type="checkbox" id="wt-advanced"> Advanced</label>
+            <label class="wt-advanced-toggle" id="wt-advanced-wrap"><input type="checkbox" id="wt-advanced"> Advanced (dev)</label>
+          </div>
+          <div class="wt-dev-tools" id="wt-dev-tools">
+            <button type="button" class="btn-print" onclick="recalculateWalkthrough()" style="font-size:12px;padding:4px 10px">Recalculate all</button>
+            <span>Visible with <code>?dev=1</code> — shows computed fields for debugging</span>
           </div>
           <div class="wt-save-bar" id="wt-save-bar">
             <span>Saving changes…</span>
@@ -1814,6 +1821,8 @@ const $    = id => document.getElementById(id);
 
 /* ── State ─────────────────────────────────────────────────────── */
 let currentLevel = 'budget_15k';
+const WT_DEV = new URLSearchParams(location.search).has('dev') || localStorage.getItem('wt_dev') === '1';
+if (WT_DEV) document.body.classList.add('wt-dev-on');
 let wtAdvanced = false;
 const BUYER_PROFILE = 'general';
 let reportData     = {};
@@ -1828,7 +1837,7 @@ function updateTopBarForTab(tab) {
   $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
   $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-report').style.display = tab === 'roi' ? '' : 'none';
-  $('btn-wt-recalc').style.display = tab === 'walkthrough' ? '' : 'none';
+  $('btn-wt-recalc').style.display = 'none';
   $('report-meta').style.display = tab === 'roi' ? '' : 'none';
 }
 
@@ -2544,16 +2553,15 @@ let wtItems = [];
 let wtLoaded = false;
 const wtPatchTimers = {};
 
-function wtBucketClass(bucket) {
-  if (!bucket) return '';
-  if (bucket.includes('Fix')) return 'bucket-fix';
-  if (bucket.includes('Upgrade')) return 'bucket-upgrade';
-  return 'bucket-skip';
+function wtComputedCell(value) {
+  if (value == null || value === '') return '<span class="wt-computed">—</span>';
+  return `<span class="wt-computed">${esc(String(value))}</span>`;
 }
 
-function wtComputedCell(value, extraClass) {
-  if (!value && value !== 0) return '<span class="wt-computed">—</span>';
-  return `<span class="wt-computed ${extraClass || ''}">${esc(String(value))}</span>`;
+function wtCostCell(low, high) {
+  if (low == null && high == null) return wtComputedCell(null);
+  if (low != null && high != null) return wtComputedCell(`$${fmtN(low)}–$${fmtN(high)}`);
+  return wtComputedCell(fmt$(low ?? high));
 }
 
 const WT_LAYER_TITLES = {
@@ -2644,7 +2652,7 @@ function renderWalkthrough(items) {
       const bulkBtn = document.createElement('button');
       bulkBtn.type = 'button';
       bulkBtn.className = 'wt-zone-bulk';
-      bulkBtn.textContent = 'Mark remaining as Looks Fine';
+      bulkBtn.textContent = `Mark remaining in ${zone} as Looks Fine`;
       bulkBtn.addEventListener('click', () => zoneLooksFine(zone));
       zoneHeader.appendChild(bulkBtn);
       block.appendChild(zoneHeader);
@@ -2653,9 +2661,14 @@ function renderWalkthrough(items) {
       table.className = 'wt-table';
       table.innerHTML = `
         <thead><tr>
-          <th>Component</th><th>Note</th><th>Incl</th><th></th>
+          <th>Component</th><th>Note</th><th>Looks Fine</th><th>Include</th><th></th>
           <th class="wt-advanced-col">Condition</th>
           <th class="wt-advanced-col">Action</th>
+          <th class="wt-advanced-col">Category</th>
+          <th class="wt-advanced-col">Visibility</th>
+          <th class="wt-advanced-col">Risk</th>
+          <th class="wt-advanced-col">Cost</th>
+          <th class="wt-advanced-col">Priority</th>
           <th class="wt-advanced-col">Bucket</th>
         </tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -2670,15 +2683,24 @@ function renderWalkthrough(items) {
         const fineCls = item.looks_fine ? 'wt-looks-fine done' : 'wt-looks-fine';
         const fineLabel = item.looks_fine ? '✓ Fine' : 'Looks Fine';
 
+        const delBtn = item.source === 'user'
+          ? `<button type="button" class="wt-del" title="Delete custom row">×</button>` : '';
+
         tr.innerHTML = `
           <td>${esc(item.component || '')}</td>
           <td><input class="wt-field wt-note" data-field="owner_note" placeholder="${prompt}"
               value="${escAttr(item.owner_note || '')}"></td>
-          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false && !item.looks_fine ? 'checked' : ''}></td>
           <td><button type="button" class="${fineCls}">${fineLabel}</button></td>
-          <td class="wt-advanced-col">${wtComputedCell(item.condition_display || item.condition_label || 'unknown')}</td>
+          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false && !item.looks_fine ? 'checked' : ''}></td>
+          <td>${delBtn}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.condition_label || 'unknown')}</td>
           <td class="wt-advanced-col">${wtComputedCell(item.action)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.recommendation_bucket, wtBucketClass(item.recommendation_bucket))}</td>`;
+          <td class="wt-advanced-col">${wtComputedCell(item.category)}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.buyer_visibility)}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.inspection_risk)}</td>
+          <td class="wt-advanced-col">${wtCostCell(item.estimated_cost_low, item.estimated_cost_high)}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.priority_score)}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.recommendation_bucket)}</td>`;
 
         const noteEl = tr.querySelector('[data-field="owner_note"]');
         noteEl.addEventListener('input', (e) => {
@@ -2689,6 +2711,7 @@ function renderWalkthrough(items) {
           scheduleWtPatch(item.id, 'include_in_report', el.target.checked);
         });
         tr.querySelector('.wt-looks-fine').addEventListener('click', () => looksFineItem(item.id));
+        tr.querySelector('.wt-del')?.addEventListener('click', () => deleteWtItem(item.id));
 
         tbody.appendChild(tr);
       });
