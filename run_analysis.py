@@ -137,7 +137,6 @@ def main() -> None:
             row_id = p.name
             if row_id not in existing:
                 work.append((p, row_id))
-
     total = len(work)
     if total == 0:
         print("Nothing to analyze — all files are already in Supabase.")
