@@ -1305,18 +1305,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <!-- ROI Report Tab -->
       <div id="tab-roi" class="tab-pane">
 
-        <!-- Approach summary (what this tab means) -->
-        <div class="section" id="section-approach" style="display:none">
-          <details class="report-collapse">
-            <summary class="report-collapse-summary report-collapse-summary--gray" id="approach-summary">About This Plan</summary>
-            <div class="report-collapse-body">
-              <div class="info-box gray">
-                <div class="info-box-body" id="approach-text"></div>
-              </div>
-            </div>
-          </details>
-        </div>
-
         <!-- 1. Summary Cards -->
         <div class="section">
           <div class="summary-cards">
@@ -1986,13 +1974,6 @@ function labelFor(level) {
   }[level] || level;
 }
 
-const LEVEL_DESCRIPTIONS = {
-  spend_nothing: 'What absolutely has to be fixed before listing? Transaction-risk items only — water stains, structural issues, drainage. Target under $2,500 total.',
-  budget_5k: 'I have about $5,000 — what should I spend it on? Highest-return improvements from your walkthrough and photos.',
-  budget_15k: 'Balanced prep plan within $15,000. Must-fix items plus highest-impact upgrades buyers notice.',
-  maximize: 'Highest expected market impact regardless of budget. Every evidence-backed improvement worth doing.',
-};
-
 function renderRationaleBlock(rationale) {
   if (!rationale) return '';
   const r = rationale;
@@ -2418,23 +2399,14 @@ function populateReport(report) {
   // Store on reportData so recalculate() can access
   reportData.executive_summary = ex;
 
-  // Approach summary for this tab
-  const level = normalizeLevel(report.detail_level || currentLevel);
-  const approachText = report.level_description || LEVEL_DESCRIPTIONS[level] || '';
-  if (approachText) {
-    $('section-approach').style.display = '';
-    $('approach-summary').textContent = `About ${labelFor(level)}`;
-    $('approach-text').textContent = approachText;
-  } else {
-    $('section-approach').style.display = 'none';
-  }
+  const level = normalizeLevel(currentLevel);
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
   const arvNotes = {
     spend_nothing: 'Scenario anchor — $295K achievable sale (must-fix only)',
     budget_5k:     'Scenario anchor — $298K with focused $5K improvements',
-    budget_15k:    'Scenario anchor — $300K balanced prep',
+    budget_15k:    'Scenario anchor — $300K with $15K prep plan',
     maximize:      'Scenario anchor — $305K top ceiling (307 Blue Heron + sqft)',
   };
   $('card-arv-sub').textContent = 'After-repair value ceiling';

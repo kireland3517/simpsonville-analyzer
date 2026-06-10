@@ -45,8 +45,8 @@ LEVEL_DESCRIPTIONS = {
         "from your walkthrough evidence and photos. Prioritize confirmed and observed findings."
     ),
     "budget_15k": (
-        "Balanced prep plan within $15,000. Includes must-fix items plus highest-impact "
-        "upgrades buyers notice when comparing your home to similar-era neighbors."
+        "$15,000 prep plan — must-fix items plus highest-impact upgrades buyers notice "
+        "when comparing your home to similar-era neighbors."
     ),
     "maximize": (
         "Highest expected market impact regardless of budget. Every evidence-backed "
@@ -233,7 +233,7 @@ Budget: stay within $1,500–$5,000 total investment.
         return f"""\
 BUDGET SCENARIO: {label}
 -----------------------
-Seller question: Balanced prep plan — what gets done for ~$15,000?
+Seller question: I have $15,000 — what should I spend it on?
 Budget: stay within $5,000–$15,000 total investment.
 - Include all Spend Nothing items plus highest-impact upgrades from evidence.
 - Prioritize Confirmed → Observed → selective Inferred.
