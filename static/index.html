@@ -538,67 +538,173 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .deep-detail-loading { display: flex; align-items: center; gap: 8px; color: var(--gray-500); font-size: 13px; }
 .deep-detail-section { margin-bottom: 12px; }
 
-/* ── Walkthrough checklist (room-by-room cards) ─────────────────── */
+/* ── Walkthrough (room-first, enterprise SaaS polish) ─────────────── */
 .wt-field, .wt-select {
-  width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--gray-200);
-  border-radius: 6px; font-size: 13px; background: #fff;
+  width: 100%; min-width: 0; padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 8px;
+  font-size: 13px; line-height: 1.45; background: var(--white);
+  color: var(--gray-900); transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-.wt-field:focus, .wt-select:focus { outline: none; border-color: var(--accent); }
-.wt-field.dirty { border-color: #f59e0b; background: #fffbeb; }
-.wt-save-bar { display: none; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 12px;
-  background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; font-size: 12px; }
+.wt-field:focus, .wt-select:focus, .wt-field:focus-visible, .wt-select:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.wt-field.dirty { border-color: #f59e0b; background: var(--yellow-50); }
+.wt-save-bar { display: none; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 16px;
+  background: var(--yellow-50); border: 1px solid #fcd34d; border-radius: 8px; font-size: 12px; }
 .wt-save-bar.visible { display: flex; }
-.wt-hint { font-size: 12px; color: var(--gray-500); margin-top: 16px; line-height: 1.5; }
-.wt-page { max-width: 720px; }
-.wt-page-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.wt-page-title { font-size: 20px; font-weight: 700; color: var(--gray-800); margin: 0 0 4px; }
-.wt-page-sub { font-size: 13px; color: var(--gray-500); margin: 0; }
+.wt-hint { font-size: 12px; color: var(--gray-500); margin-top: 24px; line-height: 1.6;
+  padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.wt-page { max-width: none; width: 100%; }
+.wt-page-header { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--gray-200);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.wt-page-title { font-size: 22px; font-weight: 700; color: var(--gray-900); margin: 0 0 6px;
+  letter-spacing: -0.03em; line-height: 1.2; }
+.wt-page-sub { font-size: 13px; color: var(--gray-500); margin: 0; line-height: 1.5; max-width: 52ch; }
 .wt-advanced-toggle { font-size: 12px; color: var(--gray-500); display: none; align-items: center; gap: 6px; }
 body.wt-dev-on .wt-advanced-toggle { display: flex; }
-.wt-dev-tools { display: none; font-size: 12px; color: var(--gray-500); gap: 8px; align-items: center; margin-bottom: 12px; }
+.wt-dev-tools { display: none; font-size: 12px; color: var(--gray-500); gap: 8px; align-items: center; margin-bottom: 16px; }
 body.wt-dev-on .wt-dev-tools { display: flex; }
-.wt-progress-wrap { margin-bottom: 20px; padding: 14px 16px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 8px; }
-.wt-progress-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-.wt-progress-label { font-size: 14px; font-weight: 700; color: var(--gray-800); }
-.wt-progress-count { font-size: 13px; color: var(--gray-600); font-weight: 600; }
-.wt-progress-bar { height: 10px; background: var(--gray-200); border-radius: 99px; overflow: hidden; }
-.wt-progress-fill { height: 100%; background: linear-gradient(90deg, #059669, var(--accent)); border-radius: 99px; transition: width 0.25s ease; }
-.wt-progress-sub { font-size: 11px; color: var(--gray-500); margin-top: 6px; }
-.wt-layer-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--gray-400); margin: 20px 0 10px; }
-.wt-room { border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 10px; background: #fff; overflow: hidden; }
-.wt-room[open] { box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-.wt-room-summary { padding: 14px 16px; cursor: pointer; list-style: none; display: flex;
-  align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; color: var(--gray-800); }
-.wt-room-summary::-webkit-details-marker { display: none; }
-.wt-room-summary::after { content: '▾'; color: var(--gray-400); font-size: 12px; transition: transform 0.15s; }
-.wt-room:not([open]) .wt-room-summary::after { transform: rotate(-90deg); }
-.wt-room-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.wt-room-progress { font-size: 12px; font-weight: 600; color: var(--gray-500); }
-.wt-room-progress.done { color: #047857; }
-.wt-zone-bulk { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--gray-200);
-  background: #fff; color: var(--gray-600); cursor: pointer; white-space: nowrap; }
-.wt-zone-bulk:hover { border-color: #6ee7b7; color: #047857; background: #ecfdf5; }
-.wt-room-body { padding: 0 12px 12px; border-top: 1px solid var(--gray-100); }
-.wt-comp { border-radius: 8px; margin-top: 8px; border: 1px solid transparent; }
-.wt-comp--default { background: #fff; }
-.wt-comp--observation { background: #fffbeb; border-color: #fde68a; }
-.wt-comp--fine { background: #f9fafb; border-color: #e5e7eb; opacity: 0.92; }
-.wt-comp-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; }
-.wt-comp-name { font-size: 14px; font-weight: 600; color: var(--gray-800); flex: 1 1 120px; min-width: 0; }
+.wt-progress-wrap { margin-bottom: 28px; padding: 20px 24px; background: var(--white);
+  border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03); }
+.wt-progress-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  margin-bottom: 12px; flex-wrap: wrap; }
+.wt-progress-label { font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase;
+  letter-spacing: 0.06em; }
+.wt-progress-count { font-size: 15px; color: var(--gray-900); font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.wt-progress-bar { height: 6px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
+.wt-progress-fill { height: 100%; background: var(--accent); border-radius: 99px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.wt-progress-sub { font-size: 12px; color: var(--gray-500); margin-top: 10px; line-height: 1.45;
+  font-variant-numeric: tabular-nums; }
+.wt-overview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--gray-100); }
+.wt-overview-chip { font-size: 11px; font-weight: 500; padding: 5px 11px; border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08); background: var(--gray-50); color: var(--gray-600);
+  cursor: pointer; white-space: nowrap; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+.wt-overview-chip:hover { border-color: rgba(37, 99, 235, 0.35); background: var(--accent-light); color: var(--accent); }
+.wt-overview-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+.wt-overview-chip.wt-chip-reviewed { border-color: rgba(22, 163, 74, 0.25); background: var(--green-50); color: var(--green-700); }
+.wt-overview-chip.wt-chip-in_progress { border-color: rgba(217, 119, 6, 0.25); background: var(--yellow-50); color: var(--amber-600); }
+.wt-layer { margin-bottom: 8px; }
+.wt-layer-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--gray-400); margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-100); }
+.wt-layer:first-child .wt-layer-title { margin-top: 0; }
+.wt-rooms-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+@media (min-width: 768px) {
+  .wt-rooms-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+}
+@media (min-width: 1200px) {
+  .wt-rooms-grid { gap: 20px; }
+}
+.wt-room-card { border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 12px; background: var(--white);
+  overflow: hidden; scroll-margin-top: 24px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s, box-shadow 0.15s; }
+.wt-room-card:hover { border-color: rgba(0, 0, 0, 0.12); }
+.wt-room-card[open] { border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06); }
+.wt-room-card-summary { padding: 16px 20px; cursor: pointer; list-style: none; display: flex;
+  align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--gray-50); border-bottom: 1px solid transparent;
+  transition: background 0.15s; }
+.wt-room-card[open] .wt-room-card-summary { background: var(--white); border-bottom-color: var(--gray-100); }
+.wt-room-card-summary::-webkit-details-marker { display: none; }
+.wt-room-card-summary::after { content: ''; width: 16px; height: 16px; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center no-repeat;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.wt-room-card:not([open]) .wt-room-card-summary::after { transform: rotate(-90deg); }
+.wt-room-card-summary:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.wt-room-card-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.wt-room-card-name { font-size: 15px; font-weight: 600; color: var(--gray-900); letter-spacing: -0.02em; }
+.wt-room-card-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wt-area-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 3px 7px; border-radius: 4px; background: var(--gray-100); color: var(--gray-500);
+  border: 1px solid rgba(0, 0, 0, 0.05); }
+.wt-zone-status { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; white-space: nowrap;
+  letter-spacing: 0.01em; }
+.wt-zone-status--not_started { background: var(--gray-100); color: var(--gray-600); border: 1px solid rgba(0, 0, 0, 0.06); }
+.wt-zone-status--in_progress { background: var(--yellow-50); color: #b45309; border: 1px solid rgba(217, 119, 6, 0.2); }
+.wt-zone-status--reviewed { background: var(--green-50); color: var(--green-700); border: 1px solid rgba(22, 163, 74, 0.2); }
+.wt-room-primary { padding: 20px; }
+.wt-room-concern-count { font-size: 13px; color: var(--gray-500); margin: 0 0 16px; line-height: 1.4; }
+.wt-room-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.wt-btn-no-issues, .wt-btn-add-concern, .wt-btn-save {
+  font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 16px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.wt-btn-no-issues:focus-visible, .wt-btn-add-concern:focus-visible, .wt-btn-save:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+.wt-btn-no-issues { border: 1px solid rgba(22, 163, 74, 0.3); background: var(--green-50); color: var(--green-700); }
+.wt-btn-no-issues:hover:not(:disabled) { background: #dcfce7; border-color: rgba(22, 163, 74, 0.45); }
+.wt-btn-no-issues.done { background: var(--green-700); color: #fff; border-color: var(--green-700); cursor: default; }
+.wt-btn-no-issues:disabled:not(.done) { opacity: 0.5; cursor: not-allowed; }
+.wt-btn-add-concern { border: 1px solid rgba(0, 0, 0, 0.1); background: var(--white); color: var(--gray-700);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+.wt-btn-add-concern:hover { border-color: rgba(37, 99, 235, 0.35); color: var(--accent); background: var(--accent-light); }
+.wt-btn-save { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+.wt-btn-save:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.wt-concerns-section { margin-top: 4px; }
+.wt-concerns-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gray-400); margin-bottom: 10px; }
+.wt-concerns-empty { font-size: 13px; color: var(--gray-500); line-height: 1.55; margin: 0;
+  padding: 16px; border-radius: 8px; background: var(--gray-50); border: 1px dashed var(--gray-200); text-align: center; }
+.wt-concern { padding: 14px 16px; border: 1px solid rgba(0, 0, 0, 0.06); background: var(--white);
+  border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #f59e0b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); }
+.wt-concern:last-child { margin-bottom: 0; }
+.wt-concern-component { font-size: 12px; font-weight: 600; color: var(--gray-500); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.04em; }
+.wt-concern-note { font-size: 14px; color: var(--gray-800); line-height: 1.5; margin-bottom: 10px;
+  word-break: break-word; }
+.wt-concern-actions { display: flex; gap: 12px; }
+.wt-concern-link { font-size: 12px; font-weight: 500; color: var(--accent); background: none; border: none;
+  cursor: pointer; padding: 2px 0; text-decoration: none; }
+.wt-concern-link:hover { text-decoration: underline; }
+.wt-concern-link:focus-visible { outline: none; text-decoration: underline; box-shadow: 0 2px 0 var(--accent); }
+.wt-concern-link--remove { color: var(--gray-400); }
+.wt-concern-link--remove:hover { color: var(--red-600); }
+.wt-add-concern-panel { margin: 0 0 20px; padding: 16px; border: 1px solid rgba(37, 99, 235, 0.15);
+  border-radius: 10px; background: var(--accent-light); }
+.wt-add-concern-actions { display: flex; gap: 8px; margin-top: 12px; }
+.wt-checklist { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-100); }
+.wt-checklist > summary { font-size: 12px; font-weight: 600; color: var(--gray-500); cursor: pointer;
+  padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 6px;
+  transition: color 0.15s; user-select: none; }
+.wt-checklist > summary:hover { color: var(--gray-700); }
+.wt-checklist > summary:focus-visible { outline: none; color: var(--accent); box-shadow: 0 2px 0 var(--accent); }
+.wt-checklist > summary::-webkit-details-marker { display: none; }
+.wt-checklist > summary::before { content: ''; width: 14px; height: 14px; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5l2 2 2-2'/%3E%3C/svg%3E") center no-repeat;
+  transition: transform 0.15s; }
+.wt-checklist[open] > summary::before { transform: rotate(180deg); }
+.wt-checklist-body { padding-top: 8px; }
+.wt-room-body { padding: 0 12px 12px; }
+.wt-comp { border-radius: 8px; margin-top: 6px; border: 1px solid rgba(0, 0, 0, 0.06); background: var(--white); }
+.wt-comp--default { background: var(--white); }
+.wt-comp--observation { background: var(--yellow-50); border-color: rgba(217, 119, 6, 0.2); }
+.wt-comp--fine { background: var(--gray-50); border-color: var(--gray-200); opacity: 0.95; }
+.wt-comp-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; }
+.wt-comp-name { font-size: 13px; font-weight: 600; color: var(--gray-800); flex: 1 1 120px; min-width: 0;
+  letter-spacing: -0.01em; }
 .wt-comp-preview { font-size: 12px; color: var(--gray-500); font-weight: 400; flex: 1 1 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 0; }
 .wt-comp-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .wt-comp-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.wt-btn-fine { font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 6px; cursor: pointer;
-  border: 1px solid #6ee7b7; background: #ecfdf5; color: #047857; white-space: nowrap; }
-.wt-btn-fine:hover { background: #d1fae5; }
-.wt-btn-fine.done { background: #059669; color: #fff; border-color: #059669; }
+.wt-btn-fine, .wt-btn-observe { font-size: 12px; font-weight: 600; min-height: 32px; padding: 0 12px;
+  border-radius: 6px; cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s; }
+.wt-btn-fine:focus-visible, .wt-btn-observe:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+.wt-btn-fine { border: 1px solid rgba(22, 163, 74, 0.25); background: var(--green-50); color: var(--green-700); }
+.wt-btn-fine:hover { background: #dcfce7; }
+.wt-btn-fine.done { background: var(--green-700); color: #fff; border-color: var(--green-700); }
 .wt-btn-fine:disabled { opacity: 0.4; cursor: not-allowed; }
-.wt-btn-observe { font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; cursor: pointer;
-  border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); white-space: nowrap; }
-.wt-btn-observe:hover { border-color: var(--accent); color: var(--accent); }
-.wt-btn-observe.active { border-color: var(--accent); background: var(--accent-mid); color: var(--accent); }
+.wt-btn-observe { border: 1px solid rgba(0, 0, 0, 0.08); background: var(--white); color: var(--gray-600); }
+.wt-btn-observe:hover { border-color: rgba(37, 99, 235, 0.3); color: var(--accent); }
+.wt-btn-observe.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
 .wt-comp-expand { padding: 0 12px 12px; border-top: 1px dashed var(--gray-200); margin: 0 8px 8px; padding-top: 12px; }
 .wt-expand-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--gray-500); margin-bottom: 6px; display: block; }
@@ -616,11 +722,20 @@ body.wt-advanced-on .wt-dev-panel { display: flex; }
 .wt-del { color: var(--gray-400); background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
 .wt-del:hover { color: var(--red-600); }
 @media (max-width: 600px) {
-  .wt-page { max-width: 100%; }
+  .wt-page-header { margin-bottom: 20px; padding-bottom: 16px; }
+  .wt-page-title { font-size: 20px; }
+  .wt-progress-wrap { padding: 16px; }
+  .wt-room-primary { padding: 16px; }
+  .wt-field, .wt-select, .wt-add-concern-panel textarea { font-size: 16px; }
   .wt-comp-main { flex-direction: column; align-items: stretch; }
   .wt-comp-actions { width: 100%; }
   .wt-btn-fine, .wt-btn-observe { flex: 1; }
-  .wt-room-summary { flex-wrap: wrap; }
+  .wt-room-card-summary { flex-wrap: wrap; padding: 14px 16px; }
+  .wt-room-actions { flex-direction: column; }
+  .wt-btn-no-issues, .wt-btn-add-concern, .wt-btn-save { width: 100%; justify-content: center; display: flex; align-items: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wt-progress-fill, .wt-room-card-summary::after, .wt-checklist > summary::before { transition: none; }
 }
 .rationale-block { margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 6px; }
 .rationale-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 8px; }
@@ -1194,9 +1309,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
   .rationale-block { display: block !important; visibility: visible !important; page-break-inside: avoid; }
-  .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-zone-bulk { display: none !important; }
-  .wt-room { break-inside: avoid; }
-  .wt-room-body, .wt-comp-expand { display: block !important; }
+  .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
+  .wt-concern-actions, .wt-overview { display: none !important; }
+  .wt-room-card { break-inside: avoid; }
+  .wt-room-primary, .wt-room-body, .wt-comp-expand, .wt-checklist-body { display: block !important; }
+  .wt-checklist { display: block !important; }
   .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
 
   .table-wrap { box-shadow: none; border-radius: 0; }
@@ -1551,7 +1668,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Walk each room and tap <strong>Looks Fine</strong> for items with no concerns, or <strong>Add Observation</strong> only where something matters. Regenerate the ROI report when finished.</p>
+          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Regenerate the ROI report when finished.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -2549,6 +2666,14 @@ let wtItems = [];
 let wtLoaded = false;
 const wtPatchTimers = {};
 const wtExpandedItems = new Set();
+const wtConcernFormOpen = new Set();
+const wtChecklistOpen = new Set();
+let wtConcernEditId = null;
+
+const WT_AREA_ZONES = new Set([
+  'whole house', 'interior doors', 'windows',
+  'exterior', 'structural / moisture', 'hvac', 'electrical', 'plumbing',
+]);
 
 function deriveWalkthroughState(item) {
   const hasNote = !!(item.owner_note || '').trim();
@@ -2567,17 +2692,103 @@ function wtProgressStats(items) {
   return { reviewed, total, pct: total ? Math.round((reviewed / total) * 100) : 0 };
 }
 
+function wtCapitalizeZone(zone) {
+  return (zone || '').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function wtFindRoomCard(zone) {
+  return Array.from(document.querySelectorAll('.wt-room-card')).find(c => c.dataset.zone === zone) || null;
+}
+
+function wtIsAreaZone(zone) {
+  return WT_AREA_ZONES.has((zone || '').toLowerCase());
+}
+
+function wtGroupByZone(items) {
+  const map = {};
+  items.forEach(item => {
+    const zone = item.zone || 'other';
+    if (!map[zone]) map[zone] = [];
+    map[zone].push(item);
+  });
+  return map;
+}
+
+function wtSortZoneNames(zones) {
+  return Object.keys(zones).sort((a, b) => {
+    const aMin = Math.min(...zones[a].map(i => i.sort_order || 0));
+    const bMin = Math.min(...zones[b].map(i => i.sort_order || 0));
+    return aMin - bMin;
+  });
+}
+
+function deriveZoneStatus(zoneItems) {
+  const concernCount = zoneItems.filter(i => (i.owner_note || '').trim()).length;
+  const allReviewed = zoneItems.every(isWtReviewed);
+  const anyReviewed = zoneItems.some(isWtReviewed);
+
+  if (allReviewed) {
+    return { status: 'reviewed', label: 'Reviewed', concernCount };
+  }
+  if (concernCount > 0 || anyReviewed) {
+    return { status: 'in_progress', label: 'In Progress', concernCount };
+  }
+  return { status: 'not_started', label: 'Not Started', concernCount };
+}
+
+function wtRoomProgressStats(items) {
+  const byLayer = { room: {}, systems: {} };
+  items.forEach(item => {
+    const layer = item.layer === 'systems' ? 'systems' : 'room';
+    const zone = item.zone || 'other';
+    if (!byLayer[layer][zone]) byLayer[layer][zone] = [];
+    byLayer[layer][zone].push(item);
+  });
+
+  const zones = [];
+  ['room', 'systems'].forEach(layer => {
+    wtSortZoneNames(byLayer[layer]).forEach(zone => {
+      const zoneItems = byLayer[layer][zone];
+      zones.push({ zone, layer, items: zoneItems, ...deriveZoneStatus(zoneItems) });
+    });
+  });
+
+  const total = zones.length;
+  const reviewed = zones.filter(z => z.status === 'reviewed').length;
+  return { zones, total, reviewed, pct: total ? Math.round((reviewed / total) * 100) : 0 };
+}
+
 function renderWtProgress(items) {
   const el = $('wt-progress');
   if (!el) return;
-  const { reviewed, total, pct } = wtProgressStats(items);
+  const comp = wtProgressStats(items);
+  const room = wtRoomProgressStats(items);
+  const overviewChips = room.zones.map(z => {
+    const chipCls = z.status === 'reviewed' ? 'wt-chip-reviewed'
+      : z.status === 'in_progress' ? 'wt-chip-in_progress' : '';
+    const suffix = z.concernCount > 0 ? ` · ${z.concernCount} concern${z.concernCount === 1 ? '' : 's'}` : '';
+    return `<button type="button" class="wt-overview-chip ${chipCls}" data-zone="${escAttr(z.zone)}">${esc(wtCapitalizeZone(z.zone))}${suffix}</button>`;
+  }).join('');
+
   el.innerHTML = `
-    <div class="wt-progress-top">
-      <span class="wt-progress-label">Walkthrough Progress</span>
-      <span class="wt-progress-count">${reviewed} / ${total} reviewed</span>
-    </div>
-    <div class="wt-progress-bar"><div class="wt-progress-fill" style="width:${pct}%"></div></div>
-    <div class="wt-progress-sub">${pct}% complete — reviewed means you added an observation or marked Looks Fine</div>`;
+    <div class="wt-progress-wrap">
+      <div class="wt-progress-top">
+        <span class="wt-progress-label">Walkthrough Progress</span>
+        <span class="wt-progress-count">${room.reviewed} / ${room.total} rooms &amp; areas reviewed</span>
+      </div>
+      <div class="wt-progress-bar"><div class="wt-progress-fill" style="width:${room.pct}%"></div></div>
+      <div class="wt-progress-sub">${comp.reviewed} / ${comp.total} components reviewed (${room.pct}% of rooms &amp; areas complete)</div>
+      ${overviewChips ? `<div class="wt-overview">${overviewChips}</div>` : ''}
+    </div>`;
+
+  el.querySelectorAll('.wt-overview-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const card = wtFindRoomCard(chip.dataset.zone);
+      if (!card) return;
+      card.open = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 }
 
 function renderStateBadges(item) {
@@ -2697,9 +2908,210 @@ function wtCostCell(low, high) {
 }
 
 const WT_LAYER_TITLES = {
-  room: 'Layer 1: Room-by-Room Seller Assessment',
-  systems: 'Layer 2: Hidden Issues & Transaction Risk',
+  room: 'Layer 1: Rooms',
+  systems: 'Layer 2: Systems & Areas',
 };
+
+function wtZoneConcerns(zoneItems) {
+  return zoneItems
+    .filter(i => (i.owner_note || '').trim())
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
+function openWtConcernForm(zone, itemId) {
+  wtConcernFormOpen.add(zone);
+  wtConcernEditId = itemId || null;
+  renderWalkthrough(wtItems);
+  requestAnimationFrame(() => {
+    const card = wtFindRoomCard(zone);
+    if (card) card.open = true;
+    card?.querySelector('[data-field="owner_note"]')?.focus();
+  });
+}
+
+function closeWtConcernForm(zone) {
+  wtConcernFormOpen.delete(zone);
+  wtConcernEditId = null;
+  renderWalkthrough(wtItems);
+}
+
+function saveWtConcern(zone, layer) {
+  const card = wtFindRoomCard(zone);
+  if (!card) return;
+  const component = card.querySelector('[data-field="concern_component"]')?.value;
+  const note = (card.querySelector('[data-field="owner_note"]')?.value || '').trim();
+  if (!component) { alert('Choose a component'); return; }
+  if (!note) { alert('Enter an observation'); return; }
+  const item = wtItems.find(i => i.zone === zone && i.layer === layer && i.component === component);
+  if (!item) { alert('Component not found'); return; }
+  wtConcernFormOpen.delete(zone);
+  wtConcernEditId = null;
+  scheduleWtPatch(item.id, { owner_note: note, looks_fine: false, include_in_report: true });
+}
+
+function removeWtConcern(id) {
+  if (!confirm('Remove this concern?')) return;
+  scheduleWtPatch(id, { owner_note: null, include_in_report: false });
+}
+
+function bindWtConcernPanel(panel, zone, layer, sorted) {
+  const selectEl = panel.querySelector('[data-field="concern_component"]');
+  const noteEl = panel.querySelector('[data-field="owner_note"]');
+  const guidanceEl = panel.querySelector('.wt-guidance');
+
+  const updateGuidance = () => {
+    const comp = selectEl?.value;
+    const item = sorted.find(i => i.component === comp);
+    if (guidanceEl) guidanceEl.textContent = item?.assessment_prompt || '';
+  };
+
+  selectEl?.addEventListener('change', updateGuidance);
+  panel.querySelector('.wt-btn-save-concern')?.addEventListener('click', () => saveWtConcern(zone, layer));
+  panel.querySelector('.wt-btn-cancel-concern')?.addEventListener('click', () => closeWtConcernForm(zone));
+}
+
+function buildWtAddConcernPanel(zone, layer, sorted) {
+  const editItem = wtConcernEditId
+    ? sorted.find(i => i.id === wtConcernEditId)
+    : null;
+  const selectedComponent = editItem?.component || sorted[0]?.component || '';
+  const selectedNote = editItem?.owner_note || '';
+  const options = sorted.map(i =>
+    `<option value="${escAttr(i.component)}"${i.component === selectedComponent ? ' selected' : ''}>${esc(i.component)}</option>`
+  ).join('');
+  const guidanceItem = sorted.find(i => i.component === selectedComponent);
+
+  const panel = document.createElement('div');
+  panel.className = 'wt-add-concern-panel';
+  panel.innerHTML = `
+    <label class="wt-expand-label">Component</label>
+    <select class="wt-select" data-field="concern_component">${options}</select>
+    <label class="wt-expand-label" style="margin-top:10px">Observation</label>
+    <textarea class="wt-field" data-field="owner_note" rows="3" style="resize:vertical">${esc(selectedNote)}</textarea>
+    <p class="wt-guidance">${esc(guidanceItem?.assessment_prompt || '')}</p>
+    <div class="wt-add-concern-actions">
+      <button type="button" class="wt-btn-save wt-btn-save-concern">Save</button>
+      <button type="button" class="wt-btn-add-concern wt-btn-cancel-concern">Cancel</button>
+    </div>`;
+  bindWtConcernPanel(panel, zone, layer, sorted);
+  return panel;
+}
+
+function buildWtRoomCard(zone, layer, sorted) {
+  const zoneStatus = deriveZoneStatus(sorted);
+  const concerns = wtZoneConcerns(sorted);
+  const allReviewed = sorted.every(isWtReviewed);
+  const noIssuesDone = allReviewed && concerns.length === 0;
+  const reviewedWithConcerns = allReviewed && concerns.length > 0;
+  const isArea = wtIsAreaZone(zone);
+  const concernLabel = concerns.length === 1 ? '1 concern noted' : `${concerns.length} concerns noted`;
+
+  const details = document.createElement('details');
+  details.className = 'wt-room-card';
+  details.dataset.zone = zone;
+
+  const summary = document.createElement('summary');
+  summary.className = 'wt-room-card-summary';
+  summary.innerHTML = `
+    <span class="wt-room-card-title">
+      <span class="wt-room-card-name">${esc(wtCapitalizeZone(zone))}</span>
+      ${isArea ? '<span class="wt-area-tag">Area</span>' : ''}
+    </span>
+    <span class="wt-room-card-meta">
+      <span class="wt-zone-status wt-zone-status--${zoneStatus.status}">${esc(zoneStatus.label)}</span>
+    </span>`;
+  details.appendChild(summary);
+
+  const primary = document.createElement('div');
+  primary.className = 'wt-room-primary';
+
+  const countLine = document.createElement('p');
+  countLine.className = 'wt-room-concern-count';
+  countLine.textContent = concerns.length ? concernLabel : 'No concerns noted';
+  primary.appendChild(countLine);
+
+  const actions = document.createElement('div');
+  actions.className = 'wt-room-actions';
+  const noIssuesBtn = document.createElement('button');
+  noIssuesBtn.type = 'button';
+  noIssuesBtn.className = `wt-btn-no-issues${noIssuesDone ? ' done' : ''}`;
+  noIssuesBtn.textContent = noIssuesDone ? '✓ No Issues Noted'
+    : reviewedWithConcerns ? 'Review Complete' : 'No Issues Noted';
+  if (allReviewed) noIssuesBtn.disabled = true;
+  else noIssuesBtn.title = concerns.length
+    ? 'Mark remaining unchecked items as no issues'
+    : 'Mark all items in this ' + (isArea ? 'area' : 'room') + ' as no issues';
+  noIssuesBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    zoneLooksFine(zone);
+  });
+  actions.appendChild(noIssuesBtn);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'wt-btn-add-concern';
+  addBtn.textContent = '+ Add Concern';
+  addBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openWtConcernForm(zone, null);
+  });
+  actions.appendChild(addBtn);
+  primary.appendChild(actions);
+
+  if (wtConcernFormOpen.has(zone)) {
+    primary.appendChild(buildWtAddConcernPanel(zone, layer, sorted));
+  }
+
+  const concernsSection = document.createElement('div');
+  concernsSection.className = 'wt-concerns-section';
+  const concernsLabel = document.createElement('div');
+  concernsLabel.className = 'wt-concerns-label';
+  concernsLabel.textContent = 'Concerns';
+  concernsSection.appendChild(concernsLabel);
+
+  if (!concerns.length) {
+    const empty = document.createElement('p');
+    empty.className = 'wt-concerns-empty';
+    empty.textContent = 'Nothing noted yet — tap No Issues Noted if everything looks fine.';
+    concernsSection.appendChild(empty);
+  } else {
+    concerns.forEach(item => {
+      const block = document.createElement('div');
+      block.className = 'wt-concern';
+      block.innerHTML = `
+        <div class="wt-concern-component">${esc(item.component)}</div>
+        <div class="wt-concern-note">${esc(item.owner_note)}</div>
+        <div class="wt-concern-actions">
+          <button type="button" class="wt-concern-link" data-action="edit">Edit</button>
+          <button type="button" class="wt-concern-link wt-concern-link--remove" data-action="remove">Remove</button>
+        </div>`;
+      block.querySelector('[data-action="edit"]')?.addEventListener('click', () => openWtConcernForm(zone, item.id));
+      block.querySelector('[data-action="remove"]')?.addEventListener('click', () => removeWtConcern(item.id));
+      concernsSection.appendChild(block);
+    });
+  }
+  primary.appendChild(concernsSection);
+
+  const checklist = document.createElement('details');
+  checklist.className = 'wt-checklist';
+  if (wtChecklistOpen.has(zone)) checklist.open = true;
+  const checklistSummary = document.createElement('summary');
+  checklistSummary.textContent = `View Detailed Checklist (${sorted.length} components)`;
+  checklist.appendChild(checklistSummary);
+  checklist.addEventListener('toggle', () => {
+    if (checklist.open) wtChecklistOpen.add(zone);
+    else wtChecklistOpen.delete(zone);
+  });
+
+  const checklistBody = document.createElement('div');
+  checklistBody.className = 'wt-checklist-body';
+  sorted.forEach(item => checklistBody.appendChild(buildWtComponentEl(item)));
+  checklist.appendChild(checklistBody);
+  primary.appendChild(checklist);
+  details.appendChild(primary);
+
+  return details;
+}
 
 async function loadWalkthrough() {
   try {
@@ -2762,7 +3174,7 @@ function renderWalkthrough(items) {
 
   ['room', 'systems'].forEach(layer => {
     const zones = byLayer[layer];
-    const zoneNames = Object.keys(zones).sort();
+    const zoneNames = wtSortZoneNames(zones);
     if (!zoneNames.length) return;
 
     const layerEl = document.createElement('div');
@@ -2772,38 +3184,27 @@ function renderWalkthrough(items) {
     title.textContent = WT_LAYER_TITLES[layer];
     layerEl.appendChild(title);
 
+    const grid = document.createElement('div');
+    grid.className = 'wt-rooms-grid';
+
+    let openedFirstPending = false;
     zoneNames.forEach(zone => {
       const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      const zoneStats = wtProgressStats(sorted);
-      const zoneDone = zoneStats.reviewed === zoneStats.total;
-      const hasUnreviewed = zoneStats.reviewed < zoneStats.total;
+      const zoneStatus = deriveZoneStatus(sorted);
+      const hasConcerns = zoneStatus.concernCount > 0;
+      const isPending = zoneStatus.status !== 'reviewed';
 
-      const details = document.createElement('details');
-      details.className = 'wt-room';
-      details.open = hasUnreviewed;
-
-      const summary = document.createElement('summary');
-      summary.className = 'wt-room-summary';
-      summary.innerHTML = `
-        <span style="text-transform:capitalize">${esc(zone)}</span>
-        <span class="wt-room-meta">
-          <span class="wt-room-progress${zoneDone ? ' done' : ''}">${zoneStats.reviewed}/${zoneStats.total} reviewed</span>
-          <button type="button" class="wt-zone-bulk">Mark rest Looks Fine</button>
-        </span>`;
-      summary.querySelector('.wt-zone-bulk')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        zoneLooksFine(zone);
-      });
-      details.appendChild(summary);
-
-      const body = document.createElement('div');
-      body.className = 'wt-room-body';
-      sorted.forEach(item => body.appendChild(buildWtComponentEl(item)));
-      details.appendChild(body);
-      layerEl.appendChild(details);
+      const card = buildWtRoomCard(zone, layer, sorted);
+      if (hasConcerns) {
+        card.open = true;
+      } else if (isPending && !openedFirstPending) {
+        card.open = true;
+        openedFirstPending = true;
+      }
+      grid.appendChild(card);
     });
 
+    layerEl.appendChild(grid);
     container.appendChild(layerEl);
   });
 }
