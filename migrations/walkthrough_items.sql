@@ -38,3 +38,13 @@ alter table walkthrough_items add column if not exists urgency text;
 alter table walkthrough_items add column if not exists project_group text;
 alter table walkthrough_items add column if not exists cost_overridden boolean default false;
 alter table walkthrough_items add column if not exists priority_overridden boolean default false;
+
+-- v3 automation columns (also in walkthrough_items_v3.sql for existing installs)
+alter table walkthrough_items add column if not exists condition_label text;
+alter table walkthrough_items add column if not exists looks_fine boolean default false;
+alter table walkthrough_items add column if not exists condition_overridden boolean default false;
+alter table walkthrough_items add column if not exists category_overridden boolean default false;
+alter table walkthrough_items add column if not exists visibility_overridden boolean default false;
+alter table walkthrough_items add column if not exists risk_overridden boolean default false;
+alter table walkthrough_items add column if not exists action_overridden boolean default false;
+alter table walkthrough_items add column if not exists observations jsonb;

@@ -87,15 +87,18 @@ from roi import (
     DETAIL_LEVEL_ORDER,
 )
 from run_roi import build_analysis_summary
+from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
     apply_calculated_persist_fields,
+    apply_looks_fine,
     build_walkthrough_prompt_block,
     enrich_walkthrough_item,
     enrich_walkthrough_items,
     load_walkthrough_items,
     recalculate_all_items,
     seed_walkthrough_items,
+    zone_looks_fine_remaining,
 )
 
 # ─── Module-level state ───────────────────────────────────────────────────────
@@ -126,11 +129,30 @@ STATIC_INDEX = Path("static/index.html")
 
 # ─── Supabase helper ──────────────────────────────────────────────────────────
 
-def _walkthrough_prompt_block(sb=None) -> str:
-    """Build Gemini prompt block from saved walkthrough rows."""
+def _load_photo_analyses(sb=None) -> list[dict]:
+    client = sb or _sb()
+    if not client:
+        return list(analysis_cache.values())
+    try:
+        rows = client.table("photo_analyses").select("analysis").execute()
+        return [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+    except Exception:
+        return list(analysis_cache.values())
+
+
+def _evidence_prompt_block(sb=None, scenario: str = "budget_15k") -> str:
+    """Unified evidence package for ROI generation."""
     client = sb or _sb()
     rows = load_walkthrough_items(client, WALKTHROUGH_PROPERTY_ID)
-    return build_walkthrough_prompt_block(rows)
+    analyses = _load_photo_analyses(client)
+    summary = build_analysis_summary(analyses) if analyses else {}
+    package = build_evidence_package(rows, summary, default_property_facts())
+    return format_evidence_prompt(package, scenario)
+
+
+def _walkthrough_prompt_block(sb=None) -> str:
+    """Legacy alias — evidence prompt at default scenario."""
+    return _evidence_prompt_block(sb, "budget_15k")
 
 
 def _sb():
@@ -163,7 +185,7 @@ class BulkAnalyzeRequest(BaseModel):
 
 
 class ReportRequest(BaseModel):
-    detail_level: str = "standard"
+    detail_level: str = "budget_15k"
     buyer_profile: str = "general"
 
 
@@ -402,10 +424,9 @@ def report_generate(body: ReportRequest):
     prior: dict | None = None
     report: dict | None = None
     sb = _sb()
-    walkthrough_block = _walkthrough_prompt_block(sb)
-
     for level in chain:
         level_id = f"{level}_{buyer_profile}"
+        walkthrough_block = _evidence_prompt_block(sb, level)
         report = generate_roi_report(
             summary,
             property_summary,
@@ -541,10 +562,9 @@ def report_regenerate_all(profile: str = Query(default="general")):
 
     prior: dict | None = None
     reports: dict[str, dict] = {}
-    walkthrough_block = _walkthrough_prompt_block(sb)
-
     for level in DETAIL_LEVEL_ORDER:
         print(f"\n=== Regenerating [{level}_{profile}] ===")
+        walkthrough_block = _evidence_prompt_block(sb, level)
         report = generate_roi_report(
             summary, property_summary, last_sale,
             detail_level=level,
@@ -565,7 +585,7 @@ def report_regenerate_all(profile: str = Query(default="general")):
         reports[level_id] = report
         prior = report
 
-    roi_cache = reports.get(f"standard_{profile}")
+    roi_cache = reports.get(f"budget_15k_{profile}")
     return {
         "regenerated": list(reports.keys()),
         "prompt_version": PROMPT_VERSION,
@@ -976,7 +996,7 @@ class WalkthroughItemCreate(BaseModel):
     component: str
     layer: str = "room"
     category: str | None = None
-    condition_score: int | None = None
+    condition_label: str | None = None
     action: str = "assess"
     owner_note: str | None = None
     buyer_visibility: str | None = None
@@ -986,6 +1006,7 @@ class WalkthroughItemCreate(BaseModel):
     priority_score: int | None = None
     sort_order: int = 0
     include_in_report: bool = True
+    looks_fine: bool = False
     source: str = "user"
 
 
@@ -994,7 +1015,7 @@ class WalkthroughItemPatch(BaseModel):
     component: str | None = None
     layer: str | None = None
     category: str | None = None
-    condition_score: int | None = None
+    condition_label: str | None = None
     action: str | None = None
     owner_note: str | None = None
     buyer_visibility: str | None = None
@@ -1004,7 +1025,13 @@ class WalkthroughItemPatch(BaseModel):
     priority_score: int | None = None
     sort_order: int | None = None
     include_in_report: bool | None = None
+    looks_fine: bool | None = None
     source: str | None = None
+
+
+class ZoneLooksFineRequest(BaseModel):
+    zone: str
+    property_id: str = WALKTHROUGH_PROPERTY_ID
 
 
 @app.get("/walkthrough-items")
@@ -1050,6 +1077,76 @@ def walkthrough_items_create(
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
 
 
+@app.get("/walkthrough-items/evidence-package")
+def walkthrough_evidence_package(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+    scenario: str = Query(default="budget_15k"),
+):
+    sb = _sb()
+    rows = load_walkthrough_items(sb, property_id) if sb else []
+    analyses = _load_photo_analyses(sb)
+    summary = build_analysis_summary(analyses) if analyses else {}
+    package = build_evidence_package(rows, summary, default_property_facts())
+    return {
+        "package": package,
+        "prompt": format_evidence_prompt(package, scenario),
+        "property_id": property_id,
+        "scenario": scenario,
+    }
+
+
+@app.post("/walkthrough-items/{item_id}/looks-fine")
+def walkthrough_item_looks_fine(item_id: str):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        fresh = sb.table("walkthrough_items").select("*").eq("id", item_id).maybe_single().execute()
+        if not fresh or not fresh.data:
+            raise HTTPException(status_code=404, detail="Item not found")
+        row = apply_looks_fine(fresh.data)
+        sb.table("walkthrough_items").update({
+            **{k: row[k] for k in ("looks_fine", "owner_note", "include_in_report") if k in row},
+            "updated_at": "now()",
+        }).eq("id", item_id).execute()
+        calc_fields = apply_calculated_persist_fields(row)
+        sb.table("walkthrough_items").update({**calc_fields, "updated_at": "now()"}).eq("id", item_id).execute()
+        fresh = sb.table("walkthrough_items").select("*").eq("id", item_id).maybe_single().execute()
+        item = fresh.data if fresh and fresh.data else row
+        return {"item": enrich_walkthrough_item(item)}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.post("/walkthrough-items/zone-looks-fine")
+def walkthrough_zone_looks_fine(body: ZoneLooksFineRequest):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    rows = load_walkthrough_items(sb, body.property_id)
+    to_mark = zone_looks_fine_remaining(rows, body.zone)
+    marked = 0
+    for row in to_mark:
+        if not row.get("id"):
+            continue
+        updated = apply_looks_fine(row)
+        try:
+            sb.table("walkthrough_items").update({
+                "looks_fine": True,
+                "owner_note": None,
+                "include_in_report": False,
+                "updated_at": "now()",
+            }).eq("id", row["id"]).execute()
+            calc_fields = apply_calculated_persist_fields(updated)
+            sb.table("walkthrough_items").update({**calc_fields, "updated_at": "now()"}).eq("id", row["id"]).execute()
+            marked += 1
+        except Exception:
+            pass
+    return {"marked": marked, "skipped": len(rows) - marked, "zone": body.zone}
+
+
 @app.patch("/walkthrough-items/{item_id}")
 def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
     sb = _sb()
@@ -1058,10 +1155,24 @@ def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
     updates = body.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=422, detail="No fields to update")
+    if "owner_note" in updates and updates["owner_note"]:
+        updates["looks_fine"] = False
     if "estimated_cost_low" in updates or "estimated_cost_high" in updates:
         updates["cost_overridden"] = True
     if "priority_score" in updates:
         updates["priority_overridden"] = True
+    if "action" in updates:
+        updates["action_overridden"] = True
+    if "condition_label" in updates:
+        updates["condition_overridden"] = True
+        from walkthrough import CONDITION_LABEL_TO_SCORE
+        updates["condition_score"] = CONDITION_LABEL_TO_SCORE.get(updates["condition_label"])
+    if "category" in updates:
+        updates["category_overridden"] = True
+    if "buyer_visibility" in updates:
+        updates["visibility_overridden"] = True
+    if "inspection_risk" in updates:
+        updates["risk_overridden"] = True
     updates["updated_at"] = "now()"
     try:
         result = (

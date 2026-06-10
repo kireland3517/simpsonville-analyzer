@@ -16,39 +16,47 @@ from typing import Any
 
 from claude_client import generate_text, get_api_key, get_detail_model
 # Valid parameter values
-DETAIL_LEVELS  = {"executive", "standard", "deep_dive"}
-DETAIL_LEVEL_ORDER = ["executive", "standard", "deep_dive"]
+DETAIL_LEVELS  = {"spend_nothing", "budget_5k", "budget_15k", "maximize"}
+DETAIL_LEVEL_ORDER = ["spend_nothing", "budget_5k", "budget_15k", "maximize"]
 
-# Human labels used in additive carry-forward prompts
+# Legacy report slot keys (pre-budget-scenario)
+LEGACY_LEVEL_MAP = {
+    "executive": "spend_nothing",
+    "standard": "budget_15k",
+    "deep_dive": "maximize",
+}
+LEGACY_LEVEL_REVERSE = {v: k for k, v in LEGACY_LEVEL_MAP.items()}
+
 _LEVEL_LABELS = {
-    "executive": "Quick Wins",
-    "standard":  "Balanced Approach",
-    "deep_dive": "Leave Nothing Behind",
+    "spend_nothing": "Spend Nothing",
+    "budget_5k":     "$5,000 Budget",
+    "budget_15k":    "$15,000 Budget",
+    "maximize":      "Maximize Sale Price",
 }
 
-# Homeowner-facing summary of what each tab means (also stored on generated reports)
 LEVEL_DESCRIPTIONS = {
-    "executive": (
-        "These are the must-fix items so buyers don't walk away at the first showing — "
-        "the highest-leverage repairs and upgrades a good listing agent would say to "
-        "handle before you put a sign in the yard. Think \"fix these 3–4 things and list it\" — "
-        "the smallest scope with the biggest impact, not a stripped-down report."
+    "spend_nothing": (
+        "What absolutely has to be fixed before listing? Transaction-risk items only — "
+        "water stains, structural issues, drainage, safety. Target under $2,000 total. "
+        "No cosmetic upgrades."
     ),
-    "standard": (
-        "Everything in Quick Wins, plus what buyers expect when comparing your home to "
-        "similar-era neighbors in the $295K–$305K range. You're not over-improving — "
-        "you're meeting market expectation. Homes like 4 Kingfisher Dr ($289K, built 1996) "
-        "and 305 Kingfisher Dr ($265K) set the bar: smooth ceilings, updated hardware, "
-        "neutral paint. That's what this market expects from a well-prepared 1999 home."
+    "budget_5k": (
+        "I have about $5,000 — what should I spend it on? Highest-return improvements "
+        "from your walkthrough evidence and photos. Prioritize confirmed and observed findings."
     ),
-    "deep_dive": (
-        "Everything in Balanced Approach, plus what it takes to compete with newer homes "
-        "for top dollar. Anchored to 307 Blue Heron Cir ($301K, built 2007) — full flooring, "
-        "kitchen counters, jacuzzi-to-shower conversion, and the finishes buyers see in "
-        "2000s-built comps. At this level you're competing with newer construction, not "
-        "just same-age homes."
+    "budget_15k": (
+        "Balanced prep plan within $15,000. Includes must-fix items plus highest-impact "
+        "upgrades buyers notice when comparing your home to similar-era neighbors."
+    ),
+    "maximize": (
+        "Highest expected market impact regardless of budget. Every evidence-backed "
+        "improvement worth doing to compete for top dollar in the $295K–$305K range."
     ),
 }
+
+
+def normalize_detail_level(detail_level: str) -> str:
+    return LEGACY_LEVEL_MAP.get(detail_level, detail_level)
 BUYER_PROFILES = {
     "first_time_buyer", "young_family", "downsizer",
     "investor", "relocating_professional", "general",
@@ -180,95 +188,86 @@ Prior repairs (include all):
 
 # ── Detail-level blocks ────────────────────────────────────────────────────
 
+_RATIONALE_INSTRUCTION = """
+RATIONALE (required on EVERY upgrade and repair):
+Include a "rationale" object with:
+- evidence: array of {source: "walkthrough"|"photo"|"metadata", text: "<exact citation>"}
+- tier: "confirmed"|"observed"|"inferred"
+- reason: one sentence why this belongs in THIS budget scenario
+- expected_impact: what happens if the seller does this (buyer appeal, risk reduction)
+- confidence: "high"|"medium"|"low"
+- market_impact: effect on showings and perceived value
+Do not recommend items without citing evidence from the EVIDENCE block.
+Do not upgrade inferred-tier items to confirmed. Spend Nothing must exclude inferred-tier items.
+"""
+
+
 def _detail_block(detail_level: str) -> str:
-    """Tone and verbosity rules injected into every prompt."""
-    if detail_level == "executive":
-        return """\
-DETAIL LEVEL: QUICK WINS (executive)
-------------------------------------
-Audience: a homeowner who wants the smallest high-impact scope before listing.
-Tone: plain, non-technical, encouraging. No jargon.
-- Scope: ONLY the highest-leverage items (max 3 upgrades, 3 repairs) — least work, biggest impact.
-- Descriptions: 1-2 sentences maximum each.
-- Include diy_friendly flag and a 1-sentence diy_notes.
-- Time estimates: 5 words max (e.g. "1-2 days").
-- Same actionable detail as other levels — Quick Wins means fewer projects, not less information."""
+    """Budget scenario rules injected into every prompt."""
+    level = normalize_detail_level(detail_level)
+    label = _LEVEL_LABELS.get(level, level)
 
-    if detail_level == "standard":
-        return """\
-DETAIL LEVEL: BALANCED APPROACH (standard)
-------------------------------------------
-Audience: a homeowner who wants a solid, actionable plan.
-Tone: balanced, informative, practical.
-- Descriptions: 1-2 sentences maximum each.
-- Include diy_friendly flag and a 1-sentence diy_notes.
-- Time estimates: 5 words max (e.g. "1-2 days")."""
+    if level == "spend_nothing":
+        return f"""\
+BUDGET SCENARIO: {label}
+-----------------------
+Seller question: What absolutely has to be fixed before I list?
+Budget: ~$0–$2,500 total — transaction-risk repairs ONLY.
+- Include ONLY walkthrough-observed transaction-risk items (water stains, structural cracks, drainage, safety).
+- NO cosmetic upgrades. Ignore inferred-tier evidence.
+- Max 4 repairs, 0-1 upgrades only if safety-related.
+{_RATIONALE_INSTRUCTION}"""
 
-    # deep_dive
-    return """\
-DETAIL LEVEL: LEAVE NOTHING BEHIND (deep_dive)
-----------------------------------------------
-Audience: a detail-oriented homeowner who wants to understand each project fully.
-Tone: forensic, precise, actionable. Write as if advising a client before listing.
-- Descriptions: 2-3 sentences. Include location in the home and impact on buyer perception.
-- Include diy_friendly flag and a 1-2 sentence diy_notes with skill context.
-- Time estimates: concise (e.g. "2-3 days contractor / 1 weekend DIY")."""
+    if level == "budget_5k":
+        return f"""\
+BUDGET SCENARIO: {label}
+-----------------------
+Seller question: I have $5,000 — what should I spend it on?
+Budget: stay within $1,500–$5,000 total investment.
+- Prioritize Confirmed findings, then Observed. Inferred only if budget remains.
+- Highest buyer-visible ROI: paint, fixtures, pressure wash, minor cosmetic refresh.
+- Max 4 upgrades, 3 repairs; total cost must fit budget.
+{_RATIONALE_INSTRUCTION}"""
+
+    if level == "budget_15k":
+        return f"""\
+BUDGET SCENARIO: {label}
+-----------------------
+Seller question: Balanced prep plan — what gets done for ~$15,000?
+Budget: stay within $5,000–$15,000 total investment.
+- Include all Spend Nothing items plus highest-impact upgrades from evidence.
+- Prioritize Confirmed → Observed → selective Inferred.
+- Max 6 upgrades, 5 repairs.
+{_RATIONALE_INSTRUCTION}"""
+
+    return f"""\
+BUDGET SCENARIO: {label}
+-----------------------
+Seller question: Highest market impact regardless of budget.
+Budget: no cap — optimize for sale price, not cost minimization.
+- Include all evidence-backed improvements worth doing.
+- Inferred-tier items OK with low-confidence label in rationale.
+- Max 10 upgrades, 8 repairs.
+{_RATIONALE_INSTRUCTION}"""
 
 
 def _comp_anchoring_block(detail_level: str) -> str:
-    """Comp and market framing injected into every prompt — drives item selection."""
-    if detail_level == "executive":
-        return """\
-COMP ANCHORING — QUICK WINS
----------------------------
-Goal: fix what loses buyers at the first showing. Highest leverage only.
-A good listing agent would say: "Fix these 3–4 things and list it."
-
-Anchor to: buyer objections at ANY price point — not a renovation plan.
-Prioritize deal-killers and first-impression problems: water stains, broken glass,
-damaged garage doors, safety hazards, obvious deferred maintenance.
-Do NOT recommend projects just because comps have them. Recommend what stops
-buyers from making an offer or triggers immediate price reduction demands."""
-
-    if detail_level == "standard":
-        return """\
-COMP ANCHORING — BALANCED APPROACH
------------------------------------
-Goal: meet market expectation in the $295,000–$305,000 range without over-improving.
-You are not trying to beat newer construction — you are matching what successful
-same-era listings delivered.
-
-Primary comps (same subdivision, similar build era):
-- 4 Kingfisher Dr:    3/2, 1,891 sqft, built 1996, sold Apr 2026 — $289,000
-- 305 Kingfisher Dr:  3/2, 1,382 sqft, built 2000, sold Apr 2024 — $265,000
-
-Market bar at this price point: smooth ceilings (no popcorn), updated hardware,
-neutral paint — the condition buyers expect walking through a well-prepared listing.
-307 Blue Heron Cir ($301K, Dec 2025) illustrates the finish level buyers compare
-against: updated surfaces, cohesive neutrals, no dated fixtures screaming "1999."
-
-Include all Quick Wins items plus medium-priority updates that close the gap to
-what these comps likely had at sale. Cosmetic upgrades belong here; exhaustive
-renovation belongs at Leave Nothing Behind."""
-
-    # deep_dive
-    return """\
-COMP ANCHORING — LEAVE NOTHING BEHIND
--------------------------------------
-Goal: compete for top dollar against newer construction, not just same-age homes.
-The seller wants maximum ARV — every meaningful gap to newer comps should be addressed.
-
-Primary comp (newer build, top of realistic ARV range):
-- 307 Blue Heron Cir: 3/2, 1,782 sqft, built 2007, sold Dec 2025 — $301,000
-
-Reference same-era floor (from Balanced Approach):
-- 4 Kingfisher Dr ($289K, 1996) and 305 Kingfisher Dr ($265K, 2000)
-
-At this level include all Balanced Approach items plus upgrades that close the
-1999-vs-2007 gap: jacuzzi/jetted tub to walk-in shower conversion, full flooring
-replacement, kitchen countertop upgrade, and other finishes buyers expect in a
-2000s-built home. You are positioning against newer construction on Woodruff Road
-corridor comps, not merely matching minimum market expectation."""
+    """Comp and market framing — evidence-driven, not additive carry-forward."""
+    level = normalize_detail_level(detail_level)
+    base = """\
+MARKET CONTEXT — 130 Kingfisher Dr, Simpsonville SC
+---------------------------------------------------
+Realistic ARV ceiling: $295,000–$305,000 (2,019 sqft, built 1999).
+Comps: 4 Kingfisher Dr $289K (1996), 305 Kingfisher Dr $265K (2000), 307 Blue Heron Cir $301K (2007).
+Select projects from the EVIDENCE block only — do not invent findings.
+"""
+    if level == "spend_nothing":
+        return base + "Scope: deal-killers and inspection-risk only.\n"
+    if level == "budget_5k":
+        return base + "Scope: highest-ROI cosmetic refresh within $5K.\n"
+    if level == "budget_15k":
+        return base + "Scope: meet market expectation for a well-prepared 1999 home.\n"
+    return base + "Scope: compete with newer construction for top dollar.\n"
 
 
 # ── Buyer-profile blocks ───────────────────────────────────────────────────
@@ -365,7 +364,7 @@ def _assessment_schema(detail_level: str) -> str:
     sc_block = """
   "sc_considerations": ["<South Carolina-specific item buyers commonly flag>"],"""
 
-    if detail_level == "executive":
+    if _level_key(detail_level) == "spend_nothing":
         ex_fields = """\
     "current_value": <number>,
     "estimated_arv": <number>,
@@ -400,11 +399,23 @@ def _assessment_schema(detail_level: str) -> str:
 
 
 
-def _upgrades_schema() -> str:
-    """Schema for Call 2 — upgrades only (no sc_disclosure_note, tools_needed, local_suppliers)."""
+def _rationale_schema() -> str:
     return """{
+        "evidence": [{"source": "walkthrough|photo|metadata", "text": "<string>"}],
+        "tier": "confirmed|observed|inferred",
+        "reason": "<one sentence>",
+        "expected_impact": "<what happens if seller does this>",
+        "confidence": "high|medium|low",
+        "market_impact": "<effect on showings and perceived value>"
+      }"""
+
+
+def _upgrades_schema() -> str:
+    """Schema for Call 2 — upgrades only."""
+    r = _rationale_schema()
+    return f"""{{
   "upgrades": [
-    {
+    {{
       "name": "<string>",
       "description": "<string>",
       "materials_cost": <number>,
@@ -417,17 +428,19 @@ def _upgrades_schema() -> str:
       "diy_notes": "<string>",
       "skill_level": "<beginner|intermediate|advanced|professional_only>",
       "time_estimate_contractor": "<string>",
-      "time_estimate_diy": "<string>"
-    }
+      "time_estimate_diy": "<string>",
+      "rationale": {r}
+    }}
   ]
-}"""
+}}"""
 
 
 def _repairs_schema() -> str:
-    """Schema for Call 3 — repairs only (no sc_disclosure_note, safety_note verbosity)."""
-    return """{
+    """Schema for Call 3 — repairs only."""
+    r = _rationale_schema()
+    return f"""{{
   "repairs": [
-    {
+    {{
       "name": "<string>",
       "description": "<string>",
       "estimated_cost": <number>,
@@ -437,10 +450,11 @@ def _repairs_schema() -> str:
       "time_estimate_contractor": "<string>",
       "time_estimate_diy": "<string>",
       "sc_disclosure_required": <true|false>,
-      "safety_concern": <true|false>
-    }
+      "safety_concern": <true|false>,
+      "rationale": {r}
+    }}
   ]
-}"""
+}}"""
 
 
 def _build_upgrades_prompt(
@@ -461,7 +475,7 @@ def _build_upgrades_prompt(
     prior_count = len((prior_report or {}).get("upgrades") or [])
 
     dated_section = ""
-    if detail_level == "deep_dive":
+    if _level_key(detail_level) == "maximize":
         dated = summary.get("dated_features_by_frequency", {})
         jetted = [
             t for t in dated
@@ -528,7 +542,7 @@ def _build_repairs_prompt(
     prior_count = len((prior_report or {}).get("repairs") or [])
 
     crit_header = "CRITICAL AND HIGH DEAL-RISK ISSUES (always include — do not omit)"
-    if detail_level == "deep_dive":
+    if _level_key(detail_level) == "maximize":
         crit_header = (
             "CRITICAL AND HIGH DEAL-RISK ISSUES "
             "(MUST ALL appear in repairs — consolidate if needed, omit none)"
@@ -755,17 +769,17 @@ impact, not difficulty."""
 
 # Input item counts per detail level
 _INPUT_COUNTS = {
-    # (top_issues, top_upgrades)
-    "executive": (10, 10),
-    "standard":  (20, 20),
-    "deep_dive": (20, 20),
+    "spend_nothing": (10, 8),
+    "budget_5k":     (15, 12),
+    "budget_15k":    (20, 18),
+    "maximize":      (20, 20),
 }
 
-# Max items returned per recommendation call
 _RECOMMENDATION_LIMITS = {
-    "executive":  {"max_upgrades": 3, "max_repairs": 3},
-    "standard":   {"max_upgrades": 5, "max_repairs": 5},
-    "deep_dive":  {"max_upgrades": 12, "max_repairs": 12},
+    "spend_nothing": {"max_upgrades": 1, "max_repairs": 4},
+    "budget_5k":     {"max_upgrades": 4, "max_repairs": 3},
+    "budget_15k":    {"max_upgrades": 6, "max_repairs": 5},
+    "maximize":      {"max_upgrades": 10, "max_repairs": 8},
 }
 
 _DEEP_DIVE_EXHAUSTIVE = (
@@ -776,9 +790,10 @@ _DEEP_DIVE_EXHAUSTIVE = (
 # Comp-anchored ARV ceilings — grounded in River Ridge sold comps, not open-ended AI estimates.
 # Subject is 2,019 sqft (largest in comp set); ceiling tops out at $305K (307 Blue Heron $301K).
 _ARV_BY_LEVEL: dict[str, int] = {
-    "executive":  295_000,  # Quick Wins: fix objections, conservative achievable sale
-    "standard":   300_000,  # Balanced: mid-market bar for $295–305K range
-    "deep_dive":  305_000,  # Leave Nothing Behind: top realistic comp-supported ceiling
+    "spend_nothing": 295_000,
+    "budget_5k":     298_000,
+    "budget_15k":    300_000,
+    "maximize":      305_000,
 }
 _DEFAULT_MARKET_VALUE = 276_810.0
 
@@ -792,12 +807,16 @@ _CRITICAL_REPAIR_TOKENS = frozenset({
 _PRI_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
+def _level_key(detail_level: str) -> str:
+    return normalize_detail_level(detail_level)
+
+
 def _max_upgrades(detail_level: str) -> int:
-    return _RECOMMENDATION_LIMITS[detail_level]["max_upgrades"]
+    return _RECOMMENDATION_LIMITS[_level_key(detail_level)]["max_upgrades"]
 
 
 def _max_repairs(detail_level: str) -> int:
-    return _RECOMMENDATION_LIMITS[detail_level]["max_repairs"]
+    return _RECOMMENDATION_LIMITS[_level_key(detail_level)]["max_repairs"]
 
 
 def _market_value(property_summary: dict) -> float:
@@ -810,7 +829,7 @@ def _market_value(property_summary: dict) -> float:
 
 
 def _comp_anchored_arv(detail_level: str) -> int:
-    return _ARV_BY_LEVEL.get(detail_level, 300_000)
+    return _ARV_BY_LEVEL.get(_level_key(detail_level), 300_000)
 
 
 def _total_investment(upgrades: list, repairs: list) -> float:
@@ -909,25 +928,28 @@ def _upgrades_instructions(detail_level: str, prior_count: int = 0) -> str:
 5. You MUST include all {prior_count} prior-level upgrades listed above — do not replace or omit any
 6. Add up to {add_n} additional upgrade(s) beyond the prior items to reach the max of {n} total"""
 
-    if detail_level == "executive":
+    level = _level_key(detail_level)
+    if level == "spend_nothing":
         return shared + """
-7. Select ONLY items that fix buyer objections at first showing — highest leverage, not comp-matching cosmetics
-8. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+7. Upgrades are rare at this level — only if safety-critical
+8. CRITICAL: Return ONLY the upgrades JSON object with rationale on every item."""
 
-    if detail_level == "standard":
-        next_n = 8 if prior_count else 6
-        return shared + f"""
-{next_n}. Add medium-priority upgrades that match same-era comp expectations (4 Kingfisher, 305 Kingfisher bar)
-{next_n + 1}. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+    if level == "budget_5k":
+        return shared + """
+7. Total estimated_cost across all upgrades MUST stay within $5,000
+8. Prioritize confirmed and observed evidence tiers
+9. CRITICAL: Return ONLY the upgrades JSON object with rationale on every item."""
 
-    # deep_dive
-    next_n = 9 if prior_count else 5
+    if level == "budget_15k":
+        return shared + """
+7. Total estimated_cost across all upgrades MUST stay within $15,000
+8. Include prior-level must-fix context where relevant
+9. CRITICAL: Return ONLY the upgrades JSON object with rationale on every item."""
+
     return shared + f"""
-{next_n}. {_DEEP_DIVE_EXHAUSTIVE}
-{next_n + 1}. Add upgrades that close the 1999-vs-2007 gap per the 307 Blue Heron comp anchor
-{next_n + 2}. You MUST include a jetted/jacuzzi tub conversion as one upgrade: remove the \
-master bath jetted tub and convert to a walk-in tile shower with frameless glass
-{next_n + 3}. CRITICAL: Return ONLY the upgrades JSON object. No repairs. No explanation."""
+7. {_DEEP_DIVE_EXHAUSTIVE}
+8. Optimize for maximum sale price — evidence-backed only
+9. CRITICAL: Return ONLY the upgrades JSON object with rationale on every item."""
 
 
 def _repairs_instructions(detail_level: str, prior_count: int = 0) -> str:
@@ -945,27 +967,27 @@ def _repairs_instructions(detail_level: str, prior_count: int = 0) -> str:
 7. You MUST include all {prior_count} prior-level repairs listed above — do not replace or omit any
 8. Add up to {add_n} additional repair(s) beyond the prior items to reach the max of {n} total"""
 
-    if detail_level == "executive":
-        next_n = 9 if prior_count else 7
-        return shared + f"""
-{next_n}. Include ONLY repairs that kill deals at first showing — buyer objections, not comp-matching cosmetics
-{next_n + 1}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
+    level = _level_key(detail_level)
+    if level == "spend_nothing":
+        return shared + """
+7. Transaction-risk repairs ONLY from walkthrough evidence — water stains, structural, drainage
+8. Do NOT include inferred-tier repairs
+9. CRITICAL: Return ONLY the repairs JSON object with rationale on every item."""
 
-    if detail_level == "standard":
-        next_n = 9 if prior_count else 7
-        return shared + f"""
-{next_n}. Add repairs needed to meet same-era comp bar (4 Kingfisher, 305 Kingfisher expectations)
-{next_n + 1}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
+    if level == "budget_5k":
+        return shared + """
+7. Include must-fix repairs plus any repair that fits within overall $5K budget scenario
+8. CRITICAL: Return ONLY the repairs JSON object with rationale on every item."""
 
-    # deep_dive
-    next_n = 11 if prior_count else 7
+    if level == "budget_15k":
+        return shared + """
+7. Include all spend_nothing repairs plus additional evidence-backed repairs
+8. CRITICAL: Return ONLY the repairs JSON object with rationale on every item."""
+
     return shared + f"""
-{next_n}. {_DEEP_DIVE_EXHAUSTIVE}
-{next_n + 1}. You MUST include a repair entry for EVERY issue listed under CRITICAL AND HIGH \
-DEAL-RISK ISSUES — consolidate related issues into shared repair entries where sensible, \
-but do not omit any critical/high issue
-{next_n + 2}. Include lower-priority repairs that standard would skip, up to the max of {n} entries
-{next_n + 3}. CRITICAL: Return ONLY the repairs JSON object. No upgrades. No explanation."""
+7. {_DEEP_DIVE_EXHAUSTIVE}
+8. Include repair for every critical/high deal-risk issue from evidence
+9. CRITICAL: Return ONLY the repairs JSON object with rationale on every item."""
 
 
 def _freq_block(d: dict, top: int) -> str:
@@ -1019,7 +1041,7 @@ def _build_assessment_prompt(summary: dict, detail_level: str, buyer_profile: st
     risk_str   = "  " + ", ".join(f"{k}: {v}" for k, v in risk.items()) or "  (no data)"
 
     # deep_dive uses a compact summary — room breakdown would waste token budget
-    room_section = "" if detail_level == "deep_dive" else f"""
+    room_section = "" if _level_key(detail_level) == "maximize" else f"""
 ISSUES BY ROOM (top {top_issues} per room)
 ------------------------------------------
 {room_block(issues_room, top_issues)}
@@ -1104,6 +1126,7 @@ def generate_roi_report(
     the prior level are passed into the prompt and enforced in the merge step so each
     tab is additive and never contradicts the level below it.
     """
+    detail_level = normalize_detail_level(detail_level)
     if detail_level not in DETAIL_LEVELS:
         return {**_ERROR_RESULT, "error": f"Invalid detail_level {detail_level!r}. Choose from: {sorted(DETAIL_LEVELS)}"}
     if buyer_profile not in BUYER_PROFILES:
@@ -1201,7 +1224,8 @@ def generate_roi_report(
 
 
 def levels_up_to(detail_level: str) -> list[str]:
-    """Return detail levels from executive through the requested level."""
+    """Return budget scenarios from spend_nothing through the requested level."""
+    detail_level = normalize_detail_level(detail_level)
     if detail_level not in DETAIL_LEVELS:
         return []
     idx = DETAIL_LEVEL_ORDER.index(detail_level)

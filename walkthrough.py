@@ -60,6 +60,68 @@ _COMPONENT_COST_ANCHORS: list[tuple[str, int, int]] = [
     ("window", 150, 800),
 ]
 
+CONDITION_LABEL_TO_SCORE: dict[str, int | None] = {
+    "unknown": None,
+    "good": 4,
+    "fair": 3,
+    "poor": 2,
+    "replace": 1,
+}
+
+_DEFECT_KEYWORDS = (
+    "damaged", "cracked", "stain", "leak", "broken", "not working", "doesn't",
+    "water damage", "mold", "failing", "structural crack", "water stain",
+)
+_AGING_KEYWORDS = (
+    "dated", "worn", "original", "builder grade", "laminate", "popcorn",
+    "1990", "1991", "1992", "1993", "1994", "1995", "1996", "1997", "1998",
+    "1999", "2000", "2001", "aging", "ugly", " old ",
+)
+_REPLACE_KEYWORDS = ("replace", "end of life", "full replacement", "condemned")
+_GOOD_KEYWORDS = (
+    "recently updated", "new", "replaced", "good condition", "works normally", "looks fine",
+)
+_UNTESTED_KEYWORDS = ("hasn't been used", "untested", "unknown if works")
+
+_DAMAGE_ACTION_KEYWORDS = ("stain", "leak", "crack", "mold", "water", "structural", "damage")
+
+_CATEGORY_PROMPTS: dict[str, str] = {
+    "dated": "Assess age, material, wear, and whether buyers would consider this dated.",
+    "cosmetic": "Note color, finish, wear, and overall appearance.",
+    "functional": "Confirm operation and note any issues a buyer or inspector would flag.",
+    "inspection_risk": "Confirm condition, age, and any safety or inspection concerns.",
+}
+
+ASSESSMENT_PROMPTS: dict[str, str] = {
+    "countertop": "Condition unknown. Assess age, material, staining, chips, cracks, and overall marketability.",
+    "fireplace": "Confirm ignition, operation, and service history.",
+    "dryer vent": "Confirm venting, airflow, and cleaning status.",
+    "water heater": "Confirm age, service history, and remaining useful life.",
+    "flooring": "Check wear patterns, damage, and whether replacement is market-expected.",
+    "gfci": "Test GFCI outlets and confirm proper protection near water sources.",
+    "attic": "Check access, insulation, ventilation, and signs of moisture.",
+    "roof": "Note visible age, wear, and any signs of leaks or missing shingles.",
+    "hvac": "Confirm operation, age, and service history.",
+    "garage door": "Inspect door panels, tracks, opener, and structural condition.",
+    "vanity": "Assess vanity top, cabinet, hardware, and mirror condition.",
+    "cabinet": "Check hardware, doors, drawers, and finish condition.",
+    "paint": "Note wall and trim color, wear, and whether refresh is needed.",
+    "light fixture": "Note style, operation, and whether fixtures appear dated.",
+    "appliance": "Confirm age, brand, and operation of major appliances.",
+    "faucet": "Check for leaks, corrosion, and dated finish.",
+    "toilet": "Confirm operation, stability, and signs of leaks.",
+    "window": "Check operation, seals, and condensation or fogging.",
+    "door": "Check operation, hardware, weatherstripping, and finish.",
+    "deck": "Inspect boards, railings, posts, and staining or rot.",
+    "gutter": "Check drainage, downspouts, and signs of overflow or damage.",
+    "driveway": "Note cracks, settling, and surface wear.",
+    "landscaping": "Note curb appeal, overgrowth, and basic yard maintenance needs.",
+    "ceiling": "Check for stains, cracks, texture, and signs of moisture.",
+    "sink": "Check for leaks, stains, and fixture condition.",
+    "outlet": "Count and note any missing covers or non-functional outlets.",
+    "smoke detector": "Confirm presence and whether units appear current.",
+}
+
 _PROJECT_GROUP_RULES: list[tuple[str, list[str]]] = [
     ("Interior Paint Refresh", ["interior paint", "trim paint", "closet paint", "walls / paint", "door paint", "popcorn ceiling"]),
     ("Master Bathroom", ["vanity", "bath modernization", "shower / tub", "primary bathroom"]),
@@ -332,10 +394,10 @@ _SYSTEMS_ZONES: list[tuple[str, list, int]] = [
     ], 2400),
 ]
 
+# Property-specific facts only — generic "assess…" guidance lives in ASSESSMENT_PROMPTS.
 OWNER_NOTE_SEEDS: dict[tuple[str, str], dict[str, Any]] = {
     ("whole house", "Trim paint — baseboards + door frames"): {
         "owner_note": "2 gallons trim paint needed for baseboards + door frames",
-        "action": "upgrade",
         "source": "owner",
     },
     ("sun room", "Outlets"): {"owner_note": "7 outlets observed", "source": "owner"},
@@ -344,89 +406,163 @@ OWNER_NOTE_SEEDS: dict[tuple[str, str], dict[str, Any]] = {
         "owner_note": "1 ceiling fan/light fixture; ~200 sqft room", "source": "owner",
     },
     ("sun room", "Doors"): {"owner_note": "2 doors; ~200 sqft total", "source": "owner"},
-    ("interior doors", "Door assessment (all doors)"): {
-        "owner_note": "Assess all doors for repair/paint/replace including crawl space",
-        "action": "assess", "source": "owner",
-    },
     ("exterior", "Exterior doors (sun room, front, garage)"): {
-        "owner_note": "3 exterior doors: sun room, front, garage",
-        "action": "assess", "source": "owner",
-    },
-    ("kitchen", "Countertops"): {
-        "owner_note": "Assess for replacement — dated laminate?",
-        "action": "assess", "source": "owner",
-    },
-    ("exterior", "Pressure wash — house / driveway / deck"): {
-        "owner_note": "Pressure wash and assess entire house, driveway, deck",
-        "action": "assess", "source": "owner",
-    },
-    ("exterior", "Exterior lighting"): {
-        "owner_note": "Assess exterior lighting", "action": "assess", "source": "owner",
+        "owner_note": "3 exterior doors: sun room, front, garage", "source": "owner",
     },
     ("exterior", "Front porch repair / repaint"): {
-        "owner_note": "Patch/repair/repaint front porch", "action": "fix", "source": "owner",
+        "owner_note": "Patch/repair/repaint front porch", "source": "owner",
     },
     ("exterior", "Landscaping / yard"): {
-        "owner_note": "Landscaping and yard refresh needed", "action": "assess", "source": "owner",
-    },
-    ("whole house", "Popcorn ceiling"): {
-        "owner_note": "Popcorn ceiling throughout — assess removal",
-        "action": "assess", "source": "owner",
+        "owner_note": "Landscaping and yard refresh needed", "source": "owner",
     },
     ("whole house", "Interior paint — walls"): {
-        "owner_note": "Paint interior walls and trim", "action": "upgrade", "source": "owner",
+        "owner_note": "Paint interior walls and trim", "source": "owner",
     },
     ("whole house", "Ceiling water damage"): {
         "owner_note": "Repair water damaged ceilings",
-        "action": "fix", "inspection_risk": "high", "source": "owner",
-    },
-    ("great room", "Ceiling seam"): {
-        "owner_note": "Vaulted ceiling top seam needs assessment", "action": "assess", "source": "owner",
-    },
-    ("great room", "Fireplace"): {
-        "owner_note": "Assess fireplace — ignites? remote? gas logs? mantel?",
-        "action": "assess", "source": "owner",
-    },
-    ("primary bathroom", "Vanity mirror"): {
-        "owner_note": "Evaluate vanity/mirror replacement", "action": "assess", "source": "owner",
+        "inspection_risk": "high", "source": "owner",
     },
     ("primary bedroom", "Closet paint"): {
-        "owner_note": "Master closet repaint", "action": "upgrade", "source": "owner",
+        "owner_note": "Master closet repaint", "source": "owner",
     },
     ("primary bathroom", "Bath modernization"): {
-        "owner_note": "Modernization of master bathroom", "action": "upgrade", "source": "owner",
-    },
-    ("kitchen", "Cabinets"): {
-        "owner_note": "Kitchen cabinets — hardware, damage, repair/replacement",
-        "action": "assess", "source": "owner",
-    },
-    ("kitchen", "Sink / faucet"): {
-        "owner_note": "Kitchen sink — fixtures and leaks", "action": "assess", "source": "owner",
-    },
-    ("kitchen", "Appliances (overall)"): {
-        "owner_note": "Full appliance assessment", "action": "assess", "source": "owner",
-    },
-    ("whole house", "Flooring (overall)"): {
-        "owner_note": "Floor evaluation — whole house", "action": "assess", "source": "owner",
-    },
-    ("whole house", "Interior light fixtures"): {
-        "owner_note": "Assess interior light fixtures throughout", "action": "assess", "source": "owner",
+        "owner_note": "Modernization of master bathroom", "source": "owner",
     },
     ("garage", "Garage door"): {
         "owner_note": "Garage door, floor, and walls — door has confirmed structural crack",
-        "action": "fix", "inspection_risk": "high", "source": "owner",
-    },
-    ("exterior", "Driveway cracks"): {
-        "owner_note": "Driveway cracks — assess repair scope", "action": "assess", "source": "owner",
-    },
-    ("whole house", "Faucets — sinks / tubs"): {
-        "owner_note": "Assess all faucets — sinks and bathtubs", "action": "assess", "source": "owner",
+        "inspection_risk": "high", "source": "owner",
     },
     ("exterior", "Gutters / downspouts / drainage"): {
         "owner_note": "Roof drainage solution needed",
-        "action": "fix", "inspection_risk": "high", "source": "owner",
+        "inspection_risk": "high", "source": "owner",
     },
 }
+
+
+def _template_key(zone: str, component: str, layer: str) -> tuple[str, str, str]:
+    return (zone.lower().strip(), component.lower().strip(), layer.lower().strip())
+
+
+def _build_template_defaults() -> dict[tuple[str, str, str], dict[str, Any]]:
+    defaults: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in build_template_rows():
+        key = _template_key(row["zone"], row["component"], row["layer"])
+        defaults[key] = {
+            "category": row.get("category"),
+            "buyer_visibility": row.get("buyer_visibility"),
+            "inspection_risk": row.get("inspection_risk"),
+            "sort_order": row.get("sort_order"),
+        }
+    return defaults
+
+
+def get_assessment_prompt(component: str, category: str | None = None) -> str:
+    comp = (component or "").lower()
+    for key, prompt in ASSESSMENT_PROMPTS.items():
+        if key in comp:
+            return prompt
+    if category and category in _CATEGORY_PROMPTS:
+        return _CATEGORY_PROMPTS[category]
+    return "Assess condition and note anything a buyer or inspector would flag."
+
+
+def infer_condition_from_owner_note(
+    note: str | None,
+    *,
+    category: str | None = None,
+    component: str | None = None,
+) -> str:
+    if not note or not note.strip():
+        return "unknown"
+    text = f" {note.lower()} "
+    if any(k in text for k in _REPLACE_KEYWORDS):
+        return "replace"
+    if any(k in text for k in _DEFECT_KEYWORDS):
+        return "poor"
+    if any(k in text for k in _UNTESTED_KEYWORDS):
+        return "fair"
+    if any(k in text for k in _AGING_KEYWORDS):
+        return "fair"
+    if any(k in text for k in _GOOD_KEYWORDS):
+        return "good"
+    return "unknown"
+
+
+def resolve_condition(row: dict[str, Any]) -> tuple[str, int | None]:
+    if row.get("condition_overridden") and row.get("condition_label"):
+        label = row["condition_label"]
+        return label, CONDITION_LABEL_TO_SCORE.get(label)
+    if row.get("looks_fine"):
+        return row.get("condition_label") or "unknown", CONDITION_LABEL_TO_SCORE.get(
+            row.get("condition_label") or "unknown"
+        )
+    note = row.get("owner_note")
+    if note:
+        label = infer_condition_from_owner_note(
+            note, category=row.get("category"), component=row.get("component"),
+        )
+        return label, CONDITION_LABEL_TO_SCORE.get(label)
+    return "unknown", None
+
+
+def infer_action(row: dict[str, Any], condition_label: str) -> str:
+    if row.get("looks_fine"):
+        return "skip"
+    note = (row.get("owner_note") or "").lower()
+    category = row.get("category") or ""
+    risk = row.get("inspection_risk") or "low"
+
+    if condition_label == "unknown" and not note:
+        return "assess"
+    if condition_label == "good":
+        return "skip"
+    if condition_label in ("poor", "replace"):
+        if any(k in note for k in _DAMAGE_ACTION_KEYWORDS) or risk == "high":
+            return "fix"
+        if category in ("dated", "cosmetic"):
+            return "upgrade"
+        if category == "functional" and risk in ("medium", "high"):
+            return "fix"
+        return "assess"
+    if condition_label == "fair":
+        if category in ("dated", "cosmetic"):
+            return "upgrade"
+        if category == "functional" and risk in ("medium", "high"):
+            return "fix"
+        return "assess"
+    return "assess"
+
+
+def resolve_action(row: dict[str, Any], condition_label: str) -> str:
+    if row.get("action_overridden") and row.get("action"):
+        return row["action"]
+    return infer_action(row, condition_label)
+
+
+def apply_template_defaults(row: dict[str, Any]) -> dict[str, Any]:
+    out = {**row}
+    defaults = get_template_defaults(
+        out.get("zone", ""), out.get("component", ""), out.get("layer", "room"),
+    )
+    if not out.get("category_overridden") and defaults.get("category"):
+        out["category"] = defaults["category"]
+    if not out.get("visibility_overridden") and defaults.get("buyer_visibility"):
+        out["buyer_visibility"] = defaults["buyer_visibility"]
+    if not out.get("risk_overridden") and defaults.get("inspection_risk"):
+        out["inspection_risk"] = defaults["inspection_risk"]
+    return out
+
+
+def prepare_walkthrough_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Apply template defaults, infer condition/action, before field calculation."""
+    out = apply_template_defaults(row)
+    condition_label, condition_score = resolve_condition(out)
+    out["condition_label"] = condition_label
+    out["condition_score"] = condition_score
+    out["action"] = resolve_action(out, condition_label)
+    if out.get("looks_fine"):
+        out["include_in_report"] = False
+    return out
 
 
 def build_template_rows(property_id: str = PROPERTY_ID) -> list[dict[str, Any]]:
@@ -455,6 +591,13 @@ def apply_owner_seeds(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def seed_rows(property_id: str = PROPERTY_ID) -> list[dict[str, Any]]:
     return apply_owner_seeds(build_template_rows(property_id))
+
+
+TEMPLATE_DEFAULTS: dict[tuple[str, str, str], dict[str, Any]] = _build_template_defaults()
+
+
+def get_template_defaults(zone: str, component: str, layer: str) -> dict[str, Any]:
+    return TEMPLATE_DEFAULTS.get(_template_key(zone, component, layer), {})
 
 
 def _estimate_cost_range(row: dict[str, Any]) -> tuple[int | None, int | None]:
@@ -578,8 +721,17 @@ def calculate_walkthrough_fields(row: dict[str, Any]) -> dict[str, Any]:
 
 def enrich_walkthrough_item(row: dict[str, Any]) -> dict[str, Any]:
     """Merge calculated fields; respect user overrides for cost and priority."""
-    out = {**row}
-    calc = calculate_walkthrough_fields(row)
+    prepared = prepare_walkthrough_row(row)
+    out = {**prepared}
+    calc = calculate_walkthrough_fields(prepared)
+
+    out["assessment_prompt"] = get_assessment_prompt(
+        prepared.get("component") or "", prepared.get("category"),
+    )
+    if prepared.get("looks_fine") and (prepared.get("condition_label") or "unknown") == "unknown":
+        out["condition_display"] = "assumed_good"
+    else:
+        out["condition_display"] = prepared.get("condition_label") or "unknown"
 
     out["recommendation_bucket"] = calc["recommendation_bucket"]
     out["report_type"] = calc["report_type"]
@@ -605,8 +757,15 @@ def enrich_walkthrough_items(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 def apply_calculated_persist_fields(row: dict[str, Any]) -> dict[str, Any]:
     """Return DB-safe fields to persist after calculation."""
-    enriched = enrich_walkthrough_item(row)
+    prepared = prepare_walkthrough_row(row)
+    enriched = enrich_walkthrough_item(prepared)
     updates: dict[str, Any] = {
+        "category": prepared.get("category"),
+        "buyer_visibility": prepared.get("buyer_visibility"),
+        "inspection_risk": prepared.get("inspection_risk"),
+        "condition_label": prepared.get("condition_label"),
+        "condition_score": prepared.get("condition_score"),
+        "action": prepared.get("action"),
         "recommendation_bucket": enriched.get("recommendation_bucket"),
         "report_type": enriched.get("report_type"),
         "roi_confidence": enriched.get("roi_confidence"),
@@ -614,6 +773,8 @@ def apply_calculated_persist_fields(row: dict[str, Any]) -> dict[str, Any]:
         "urgency": enriched.get("urgency"),
         "project_group": enriched.get("project_group"),
     }
+    if prepared.get("looks_fine"):
+        updates["include_in_report"] = False
     if not row.get("cost_overridden"):
         updates["estimated_cost_low"] = enriched.get("estimated_cost_low")
         updates["estimated_cost_high"] = enriched.get("estimated_cost_high")
@@ -635,6 +796,31 @@ def recalculate_all_items(sb, property_id: str = PROPERTY_ID) -> dict:
     return {"recalculated": updated, "total": len(rows)}
 
 
+def apply_looks_fine(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **row,
+        "looks_fine": True,
+        "owner_note": None,
+        "include_in_report": False,
+    }
+
+
+def zone_looks_fine_remaining(rows: list[dict[str, Any]], zone: str) -> list[dict[str, Any]]:
+    z = zone.lower().strip()
+    out = []
+    for row in rows:
+        if (row.get("zone") or "").lower().strip() != z:
+            continue
+        if row.get("owner_note"):
+            continue
+        if row.get("looks_fine"):
+            continue
+        if row.get("condition_overridden"):
+            continue
+        out.append(apply_looks_fine(row))
+    return out
+
+
 def _sort_rows_for_prompt(rows: list[dict], *, for_repairs: bool) -> list[dict]:
     def key(r: dict) -> tuple:
         ps = r.get("priority_score")
@@ -649,70 +835,41 @@ def _sort_rows_for_prompt(rows: list[dict], *, for_repairs: bool) -> list[dict]:
     return sorted(rows, key=key)
 
 
-def build_walkthrough_prompt_block(rows: list[dict[str, Any]]) -> str:
+def build_walkthrough_evidence_lines(rows: list[dict[str, Any]]) -> list[str]:
+    """Evidence-only lines for walkthrough observations (no recommendations)."""
     enriched = enrich_walkthrough_items(rows)
-    included = [r for r in enriched if r.get("include_in_report", True)]
-    if not included:
+    lines: list[str] = []
+    for r in enriched:
+        if r.get("looks_fine"):
+            continue
+        if not r.get("include_in_report", True):
+            continue
+        note = (r.get("owner_note") or "").strip()
+        if not note:
+            continue
+        meta = []
+        if r.get("category"):
+            meta.append(f"category={r['category']}")
+        if r.get("inspection_risk"):
+            meta.append(f"risk={r['inspection_risk']}")
+        if r.get("condition_label") and r["condition_label"] != "unknown":
+            meta.append(f"condition={r['condition_label']}")
+        suffix = f" ({', '.join(meta)})" if meta else ""
+        lines.append(f"- [{r.get('zone', '').title()}] {r['component']}: \"{note}\"{suffix}")
+    return lines
+
+
+def build_walkthrough_prompt_block(rows: list[dict[str, Any]]) -> str:
+    """Legacy alias — evidence-only block."""
+    lines = build_walkthrough_evidence_lines(rows)
+    if not lines:
         return ""
-
-    upgrade_rows = _sort_rows_for_prompt(
-        [r for r in included if r.get("report_type") == "upgrade" or r.get("action") == "upgrade"],
-        for_repairs=False,
-    )
-    repair_rows = _sort_rows_for_prompt(
-        [r for r in included if r.get("report_type") == "repair" or r.get("action") == "fix"],
-        for_repairs=True,
-    )
-    assess_rows = [r for r in included if r.get("action") == "assess" and r not in upgrade_rows and r not in repair_rows]
-    upgrade_rows = upgrade_rows + assess_rows[:5]
-
-    def fmt(r: dict) -> str:
-        parts = [
-            f"- [{r.get('zone', '').title()}] {r['component']}",
-            f"category={r.get('category', '—')}",
-            f"action={r.get('action', 'assess')}",
-            f"bucket={r.get('recommendation_bucket', '—')}",
-            f"visibility={r.get('buyer_visibility', '—')}",
-            f"risk={r.get('inspection_risk', '—')}",
-        ]
-        if r.get("condition_score"):
-            parts.append(f"condition={r['condition_score']}/5")
-        if r.get("priority_score") is not None:
-            parts.append(f"priority={r['priority_score']}")
-        if r.get("project_group"):
-            parts.append(f"group=\"{r['project_group']}\"")
-        if r.get("owner_note"):
-            parts.append(f"note=\"{r['owner_note']}\"")
-        if r.get("estimated_cost_low") or r.get("estimated_cost_high"):
-            lo = r.get("estimated_cost_low") or "?"
-            hi = r.get("estimated_cost_high") or "?"
-            parts.append(f"cost=${lo}–${hi}")
-        if r.get("action") == "assess":
-            parts.append("scope=evaluate and quote")
-        return " | ".join(parts)
-
-    lines = [
-        "SELLER WALKTHROUGH — PROPERTY-SPECIFIC FINDINGS (treat as ground truth)",
-        "---------------------------------------------------------------------------",
-        "These rows come from the homeowner walkthrough checklist.",
-        "Items with action=fix MUST appear in repairs. action=upgrade MUST appear in upgrades.",
-        "action=assess items should be scoped as evaluate-and-quote with realistic cost ranges.",
-        "category=dated + action=skip → do NOT recommend unless condition_score <= 2.",
-        "Consolidate related items (e.g. interior paint + closet paint + trim paint → one paint upgrade).",
+    return "\n".join([
+        "SELLER WALKTHROUGH EVIDENCE (ground truth — do not invent findings)",
+        "--------------------------------------------------------------------",
+        *lines,
         "",
-    ]
-
-    if upgrade_rows:
-        lines.append("WALKTHROUGH — UPGRADE CANDIDATES:")
-        lines.extend(fmt(r) for r in upgrade_rows[:20])
-        lines.append("")
-
-    if repair_rows:
-        lines.append("WALKTHROUGH — REPAIR CANDIDATES:")
-        lines.extend(fmt(r) for r in repair_rows[:20])
-        lines.append("")
-
-    return "\n".join(lines)
+    ])
 
 
 def load_walkthrough_items(sb, property_id: str = PROPERTY_ID) -> list[dict[str, Any]]:

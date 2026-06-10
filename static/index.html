@@ -584,6 +584,31 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
   cursor: pointer; padding: 4px 0; font-weight: 600;
 }
 .wt-add-row:hover { text-decoration: underline; }
+.wt-advanced-toggle { font-size: 12px; color: var(--gray-500); display: flex; align-items: center; gap: 6px; }
+.wt-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.wt-zone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.wt-zone-bulk { font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--gray-200);
+  background: #fff; color: var(--gray-600); cursor: pointer; }
+.wt-zone-bulk:hover { border-color: var(--accent); color: var(--accent); }
+.wt-looks-fine { font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--gray-200);
+  background: #f8fafc; cursor: pointer; white-space: nowrap; }
+.wt-looks-fine:hover { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+.wt-looks-fine.done { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+tr.wt-row-fine td { opacity: 0.55; background: #f9fafb; }
+tr.wt-row-has-note td { background: #fffbeb; }
+.wt-advanced-col { display: none; }
+body.wt-advanced-on .wt-advanced-col { display: table-cell; }
+.rationale-block { margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 6px; }
+.rationale-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 8px; }
+.rationale-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); margin: 6px 0 4px; }
+.rationale-evidence { margin: 0; padding-left: 18px; font-size: 12px; color: var(--gray-600); }
+.rationale-reason { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
+.rationale-meta { font-size: 12px; color: var(--gray-600); margin-top: 4px; }
+.tier-pill { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 99px; margin-top: 4px; }
+.tier-confirmed { background: #dcfce7; color: #166534; }
+.tier-observed { background: #dbeafe; color: #1e40af; }
+.tier-inferred { background: #fef3c7; color: #92400e; }
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -1144,6 +1169,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     visibility: visible !important;
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
+  .rationale-block { display: block !important; visibility: visible !important; page-break-inside: avoid; }
   .wt-del, .wt-save-bar, .wt-hint { display: none !important; }
   .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
 
@@ -1237,9 +1263,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
     <!-- Detail level tabs -->
     <div class="detail-tabs" id="detail-tabs">
-      <div class="detail-tab" data-level="executive">Quick Wins</div>
-      <div class="detail-tab active" data-level="standard">Balanced Approach</div>
-      <div class="detail-tab" data-level="deep_dive">Leave Nothing Behind</div>
+      <div class="detail-tab" data-level="spend_nothing">Spend Nothing</div>
+      <div class="detail-tab" data-level="budget_5k">$5,000 Budget</div>
+      <div class="detail-tab active" data-level="budget_15k">$15,000 Budget</div>
+      <div class="detail-tab" data-level="maximize">Maximize Sale Price</div>
     </div>
 
     <div class="content-area">
@@ -1495,22 +1522,17 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <div class="wt-page">
           <div class="wt-page-header">
             <div>
-              <h2 class="wt-page-title">Seller Walkthrough Checklist</h2>
-              <p class="wt-page-sub">Layer 1: Room-by-Room Seller Assessment · Layer 2: Hidden Issues &amp; Transaction Risk</p>
+              <h2 class="wt-page-title">Seller Walkthrough</h2>
+              <p class="wt-page-sub">Collect observations — budget recommendations are on the <a href="#" id="wt-goto-roi" style="color:var(--accent)">ROI tab</a></p>
             </div>
-          </div>
-          <div class="wt-legend">
-            <span class="wt-cat-cosmetic">Cosmetic</span>
-            <span class="wt-cat-functional">Functional</span>
-            <span class="wt-cat-dated">Dated</span>
-            <span class="wt-cat-inspection_risk">Inspection risk</span>
+            <label class="wt-advanced-toggle"><input type="checkbox" id="wt-advanced"> Advanced</label>
           </div>
           <div class="wt-save-bar" id="wt-save-bar">
             <span>Saving changes…</span>
             <span id="wt-save-status" style="color:var(--green-700)"></span>
           </div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Calculated fields (bucket, impact, urgency, group) update automatically. Override <strong>cost</strong> or <strong>priority</strong> manually if needed. Regenerate the ROI report to apply <strong>Include in report</strong> changes.</p>
+          <p class="wt-hint">Type notes only where something matters. Mark the rest <strong>Looks Fine</strong>. Regenerate the ROI report after updating observations.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -1791,7 +1813,8 @@ function appendRichText(parent, text) {
 const $    = id => document.getElementById(id);
 
 /* ── State ─────────────────────────────────────────────────────── */
-let currentLevel = 'standard';
+let currentLevel = 'budget_15k';
+let wtAdvanced = false;
 const BUYER_PROFILE = 'general';
 let reportData     = {};
 
@@ -1904,19 +1927,33 @@ async function generateReport() {
 }
 
 /* ── Load report (fetch by id) ───────────────────────────────────── */
+const LEGACY_REPORT_LEVELS = {
+  spend_nothing: 'executive',
+  budget_15k: 'standard',
+  maximize: 'deep_dive',
+};
+
 async function loadReport() {
   showState('state-loading');
-  const id = `${currentLevel}_${BUYER_PROFILE}`;
+  const tryLevels = [currentLevel, LEGACY_REPORT_LEVELS[currentLevel]].filter(Boolean);
+  let report = null;
+  for (const level of tryLevels) {
+    const id = `${level}_${BUYER_PROFILE}`;
+    try {
+      const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
+      if (res.ok) { report = await res.json(); break; }
+      if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      if (!err.message?.startsWith('HTTP')) throw err;
+    }
+  }
   try {
-    const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
-    if (res.status === 404) {
+    if (!report) {
       $('not-gen-title').textContent = labelFor(currentLevel);
-      $('not-gen-msg').textContent = 'This report level has not been generated yet.';
+      $('not-gen-msg').textContent = 'This budget scenario has not been generated yet.';
       showState('state-not-generated');
       return;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const report = await res.json();
     populateReport(report);
     showState('tab-roi');
   } catch(err) {
@@ -1925,19 +1962,45 @@ async function loadReport() {
   }
 }
 
+function normalizeLevel(level) {
+  const map = { executive: 'spend_nothing', standard: 'budget_15k', deep_dive: 'maximize' };
+  return map[level] || level;
+}
+
 function labelFor(level) {
+  level = normalizeLevel(level);
   return {
-    executive: 'Quick Wins',
-    standard: 'Balanced Approach',
-    deep_dive: 'Leave Nothing Behind',
+    spend_nothing: 'Spend Nothing',
+    budget_5k: '$5,000 Budget',
+    budget_15k: '$15,000 Budget',
+    maximize: 'Maximize Sale Price',
   }[level] || level;
 }
 
 const LEVEL_DESCRIPTIONS = {
-  executive: 'These are the must-fix items so buyers don\u2019t walk away at the first showing \u2014 the highest-leverage repairs and upgrades a good listing agent would say to handle before you put a sign in the yard. Think \u201cfix these 3\u20134 things and list it\u201d \u2014 the smallest scope with the biggest impact, with full DIY and timeline detail like the other tabs.',
-  standard: 'Everything in Quick Wins, plus what buyers expect when comparing your home to similar-era neighbors in the $295K\u2013$305K range. You\u2019re not over-improving \u2014 you\u2019re meeting market expectation. Homes like 4 Kingfisher Dr ($289K, built 1996) and 305 Kingfisher Dr ($265K) set the bar: smooth ceilings, updated hardware, neutral paint.',
-  deep_dive: 'Everything in Balanced Approach, plus what it takes to compete with newer homes for top dollar. Anchored to 307 Blue Heron Cir ($301K, built 2007) \u2014 full flooring, kitchen counters, jacuzzi-to-shower conversion, and the finishes buyers see in 2000s-built comps. At this level you\u2019re competing with newer construction, not just same-age homes.',
+  spend_nothing: 'What absolutely has to be fixed before listing? Transaction-risk items only — water stains, structural issues, drainage. Target under $2,500 total.',
+  budget_5k: 'I have about $5,000 — what should I spend it on? Highest-return improvements from your walkthrough and photos.',
+  budget_15k: 'Balanced prep plan within $15,000. Must-fix items plus highest-impact upgrades buyers notice.',
+  maximize: 'Highest expected market impact regardless of budget. Every evidence-backed improvement worth doing.',
 };
+
+function renderRationaleBlock(rationale) {
+  if (!rationale) return '';
+  const r = rationale;
+  const ev = (r.evidence || []).map(e =>
+    `<li><strong>${esc(e.source || '')}:</strong> ${esc(e.text || '')}</li>`
+  ).join('');
+  const tier = r.tier ? `<span class="tier-pill tier-${esc(r.tier)}">${esc(r.tier)}</span>` : '';
+  return `<div class="rationale-block">
+    <div class="rationale-title">Why this recommendation exists</div>
+    ${ev ? `<div class="rationale-label">Evidence</div><ul class="rationale-evidence">${ev}</ul>` : ''}
+    ${tier ? `<div class="rationale-label">Tier</div>${tier}` : ''}
+    ${r.reason ? `<div class="rationale-reason">${esc(r.reason)}</div>` : ''}
+    ${r.expected_impact ? `<div class="rationale-meta"><strong>Expected impact:</strong> ${esc(r.expected_impact)}</div>` : ''}
+    ${r.confidence ? `<div class="rationale-meta"><strong>Confidence:</strong> ${esc(r.confidence)}</div>` : ''}
+    ${r.market_impact ? `<div class="rationale-meta"><strong>Market impact:</strong> ${esc(r.market_impact)}</div>` : ''}
+  </div>`;
+}
 
 /* ── Priority helpers ─────────────────────────────────────────────── */
 const PRIORITY_ORDER = {critical:0, high:1, medium:2, low:3};
@@ -2095,6 +2158,7 @@ function renderUpgrades(data) {
     const panelId = `upgrade-deep-${i}`;
     detail.innerHTML = `<td colspan="8"><div class="detail-inner">
       <div class="detail-desc">${esc(u.description ?? '')}</div>
+      ${renderRationaleBlock(u.rationale)}
       <div class="detail-grid">
         <div>
           <div class="detail-group-label">DIY Notes</div>
@@ -2162,6 +2226,7 @@ function renderRepairs(data) {
     const panelId = `repair-deep-${i}`;
     detail.innerHTML = `<td colspan="7"><div class="detail-inner">
       <div class="detail-desc">${esc(r.description ?? '')}</div>
+      ${renderRationaleBlock(r.rationale)}
       <div class="detail-grid">
         <div>
           <div class="detail-group-label">DIY Notes</div>
@@ -2345,7 +2410,7 @@ function populateReport(report) {
   reportData.executive_summary = ex;
 
   // Approach summary for this tab
-  const level = report.detail_level || currentLevel;
+  const level = normalizeLevel(report.detail_level || currentLevel);
   const approachText = report.level_description || LEVEL_DESCRIPTIONS[level] || '';
   if (approachText) {
     $('section-approach').style.display = '';
@@ -2358,9 +2423,10 @@ function populateReport(report) {
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
   const arvNotes = {
-    executive: 'Comp anchor: fix objections — $295K achievable sale',
-    standard:  'Comp anchor: market bar — $300K (4 Kingfisher / 305 Kingfisher)',
-    deep_dive: 'Comp anchor: top ceiling — $305K (307 Blue Heron + sqft advantage)',
+    spend_nothing: 'Scenario anchor — $295K achievable sale (must-fix only)',
+    budget_5k:     'Scenario anchor — $298K with focused $5K improvements',
+    budget_15k:    'Scenario anchor — $300K balanced prep',
+    maximize:      'Scenario anchor — $305K top ceiling (307 Blue Heron + sqft)',
   };
   $('card-arv-sub').textContent = 'After-repair value ceiling';
   $('card-arv-note').textContent = arvNotes[level] || 'Anchored to River Ridge sold comps';
@@ -2506,6 +2572,15 @@ async function loadWalkthrough() {
   } catch (e) { /* non-fatal */ }
 }
 
+document.getElementById('wt-advanced')?.addEventListener('change', (e) => {
+  wtAdvanced = e.target.checked;
+  renderWalkthrough(wtItems);
+});
+document.getElementById('wt-goto-roi')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.querySelector('.nav-item[data-tab="roi"]')?.click();
+});
+
 async function recalculateWalkthrough() {
   const btn = $('btn-wt-recalc');
   if (btn) { btn.disabled = true; btn.textContent = 'Recalculating…'; }
@@ -2534,6 +2609,7 @@ function renderWalkthrough(items) {
   const container = $('wt-layers');
   if (!container) return;
   container.innerHTML = '';
+  document.body.classList.toggle('wt-advanced-on', wtAdvanced);
 
   const byLayer = { room: {}, systems: {} };
   items.forEach(item => {
@@ -2562,82 +2638,91 @@ function renderWalkthrough(items) {
       block.dataset.zone = zone;
       block.dataset.layer = layer;
 
+      const zoneHeader = document.createElement('div');
+      zoneHeader.className = 'wt-zone-header';
+      zoneHeader.innerHTML = `<span class="wt-zone-name">${esc(zone)}</span>`;
+      const bulkBtn = document.createElement('button');
+      bulkBtn.type = 'button';
+      bulkBtn.className = 'wt-zone-bulk';
+      bulkBtn.textContent = 'Mark remaining as Looks Fine';
+      bulkBtn.addEventListener('click', () => zoneLooksFine(zone));
+      zoneHeader.appendChild(bulkBtn);
+      block.appendChild(zoneHeader);
+
       const table = document.createElement('table');
       table.className = 'wt-table';
       table.innerHTML = `
         <thead><tr>
-          <th>Zone</th><th>Component</th><th>Category</th><th>Cond</th><th>Action</th>
-          <th>Vis</th><th>Risk</th><th>Note</th><th>Cost</th><th>Pri</th>
-          <th>Bucket</th><th>Type</th><th>Impact</th><th>Urgency</th><th>ROI</th><th>Group</th>
-          <th>Incl</th><th></th>
+          <th>Component</th><th>Note</th><th>Incl</th><th></th>
+          <th class="wt-advanced-col">Condition</th>
+          <th class="wt-advanced-col">Action</th>
+          <th class="wt-advanced-col">Bucket</th>
         </tr></thead>`;
       const tbody = document.createElement('tbody');
 
       sorted.forEach(item => {
         const tr = document.createElement('tr');
-        if (item.source === 'owner') tr.className = 'wt-row-owner';
+        if (item.looks_fine) tr.className = 'wt-row-fine';
+        else if (item.owner_note) tr.className = 'wt-row-has-note';
         tr.dataset.id = item.id;
 
-        const costLo = item.estimated_cost_low ?? '';
-        const costHi = item.estimated_cost_high ?? '';
-        const pri = item.priority_score ?? '';
+        const prompt = escAttr(item.assessment_prompt || '');
+        const fineCls = item.looks_fine ? 'wt-looks-fine done' : 'wt-looks-fine';
+        const fineLabel = item.looks_fine ? '✓ Fine' : 'Looks Fine';
+
         tr.innerHTML = `
-          <td><input class="wt-field" data-field="zone" value="${escAttr(item.zone || '')}"></td>
-          <td><input class="wt-field" data-field="component" value="${escAttr(item.component || '')}"></td>
-          <td><select class="wt-select" data-field="category">${wtOpts(['cosmetic','functional','dated','inspection_risk'], item.category, '—')}</select></td>
-          <td><select class="wt-select" data-field="condition_score">${wtOpts(['1','2','3','4','5'], item.condition_score != null ? String(item.condition_score) : '', '—')}</select></td>
-          <td><select class="wt-select" data-field="action">${wtOpts(['assess','fix','upgrade','skip'], item.action, '')}</select></td>
-          <td><select class="wt-select" data-field="buyer_visibility">${wtOpts(['high','medium','low'], item.buyer_visibility, '—')}</select></td>
-          <td><select class="wt-select" data-field="inspection_risk">${wtOpts(['high','medium','low'], item.inspection_risk, '—')}</select></td>
-          <td><input class="wt-field wt-note" data-field="owner_note" value="${escAttr(item.owner_note || '')}"></td>
-          <td class="wt-cost-cell">
-            <input class="wt-field wt-cost" data-field="estimated_cost_low" type="number" min="0" placeholder="lo" value="${costLo}">
-            <input class="wt-field wt-cost" data-field="estimated_cost_high" type="number" min="0" placeholder="hi" value="${costHi}">
-          </td>
-          <td><input class="wt-field wt-cost" data-field="priority_score" type="number" min="0" max="100" placeholder="—" value="${pri}" title="${item.priority_overridden ? 'Manual override' : 'Auto-calculated'}"></td>
-          <td>${wtComputedCell(item.recommendation_bucket, wtBucketClass(item.recommendation_bucket))}</td>
-          <td>${wtComputedCell(item.report_type)}</td>
-          <td>${wtComputedCell(item.buyer_impact)}</td>
-          <td>${wtComputedCell(item.urgency)}</td>
-          <td>${wtComputedCell(item.roi_confidence)}</td>
-          <td>${wtComputedCell(item.project_group)}</td>
-          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false ? 'checked' : ''}></td>
-          <td><button type="button" class="wt-del" title="Delete row">×</button></td>`;
+          <td>${esc(item.component || '')}</td>
+          <td><input class="wt-field wt-note" data-field="owner_note" placeholder="${prompt}"
+              value="${escAttr(item.owner_note || '')}"></td>
+          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report !== false && !item.looks_fine ? 'checked' : ''}></td>
+          <td><button type="button" class="${fineCls}">${fineLabel}</button></td>
+          <td class="wt-advanced-col">${wtComputedCell(item.condition_display || item.condition_label || 'unknown')}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.action)}</td>
+          <td class="wt-advanced-col">${wtComputedCell(item.recommendation_bucket, wtBucketClass(item.recommendation_bucket))}</td>`;
 
-        tr.querySelectorAll('[data-field]').forEach(el => {
-          const field = el.dataset.field;
-          const handler = () => {
-            el.classList.add('dirty');
-            let val;
-            if (el.type === 'checkbox') val = el.checked;
-            else if (el.type === 'number') val = el.value === '' ? null : parseInt(el.value, 10);
-            else if (field === 'condition_score' || field === 'priority_score') val = el.value === '' ? null : parseInt(el.value, 10);
-            else val = el.value || null;
-            scheduleWtPatch(item.id, field, val);
-          };
-          el.addEventListener('change', handler);
-          if (el.tagName === 'INPUT' && el.type !== 'checkbox') el.addEventListener('input', handler);
+        const noteEl = tr.querySelector('[data-field="owner_note"]');
+        noteEl.addEventListener('input', (e) => {
+          e.target.classList.add('dirty');
+          scheduleWtPatch(item.id, 'owner_note', e.target.value || null);
         });
+        tr.querySelector('[data-field="include_in_report"]').addEventListener('change', (el) => {
+          scheduleWtPatch(item.id, 'include_in_report', el.target.checked);
+        });
+        tr.querySelector('.wt-looks-fine').addEventListener('click', () => looksFineItem(item.id));
 
-        tr.querySelector('.wt-del').addEventListener('click', () => deleteWtItem(item.id));
         tbody.appendChild(tr);
       });
 
       table.appendChild(tbody);
       block.appendChild(table);
-
-      const addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'wt-add-row';
-      addBtn.textContent = '+ Add row';
-      addBtn.addEventListener('click', () => addWtRow(zone, layer));
-      block.appendChild(addBtn);
-
       layerEl.appendChild(block);
     });
 
     container.appendChild(layerEl);
   });
+}
+
+async function looksFineItem(id) {
+  try {
+    const res = await fetch(`/walkthrough-items/${id}/looks-fine`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const idx = wtItems.findIndex(i => i.id === id);
+    if (idx >= 0) wtItems[idx] = data.item;
+    renderWalkthrough(wtItems);
+  } catch (e) { alert('Could not mark as looks fine'); }
+}
+
+async function zoneLooksFine(zone) {
+  try {
+    const res = await fetch('/walkthrough-items/zone-looks-fine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zone }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await loadWalkthrough();
+  } catch (e) { alert('Zone bulk update failed'); }
 }
 
 async function addWtRow(zone, layer) {
@@ -2684,6 +2769,7 @@ async function patchWtItem(id, updates) {
     const data = await res.json();
     const idx = wtItems.findIndex(i => i.id === id);
     if (idx >= 0) wtItems[idx] = data.item;
+    renderWalkthrough(wtItems);
     $('wt-save-status').textContent = 'Saved';
     setTimeout(() => $('wt-save-bar')?.classList.remove('visible'), 1200);
   } catch (err) {

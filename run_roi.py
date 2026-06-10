@@ -8,20 +8,21 @@ the result back to Supabase.
 Usage:
     python run_roi.py
     python run_roi.py --all --buyer general
-    python run_roi.py --detail executive --buyer first_time_buyer
-    python run_roi.py --detail deep_dive --buyer relocating_professional
+    python run_roi.py --detail spend_nothing --buyer first_time_buyer
+    python run_roi.py --detail maximize --buyer relocating_professional
 
 Arguments:
-    --all      Generate all three levels in sequence (executive → standard → deep_dive)
-    --detail   executive | standard | deep_dive          (default: standard)
+    --all      Generate all budget scenarios in sequence (spend_nothing → maximize)
+    --detail   spend_nothing | budget_5k | budget_15k | maximize  (default: budget_15k)
+               Legacy aliases: executive, standard, deep_dive
                Generates prerequisite levels first so each tab is additive.
     --buyer    first_time_buyer | young_family | downsizer |
                investor | relocating_professional | general  (default: general)
 
 Report is saved to Supabase with id = "{detail}_{buyer}", e.g.
-    "standard_general"
-    "deep_dive_relocating_professional"
-    "executive_first_time_buyer"
+    "budget_15k_general"
+    "maximize_relocating_professional"
+    "spend_nothing_first_time_buyer"
 
 Requires:
     GEMINI_API_KEY        -- Google Gemini API key
@@ -48,19 +49,30 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from attom import get_last_sale, get_property_summary
-from walkthrough import PROPERTY_ID, build_walkthrough_prompt_block, load_walkthrough_items
+from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
+from walkthrough import PROPERTY_ID, load_walkthrough_items
 from roi import (
     generate_roi_report,
-    generate_all_roi_reports,
     levels_up_to,
+    DETAIL_LEVEL_ORDER,
     DETAIL_LEVELS,
     BUYER_PROFILES,
+    normalize_detail_level,
 )
 
 load_dotenv()
 
 ANALYSES_TABLE = "photo_analyses"
 REPORT_TABLE   = "roi_report"
+
+
+def _evidence_prompt_block(
+    wt_rows: list[dict],
+    summary: dict,
+    scenario: str,
+) -> str:
+    package = build_evidence_package(wt_rows, summary, default_property_facts())
+    return format_evidence_prompt(package, scenario)
 
 
 # ---------------------------------------------------------------------------
@@ -742,14 +754,14 @@ def main() -> None:
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Generate all three levels in sequence (executive → standard → deep_dive)",
+        help="Generate all budget scenarios in sequence (spend_nothing → maximize)",
     )
     parser.add_argument(
         "--detail",
-        choices=sorted(DETAIL_LEVELS),
-        default="standard",
+        default="budget_15k",
         metavar="LEVEL",
-        help="executive | standard | deep_dive  (default: standard)",
+        help="spend_nothing | budget_5k | budget_15k | maximize  (default: budget_15k); "
+             "legacy: executive | standard | deep_dive",
     )
     parser.add_argument(
         "--buyer",
@@ -761,12 +773,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    detail_level  = args.detail
+    detail_level  = normalize_detail_level(args.detail)
     buyer_profile = args.buyer
     generate_all  = args.all
 
+    if detail_level not in DETAIL_LEVELS:
+        print(f"ERROR: Invalid detail level {args.detail!r}. "
+              f"Choose from: {', '.join(DETAIL_LEVEL_ORDER)}", file=sys.stderr)
+        sys.exit(1)
+
     if generate_all:
-        detail_level = "deep_dive"
+        detail_level = "maximize"
 
     report_id = f"{detail_level}_{buyer_profile}"
 
@@ -824,31 +841,15 @@ def main() -> None:
     property_summary = get_property_summary()
     last_sale        = get_last_sale()
     wt_rows = load_walkthrough_items(client, PROPERTY_ID)
-    walkthrough_block = build_walkthrough_prompt_block(wt_rows)
 
-    if generate_all:
-        print(f"\nGenerating all ROI reports for [{buyer_profile}] buyer with Gemini...")
-        result = generate_all_roi_reports(
-            summary, property_summary, last_sale, buyer_profile=buyer_profile,
-            walkthrough_block=walkthrough_block,
-        )
-        if result.get("error"):
-            print(f"ERROR generating reports: {result['error']}", file=sys.stderr)
-            sys.exit(1)
-        reports = {k: v for k, v in result.items() if k != "error"}
-        for level, report in reports.items():
-            rid = f"{level}_{buyer_profile}"
-            _save_report(client, rid, report)
-            _print_report_summary(report, level, buyer_profile)
-        return
-
-    chain = levels_up_to(detail_level)
+    chain = DETAIL_LEVEL_ORDER if generate_all else levels_up_to(detail_level)
     prior: dict | None = None
     report: dict | None = None
 
     for level in chain:
         level_report_id = f"{level}_{buyer_profile}"
         print(f"\nGenerating [{level}] ROI report for [{buyer_profile}] buyer with Gemini...")
+        walkthrough_block = _evidence_prompt_block(wt_rows, summary, level)
         report = generate_roi_report(
             summary, property_summary, last_sale,
             detail_level=level,
