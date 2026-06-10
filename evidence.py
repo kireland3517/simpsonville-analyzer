@@ -197,6 +197,7 @@ def build_evidence_package(
     matched_photo_texts: set[str] = set()
 
     for row in enriched:
+        included = bool(row.get("include_in_report"))
         note = (row.get("owner_note") or "").strip() or None
         photos = _match_photo_texts(row.get("zone", ""), row.get("component", ""), photo_summary)
         for p in photos:
@@ -215,10 +216,12 @@ def build_evidence_package(
             "confidence_tier": tier,
             "template_category": row.get("category"),
             "template_risk": row.get("inspection_risk"),
-            "include_in_report": row.get("include_in_report", True),
+            "include_in_report": included,
         }
         components.append(entry)
 
+        if not included:
+            continue
         if row.get("looks_fine"):
             dismissed.append(f"[{row.get('zone', '').title()}] {row['component']}")
         elif note and not photos:
@@ -246,13 +249,15 @@ def build_evidence_package(
 
     actionable = sum(
         1 for c in components
-        if c["confidence_tier"] in ("confirmed", "observed")
+        if c.get("include_in_report")
+        and c["confidence_tier"] in ("confirmed", "observed")
         and not c["looks_fine"]
         and (c["walkthrough_note"] or c["photo_observations"])
     )
     needs_input = sum(
         1 for c in components
-        if not c["looks_fine"]
+        if c.get("include_in_report")
+        and not c["looks_fine"]
         and not c["walkthrough_note"]
         and not c["photo_observations"]
         and c["confidence_tier"] == "unknown"
@@ -292,8 +297,12 @@ def format_evidence_prompt(package: dict[str, Any], scenario: str = "budget_15k"
     observed: list[str] = []
     inferred: list[str] = []
     dismissed: list[str] = []
+    seller_ok: list[str] = []
 
     for c in components:
+        if not c.get("include_in_report"):
+            continue
+
         zone = (c.get("zone") or "").title()
         comp = c.get("component") or ""
         note = c.get("walkthrough_note")
@@ -301,7 +310,10 @@ def format_evidence_prompt(package: dict[str, Any], scenario: str = "budget_15k"
         tier = c.get("confidence_tier") or "unknown"
 
         if c.get("looks_fine"):
-            dismissed.append(f"- [{zone}] {comp}")
+            if note:
+                seller_ok.append(f"- [{zone}] {comp}: \"{note}\" (seller reports no concerns)")
+            else:
+                seller_ok.append(f"- [{zone}] {comp} (seller reports no concerns)")
             continue
 
         if tier == "confirmed":
@@ -343,9 +355,16 @@ def format_evidence_prompt(package: dict[str, Any], scenario: str = "budget_15k"
         lines.extend(["OBSERVED FINDINGS (single direct source)", "-----------------------------------------", *observed, ""])
     if inferred:
         lines.extend(["INFERRED FINDINGS (metadata only — low confidence)", "--------------------------------------------------", *inferred, ""])
+    if seller_ok:
+        lines.extend([
+            "SELLER CONFIRMED OK (no concerns — include as negative evidence)",
+            "----------------------------------------------------------------",
+            *seller_ok[:40],
+            "",
+        ])
     if dismissed:
         lines.extend([
-            "DISMISSED BY SELLER (looks_fine — do not recommend)",
+            "DISMISSED BY SELLER (no concerns — do not recommend)",
             "----------------------------------------------------",
             *dismissed[:40],
             "",

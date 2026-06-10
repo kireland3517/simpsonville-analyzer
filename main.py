@@ -90,14 +90,16 @@ from run_roi import build_analysis_summary
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
+    LooksFineError,
     apply_calculated_persist_fields,
-    apply_looks_fine,
-    build_walkthrough_prompt_block,
     enrich_walkthrough_item,
     enrich_walkthrough_items,
+    is_assessment_prompt_text,
     load_walkthrough_items,
     recalculate_all_items,
+    sanitize_walkthrough_prompt_notes,
     seed_walkthrough_items,
+    toggle_looks_fine,
     zone_looks_fine_remaining,
 )
 
@@ -1005,7 +1007,7 @@ class WalkthroughItemCreate(BaseModel):
     estimated_cost_high: int | None = None
     priority_score: int | None = None
     sort_order: int = 0
-    include_in_report: bool = True
+    include_in_report: bool = False
     looks_fine: bool = False
     source: str = "user"
 
@@ -1097,6 +1099,7 @@ def walkthrough_evidence_package(
 
 @app.post("/walkthrough-items/{item_id}/looks-fine")
 def walkthrough_item_looks_fine(item_id: str):
+    """Toggle No Concerns (looks_fine). Never clears owner_note."""
     sb = _sb()
     if not sb:
         raise HTTPException(status_code=503, detail="Supabase not configured")
@@ -1104,9 +1107,9 @@ def walkthrough_item_looks_fine(item_id: str):
         fresh = sb.table("walkthrough_items").select("*").eq("id", item_id).maybe_single().execute()
         if not fresh or not fresh.data:
             raise HTTPException(status_code=404, detail="Item not found")
-        row = apply_looks_fine(fresh.data)
+        row = toggle_looks_fine(fresh.data)
         sb.table("walkthrough_items").update({
-            **{k: row[k] for k in ("looks_fine", "owner_note", "include_in_report") if k in row},
+            **{k: row[k] for k in ("looks_fine", "include_in_report") if k in row},
             "updated_at": "now()",
         }).eq("id", item_id).execute()
         calc_fields = apply_calculated_persist_fields(row)
@@ -1114,6 +1117,8 @@ def walkthrough_item_looks_fine(item_id: str):
         fresh = sb.table("walkthrough_items").select("*").eq("id", item_id).maybe_single().execute()
         item = fresh.data if fresh and fresh.data else row
         return {"item": enrich_walkthrough_item(item)}
+    except LooksFineError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except HTTPException:
         raise
     except Exception as exc:
@@ -1135,7 +1140,6 @@ def walkthrough_zone_looks_fine(body: ZoneLooksFineRequest):
         try:
             sb.table("walkthrough_items").update({
                 "looks_fine": True,
-                "owner_note": None,
                 "include_in_report": False,
                 "updated_at": "now()",
             }).eq("id", row["id"]).execute()
@@ -1155,8 +1159,28 @@ def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
     updates = body.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=422, detail="No fields to update")
-    if "owner_note" in updates and updates["owner_note"]:
-        updates["looks_fine"] = False
+    existing = None
+    if "owner_note" in updates:
+        existing_row = (
+            sb.table("walkthrough_items").select("component", "category")
+            .eq("id", item_id).maybe_single().execute()
+        )
+        existing = existing_row.data if existing_row and existing_row.data else {}
+        raw = updates["owner_note"]
+        note = (raw or "").strip() if raw else ""
+        if note and is_assessment_prompt_text(
+            note,
+            existing.get("component"),
+            existing.get("category"),
+        ):
+            note = ""
+        if note:
+            updates["owner_note"] = note
+            updates["looks_fine"] = False
+            updates["include_in_report"] = True
+        else:
+            updates["owner_note"] = None
+            updates["include_in_report"] = False
     if "estimated_cost_low" in updates or "estimated_cost_high" in updates:
         updates["cost_overridden"] = True
     if "priority_score" in updates:
@@ -1195,6 +1219,17 @@ def walkthrough_items_patch(item_id: str, body: WalkthroughItemPatch):
         raise
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.post("/walkthrough-items/sanitize-prompts")
+def walkthrough_sanitize_prompts(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    """Clear assessment prompt text mistakenly stored as owner_note."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    return sanitize_walkthrough_prompt_notes(sb, property_id)
 
 
 @app.post("/walkthrough-items/recalculate")

@@ -17,7 +17,7 @@ create table if not exists walkthrough_items (
   estimated_cost_high integer,
   priority_score integer,
   sort_order integer default 0,
-  include_in_report boolean default true,
+  include_in_report boolean default false,
   source text default 'template',
   created_at timestamptz default now(),
   updated_at timestamptz default now()

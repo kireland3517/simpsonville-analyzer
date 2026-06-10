@@ -151,7 +151,7 @@ def _item(
     action: str = "assess",
     owner_note: str | None = None,
     source: str = "template",
-    include_in_report: bool = True,
+    include_in_report: bool = False,
     condition_score: int | None = None,
     estimated_cost_low: int | None = None,
     estimated_cost_high: int | None = None,
@@ -466,6 +466,47 @@ def get_assessment_prompt(component: str, category: str | None = None) -> str:
     return "Assess condition and note anything a buyer or inspector would flag."
 
 
+_PROMPT_GUIDANCE_PREFIXES = ("check ", "note ", "assess ", "confirm ", "test ", "inspect ")
+
+
+def _known_assessment_prompt_texts() -> set[str]:
+    texts = set(ASSESSMENT_PROMPTS.values())
+    texts.update(_CATEGORY_PROMPTS.values())
+    texts.add("Assess condition and note anything a buyer or inspector would flag.")
+    return {t.strip().lower() for t in texts}
+
+
+def is_assessment_prompt_text(
+    note: str | None,
+    component: str | None = None,
+    category: str | None = None,
+) -> bool:
+    """True when stored text is guidance placeholder, not seller evidence."""
+    if not note or not note.strip():
+        return False
+    normalized = note.strip().lower()
+    if normalized in _known_assessment_prompt_texts():
+        return True
+    if normalized == get_assessment_prompt(component or "", category).strip().lower():
+        return True
+    if any(normalized.startswith(p) for p in _PROMPT_GUIDANCE_PREFIXES):
+        if normalized in _known_assessment_prompt_texts():
+            return True
+        comp_prompt = get_assessment_prompt(component or "", category).strip().lower()
+        if normalized == comp_prompt:
+            return True
+    return False
+
+
+def sanitize_owner_note(row: dict[str, Any]) -> dict[str, Any]:
+    """Drop assessment prompt text mistakenly stored as owner_note."""
+    out = dict(row)
+    note = out.get("owner_note")
+    if is_assessment_prompt_text(note, out.get("component"), out.get("category")):
+        out["owner_note"] = None
+    return out
+
+
 def infer_condition_from_owner_note(
     note: str | None,
     *,
@@ -560,8 +601,6 @@ def prepare_walkthrough_row(row: dict[str, Any]) -> dict[str, Any]:
     out["condition_label"] = condition_label
     out["condition_score"] = condition_score
     out["action"] = resolve_action(out, condition_label)
-    if out.get("looks_fine"):
-        out["include_in_report"] = False
     return out
 
 
@@ -721,7 +760,7 @@ def calculate_walkthrough_fields(row: dict[str, Any]) -> dict[str, Any]:
 
 def enrich_walkthrough_item(row: dict[str, Any]) -> dict[str, Any]:
     """Merge calculated fields; respect user overrides for cost and priority."""
-    prepared = prepare_walkthrough_row(row)
+    prepared = prepare_walkthrough_row(sanitize_owner_note(row))
     out = {**prepared}
     calc = calculate_walkthrough_fields(prepared)
 
@@ -773,8 +812,6 @@ def apply_calculated_persist_fields(row: dict[str, Any]) -> dict[str, Any]:
         "urgency": enriched.get("urgency"),
         "project_group": enriched.get("project_group"),
     }
-    if prepared.get("looks_fine"):
-        updates["include_in_report"] = False
     if not row.get("cost_overridden"):
         updates["estimated_cost_low"] = enriched.get("estimated_cost_low")
         updates["estimated_cost_high"] = enriched.get("estimated_cost_high")
@@ -796,13 +833,57 @@ def recalculate_all_items(sb, property_id: str = PROPERTY_ID) -> dict:
     return {"recalculated": updated, "total": len(rows)}
 
 
+class LooksFineError(ValueError):
+    """Cannot transition to No Concerns while an observation exists."""
+
+
 def apply_looks_fine(row: dict[str, Any]) -> dict[str, Any]:
+    if (row.get("owner_note") or "").strip():
+        raise LooksFineError(
+            "Cannot mark Looks Fine while an observation exists — clear the note first"
+        )
     return {
         **row,
         "looks_fine": True,
-        "owner_note": None,
         "include_in_report": False,
     }
+
+
+def clear_looks_fine(row: dict[str, Any]) -> dict[str, Any]:
+    return {**row, "looks_fine": False}
+
+
+def toggle_looks_fine(row: dict[str, Any]) -> dict[str, Any]:
+    if row.get("looks_fine"):
+        return clear_looks_fine(row)
+    return apply_looks_fine(row)
+
+
+def sanitize_walkthrough_prompt_notes(sb, property_id: str = PROPERTY_ID) -> dict[str, Any]:
+    """One-time repair: clear owner_note values that match assessment prompts."""
+    rows = load_walkthrough_items(sb, property_id)
+    cleared = 0
+    for row in rows:
+        if not row.get("id"):
+            continue
+        sanitized = sanitize_owner_note(row)
+        old_note = (row.get("owner_note") or "").strip()
+        new_note = (sanitized.get("owner_note") or "").strip()
+        if old_note and not new_note:
+            try:
+                sb.table(WALKTHROUGH_TABLE).update({
+                    "owner_note": None,
+                    "updated_at": "now()",
+                }).eq("id", row["id"]).execute()
+                calc_fields = apply_calculated_persist_fields({**row, "owner_note": None})
+                sb.table(WALKTHROUGH_TABLE).update({
+                    **calc_fields,
+                    "updated_at": "now()",
+                }).eq("id", row["id"]).execute()
+                cleared += 1
+            except Exception:
+                pass
+    return {"cleared": cleared, "total": len(rows), "property_id": property_id}
 
 
 def zone_looks_fine_remaining(rows: list[dict[str, Any]], zone: str) -> list[dict[str, Any]]:
@@ -817,7 +898,10 @@ def zone_looks_fine_remaining(rows: list[dict[str, Any]], zone: str) -> list[dic
             continue
         if row.get("condition_overridden"):
             continue
-        out.append(apply_looks_fine(row))
+        try:
+            out.append(apply_looks_fine(row))
+        except LooksFineError:
+            continue
     return out
 
 
@@ -840,9 +924,9 @@ def build_walkthrough_evidence_lines(rows: list[dict[str, Any]]) -> list[str]:
     enriched = enrich_walkthrough_items(rows)
     lines: list[str] = []
     for r in enriched:
-        if r.get("looks_fine"):
+        if not r.get("include_in_report"):
             continue
-        if not r.get("include_in_report", True):
+        if r.get("looks_fine"):
             continue
         note = (r.get("owner_note") or "").strip()
         if not note:
