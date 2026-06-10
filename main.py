@@ -87,7 +87,10 @@ from roi import (
     DETAIL_LEVEL_ORDER,
 )
 from run_roi import build_analysis_summary
+from datetime import datetime, timezone
+
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
+from walkthrough_impact import build_walkthrough_impact
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
     LooksFineError,
@@ -142,14 +145,38 @@ def _load_photo_analyses(sb=None) -> list[dict]:
         return list(analysis_cache.values())
 
 
-def _evidence_prompt_block(sb=None, scenario: str = "budget_15k") -> str:
-    """Unified evidence package for ROI generation."""
+def _evidence_context(sb=None, scenario: str = "budget_15k") -> tuple[dict, str, list]:
+    """Build evidence package, formatted prompt, and raw walkthrough rows."""
     client = sb or _sb()
-    rows = load_walkthrough_items(client, WALKTHROUGH_PROPERTY_ID)
+    rows = load_walkthrough_items(client, WALKTHROUGH_PROPERTY_ID) if client else []
     analyses = _load_photo_analyses(client)
     summary = build_analysis_summary(analyses) if analyses else {}
     package = build_evidence_package(rows, summary, default_property_facts())
-    return format_evidence_prompt(package, scenario)
+    return package, format_evidence_prompt(package, scenario), rows
+
+
+def _evidence_prompt_block(sb=None, scenario: str = "budget_15k") -> str:
+    """Unified evidence package for ROI generation."""
+    _, prompt, _ = _evidence_context(sb, scenario)
+    return prompt
+
+
+def _attach_walkthrough_impact(
+    report: dict,
+    package: dict,
+    scenario: str,
+    walkthrough_rows: list,
+) -> dict:
+    """Add walkthrough_impact trace and generated_at timestamp to report."""
+    report["walkthrough_impact"] = build_walkthrough_impact(
+        package,
+        scenario,
+        report.get("upgrades") or [],
+        report.get("repairs") or [],
+        walkthrough_rows,
+    )
+    report["generated_at"] = datetime.now(timezone.utc).isoformat()
+    return report
 
 
 def _walkthrough_prompt_block(sb=None) -> str:
@@ -428,7 +455,7 @@ def report_generate(body: ReportRequest):
     sb = _sb()
     for level in chain:
         level_id = f"{level}_{buyer_profile}"
-        walkthrough_block = _evidence_prompt_block(sb, level)
+        package, walkthrough_block, wt_rows = _evidence_context(sb, level)
         report = generate_roi_report(
             summary,
             property_summary,
@@ -440,6 +467,8 @@ def report_generate(body: ReportRequest):
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=report["error"])
+
+        report = _attach_walkthrough_impact(report, package, level, wt_rows)
 
         if sb:
             try:
@@ -566,7 +595,7 @@ def report_regenerate_all(profile: str = Query(default="general")):
     reports: dict[str, dict] = {}
     for level in DETAIL_LEVEL_ORDER:
         print(f"\n=== Regenerating [{level}_{profile}] ===")
-        walkthrough_block = _evidence_prompt_block(sb, level)
+        package, walkthrough_block, wt_rows = _evidence_context(sb, level)
         report = generate_roi_report(
             summary, property_summary, last_sale,
             detail_level=level,
@@ -576,6 +605,8 @@ def report_regenerate_all(profile: str = Query(default="general")):
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=f"[{level}] {report['error']}")
+
+        report = _attach_walkthrough_impact(report, package, level, wt_rows)
 
         level_id = f"{level}_{profile}"
         if sb:

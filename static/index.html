@@ -748,6 +748,30 @@ body.wt-advanced-on .wt-dev-panel { display: flex; }
 .tier-confirmed { background: #dcfce7; color: #166534; }
 .tier-observed { background: #dbeafe; color: #1e40af; }
 .tier-inferred { background: #fef3c7; color: #92400e; }
+
+/* Walkthrough Impact (ROI traceability) */
+.wt-impact-meta { font-size: 13px; color: var(--gray-600); margin: 0 0 12px; }
+.wt-impact-stale { font-size: 12px; color: var(--amber-600); background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+.wt-impact-list { display: flex; flex-direction: column; gap: 10px; }
+.wt-impact-row {
+  border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; background: #fff;
+}
+.wt-impact-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.wt-impact-location { font-size: 14px; font-weight: 600; color: var(--gray-900); }
+.wt-impact-status { font-size: 13px; color: var(--gray-700); line-height: 1.45; margin-bottom: 4px; }
+.wt-impact-status strong { font-weight: 600; color: var(--gray-800); }
+.wt-impact-links { display: inline; }
+.wt-impact-link {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.wt-impact-link:hover { color: #1d4ed8; }
+.wt-impact-link + .wt-impact-link::before { content: " · "; color: var(--gray-400); text-decoration: none; }
+.wt-impact-excerpt { font-size: 12px; color: var(--gray-400); font-style: italic; margin-top: 4px; }
+.wt-impact-corro { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -1309,6 +1333,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
   .rationale-block { display: block !important; visibility: visible !important; page-break-inside: avoid; }
+  .wt-impact-row { page-break-inside: avoid; break-inside: avoid; }
+  .wt-impact-link { color: inherit !important; text-decoration: none !important; cursor: default !important; }
+  .wt-impact-stale { display: none !important; }
   .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
   .wt-concern-actions, .wt-overview { display: none !important; }
   .wt-room-card { break-inside: avoid; }
@@ -1470,6 +1497,23 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <div class="card-sub" id="card-critical-sub"></div>
             </div>
           </div>
+        </div>
+
+        <!-- Walkthrough Impact (traceability) -->
+        <div class="section" id="section-wt-impact" style="display:none">
+          <details class="report-collapse wt-impact-collapse" open>
+            <summary class="report-collapse-summary report-collapse-summary--blue">
+              Walkthrough Impact
+            </summary>
+            <div class="report-collapse-body">
+              <p class="wt-impact-meta" id="wt-impact-subtitle" style="margin-top:0;font-size:12px;color:var(--gray-500)">
+                How your notes shaped this report
+              </p>
+              <p class="wt-impact-stale" id="wt-impact-stale" style="display:none"></p>
+              <p class="wt-impact-meta" id="wt-impact-summary"></p>
+              <div class="wt-impact-list" id="wt-impact-list"></div>
+            </div>
+          </details>
         </div>
 
         <!-- Selection status bar -->
@@ -2531,6 +2575,101 @@ function sortArray(arr, col, dir) {
   });
 }
 
+/* ── Walkthrough Impact (ROI traceability) ─────────────────────── */
+let lastWtChangeAt = 0;
+
+function titleCaseWords(s) {
+  return (s || '').split(/\s+/).filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+function scrollToRecommendation(name, type) {
+  const tbodyId = type === 'upgrade' ? 'upgrades-tbody' : 'repairs-tbody';
+  for (const row of document.querySelectorAll(`#${tbodyId} tr.data-row`)) {
+    if (row.dataset.name !== name) continue;
+    const detail = row.nextElementSibling;
+    if (detail?.classList.contains('detail-row') && detail.hidden) {
+      toggleDetail(row, detail);
+    }
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+}
+
+function renderWalkthroughImpact(report) {
+  const section = $('section-wt-impact');
+  const impact = report?.walkthrough_impact;
+  if (!section) return;
+
+  if (!impact?.items?.length) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  const collapse = section.querySelector('.wt-impact-collapse');
+  if (collapse) collapse.open = true;
+
+  const s = impact.summary || {};
+  const scenarioLabel = s.scenario_label || labelFor(s.scenario || currentLevel);
+  $('wt-impact-summary').textContent =
+    `${s.included ?? impact.items.length} included · ${s.influenced ?? 0} influenced this report · ` +
+    `${s.analyzed_not_selected ?? 0} analyzed, not selected at ${scenarioLabel}`;
+
+  const staleEl = $('wt-impact-stale');
+  if (staleEl && lastWtChangeAt && report.generated_at) {
+    const genMs = new Date(report.generated_at).getTime();
+    if (!Number.isNaN(genMs) && lastWtChangeAt > genMs) {
+      staleEl.style.display = '';
+      staleEl.textContent = 'Walkthrough updated — regenerate to refresh impact trace.';
+    } else {
+      staleEl.style.display = 'none';
+    }
+  } else if (staleEl) {
+    staleEl.style.display = 'none';
+  }
+
+  $('wt-impact-list').innerHTML = impact.items.map(item => {
+    const zone = titleCaseWords(item.zone);
+    const comp = item.component || '';
+    const tier = item.evidence_tier;
+    const tierHtml = tier && tier !== 'unknown'
+      ? `<span class="tier-pill tier-${esc(tier)}">${esc(tier)}</span>` : '';
+
+    let statusHtml = '';
+    const influenced = item.influenced || [];
+    if (influenced.length) {
+      const links = influenced.map(rec =>
+        `<button type="button" class="wt-impact-link" ` +
+        `onclick="scrollToRecommendation(${JSON.stringify(rec.name)}, ${JSON.stringify(rec.type)})">` +
+        `${esc(rec.name)}</button>`
+      ).join('');
+      statusHtml = `<div class="wt-impact-status"><strong>Influenced:</strong> <span class="wt-impact-links">${links}</span></div>`;
+    } else if (item.analyzed && item.not_selected_reason) {
+      statusHtml = `<div class="wt-impact-status"><strong>Analyzed ·</strong> ${esc(item.not_selected_reason)}</div>`;
+    } else if (item.analyzed) {
+      statusHtml = `<div class="wt-impact-status"><strong>Analyzed ·</strong> Not selected at this budget level</div>`;
+    } else {
+      statusHtml = `<div class="wt-impact-status">Included · Not analyzed for this report</div>`;
+    }
+
+    const excerpt = item.note_excerpt
+      ? `<div class="wt-impact-excerpt">"${esc(item.note_excerpt)}"</div>` : '';
+    const corro = item.corroboration === 'photo'
+      ? `<div class="wt-impact-corro">Also flagged in photos</div>` : '';
+
+    return `<div class="wt-impact-row">
+      <div class="wt-impact-header">
+        <span class="wt-impact-location">${esc(zone)} · ${esc(comp)}</span>
+        ${tierHtml}
+      </div>
+      ${statusHtml}
+      ${corro}
+      ${excerpt}
+    </div>`;
+  }).join('');
+}
+
 /* ── Populate report ─────────────────────────────────────────────── */
 function populateReport(report) {
   const ex       = report.executive_summary || {};
@@ -2539,6 +2678,8 @@ function populateReport(report) {
 
   // Store on reportData so recalculate() can access
   reportData.executive_summary = ex;
+  reportData.generated_at = report.generated_at || null;
+  reportData.walkthrough_impact = report.walkthrough_impact || null;
 
   const level = normalizeLevel(currentLevel);
 
@@ -2581,8 +2722,10 @@ function populateReport(report) {
   renderUpgrades(sortedUpgrades);
   renderRepairs(sortedRepairs);
 
-  // Collapse narrative sections by default on each load
-  document.querySelectorAll('.report-collapse').forEach(d => { d.open = false; });
+  // Collapse narrative sections by default on each load (keep Walkthrough Impact open)
+  document.querySelectorAll('.report-collapse:not(.wt-impact-collapse)').forEach(d => { d.open = false; });
+
+  renderWalkthroughImpact(report);
 
   // Timeline
   const tl = report.project_timeline;
@@ -3218,6 +3361,7 @@ async function looksFineItem(id) {
     const data = await res.json();
     const idx = wtItems.findIndex(i => i.id === id);
     if (idx >= 0) wtItems[idx] = data.item;
+    lastWtChangeAt = Date.now();
     wtExpandedItems.delete(id);
     renderWalkthrough(wtItems);
   } catch (e) { alert('Could not update Looks Fine'); }
@@ -3231,6 +3375,7 @@ async function zoneLooksFine(zone) {
       body: JSON.stringify({ zone }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    lastWtChangeAt = Date.now();
     await loadWalkthrough();
   } catch (e) { alert('Zone bulk update failed'); }
 }
@@ -3282,6 +3427,7 @@ async function patchWtItem(id, updates) {
     const data = await res.json();
     const idx = wtItems.findIndex(i => i.id === id);
     if (idx >= 0) wtItems[idx] = data.item;
+    lastWtChangeAt = Date.now();
     renderWalkthrough(wtItems);
     $('wt-save-status').textContent = 'Saved';
     setTimeout(() => $('wt-save-bar')?.classList.remove('visible'), 1200);
