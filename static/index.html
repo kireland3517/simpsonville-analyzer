@@ -772,6 +772,9 @@ body.wt-advanced-on .wt-dev-panel { display: flex; }
 .wt-impact-excerpt { font-size: 12px; color: var(--gray-400); font-style: italic; margin-top: 4px; }
 .wt-impact-corro { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
 
+/* Walkthrough dedicated print artifact (screen-hidden) */
+#wt-print-root { display: none; }
+
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
@@ -1288,10 +1291,13 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   /* Print one tab at a time (ROI or Walkthrough) */
   .tab-pane { display: none !important; padding: 0 !important; }
   body.is-printing-roi #tab-roi { display: block !important; padding: 0 !important; }
-  body.is-printing-walkthrough #tab-walkthrough { display: block !important; padding: 0 !important; }
+  body.is-printing-walkthrough #tab-walkthrough { display: none !important; }
+  body.is-printing-walkthrough #wt-print-root { display: block !important; padding: 0 !important; }
   /* Browser Print shortcut fallback (no expand-all prep) */
   body:not(.is-printing) #tab-roi.active { display: block !important; padding: 0 !important; }
   body:not(.is-printing) #tab-walkthrough.active { display: block !important; padding: 0 !important; }
+
+  body.is-printing-walkthrough { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   body.is-printing-roi #tab-roi::before {
     content: '130 Kingfisher Dr - Pre-Listing Analysis Report';
@@ -1304,16 +1310,33 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     border-bottom: 1px solid #ccc;
   }
 
-  body.is-printing-walkthrough #tab-walkthrough::before {
-    content: '130 Kingfisher Dr - Seller Walkthrough Checklist';
-    display: block;
-    font-size: 18px;
-    font-weight: 700;
-    color: #000;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #ccc;
-  }
+  /* Dedicated walkthrough print artifact */
+  .wt-print-doc { font-family: "Segoe UI", system-ui, sans-serif; font-size: 9pt; line-height: 1.3;
+    color: #000; max-width: 100%; }
+  .wt-print-header { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #000;
+    break-after: avoid; }
+  .wt-print-header h1 { font-size: 13pt; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .wt-print-subtitle { font-size: 10pt; font-weight: 600; margin: 3px 0 0; }
+  .wt-print-desc { font-size: 8pt; color: #444; margin: 2px 0 0; }
+  .wt-print-body { column-count: 2; column-gap: 18px; }
+  body.is-printing-wt-summary .wt-print-body { column-count: 1; max-width: 100%; }
+  .wt-print-layer-label { font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #666; margin: 10px 0 6px; break-after: avoid;
+    column-span: all; }
+  .wt-print-layer-label:first-child { margin-top: 0; }
+  .wt-print-room { margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid; }
+  .wt-print-room-title { font-size: 9pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; margin: 0 0 3px; padding-bottom: 2px; border-bottom: 1px solid #bbb; }
+  .wt-print-items { list-style: none; margin: 0; padding: 0; }
+  .wt-print-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 5px; padding: 0; margin: 0; }
+  .wt-print-box { flex-shrink: 0; font-size: 10pt; line-height: 1.2; width: 1em; }
+  .wt-print-comp { flex: 1; min-width: 0; }
+  .wt-print-item-note { flex: 1 1 100%; font-size: 8pt; color: #333; margin: 0 0 2px 1.15em;
+    padding: 0; line-height: 1.35; }
+  .wt-print-note-label { font-weight: 600; font-style: normal; }
+  .wt-print-room-notes { font-size: 8pt; color: #555; margin-top: 4px; }
+  .wt-print-notes-rule { border-bottom: 1px solid #999; height: 16px; margin-top: 2px; }
+  .wt-print-empty { font-size: 10pt; color: #666; column-span: all; }
 
   /* Force every report section visible for print */
   body.is-printing-roi #tab-roi .section,
@@ -1353,26 +1376,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .wt-impact-stale { display: none !important; }
   .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
   .wt-concern-actions, .wt-overview { display: none !important; }
-  body.is-printing-walkthrough .wt-page-header,
-  body.is-printing-walkthrough .wt-advanced-toggle,
-  body.is-printing-walkthrough .wt-dev-tools,
-  body.is-printing-walkthrough .wt-progress { display: none !important; }
-  body.is-printing-walkthrough .wt-layer-title { display: block !important; font-size: 14px; font-weight: 700;
-    margin: 20px 0 12px; page-break-after: avoid; }
-  body.is-printing-walkthrough .wt-room-card { break-inside: avoid; display: block !important; }
-  body.is-printing-walkthrough .wt-room-card-summary::after { display: none !important; }
-  body.is-printing-walkthrough .wt-checklist > summary { display: block !important; font-size: 12px;
-    font-weight: 700; color: #374151; padding: 8px 0 4px; }
-  body.is-printing-walkthrough .wt-checklist > summary::before { display: none !important; }
-  body.is-printing-walkthrough .wt-comp-expand .wt-expand-include,
-  body.is-printing-walkthrough .wt-comp-expand .wt-field,
-  body.is-printing-walkthrough .wt-comp-expand .wt-guidance { display: none !important; }
-  body.is-printing-walkthrough .wt-comp-expand .wt-expand-label { display: none !important; }
-  body.is-printing-walkthrough .wt-comp-expand { display: none !important; }
-  body.is-printing-walkthrough .wt-comp-preview { display: block !important; }
-  .wt-room-primary, .wt-room-body, .wt-comp-expand, .wt-checklist-body { display: block !important; }
-  .wt-checklist { display: block !important; }
-  .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
 
   .table-wrap { box-shadow: none; border-radius: 0; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
@@ -1459,9 +1462,13 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Report
         </button>
-        <button class="btn-print" id="btn-print-walkthrough" onclick="printWalkthrough()" style="display:none">
+        <button class="btn-print" id="btn-print-walkthrough" onclick="printWalkthrough('field')" style="display:none">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Checklist
+        </button>
+        <button class="btn-print" id="btn-print-wt-summary" onclick="printWalkthrough('summary')" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Print Summary
         </button>
       </div>
     </header>
@@ -1747,7 +1754,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Use <strong>Print Checklist</strong> for a full expanded inventory, then regenerate the ROI report when finished.</p>
+          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Use <strong>Print Checklist</strong> for a compact field form, or <strong>Print Summary</strong> for observations only.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -1992,6 +1999,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
       </div><!-- /tab-notes -->
 
+      <div id="wt-print-root" aria-hidden="true"></div>
+
     </div><!-- /content-area -->
   </div><!-- /main-wrapper -->
 </div><!-- /app -->
@@ -2046,6 +2055,7 @@ function updateTopBarForTab(tab) {
   $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-report').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-walkthrough').style.display = tab === 'walkthrough' ? '' : 'none';
+  $('btn-print-wt-summary').style.display = tab === 'walkthrough' ? '' : 'none';
   $('btn-wt-recalc').style.display = 'none';
   $('report-meta').style.display = tab === 'roi' ? '' : 'none';
 }
@@ -3560,15 +3570,100 @@ async function printReport() {
   window.print();
 }
 
-const WT_PRINT_BTN_HTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Checklist`;
+const WT_PRINT_BTN_FIELD = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Checklist`;
+const WT_PRINT_BTN_SUMMARY = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Summary`;
 
-async function printWalkthrough() {
+function wtPrintZoneTitle(zone) {
+  return wtCapitalizeZone(zone).toUpperCase();
+}
+
+function wtItemsByLayer(items) {
+  const byLayer = { room: {}, systems: {} };
+  items.forEach(item => {
+    const layer = item.layer === 'systems' ? 'systems' : 'room';
+    const zone = item.zone || 'other';
+    if (!byLayer[layer][zone]) byLayer[layer][zone] = [];
+    byLayer[layer][zone].push(item);
+  });
+  return byLayer;
+}
+
+function buildWalkthroughPrintHtml(mode) {
+  const isSummary = mode === 'summary';
+  const title = isSummary ? 'Assessment Summary' : 'Walkthrough Field Checklist';
+  const subtitle = isSummary
+    ? 'Observations and concerns only — repair punch list'
+    : 'Carry while walking — check items and write notes';
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const byLayer = wtItemsByLayer(wtItems);
+  let body = '';
+
+  ['room', 'systems'].forEach(layer => {
+    const zones = byLayer[layer];
+    const zoneNames = wtSortZoneNames(zones);
+    if (!zoneNames.length) return;
+
+    const visibleZones = zoneNames.filter(zone => {
+      const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      if (!isSummary) return sorted.length > 0;
+      return sorted.some(i => (i.owner_note || '').trim());
+    });
+    if (!visibleZones.length) return;
+
+    body += `<div class="wt-print-layer-label">${esc(WT_LAYER_TITLES[layer])}</div>`;
+
+    visibleZones.forEach(zone => {
+      const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const items = isSummary
+        ? sorted.filter(i => (i.owner_note || '').trim())
+        : sorted;
+
+      body += `<section class="wt-print-room">`;
+      body += `<h2 class="wt-print-room-title">${esc(wtPrintZoneTitle(zone))}</h2>`;
+      body += `<ul class="wt-print-items">`;
+
+      items.forEach(item => {
+        const note = (item.owner_note || '').trim();
+        body += `<li class="wt-print-item">`;
+        body += `<span class="wt-print-box" aria-hidden="true">☐</span>`;
+        body += `<span class="wt-print-comp">${esc(item.component || '')}</span>`;
+        if (note) {
+          body += `<div class="wt-print-item-note"><span class="wt-print-note-label">Current note:</span> "${esc(note)}"</div>`;
+        }
+        body += `</li>`;
+      });
+
+      body += `</ul>`;
+      body += `<div class="wt-print-room-notes"><span>Notes:</span><div class="wt-print-notes-rule"></div></div>`;
+      body += `</section>`;
+    });
+  });
+
+  if (!body.trim()) {
+    body = `<p class="wt-print-empty">${isSummary
+      ? 'No observations recorded yet. Add concerns on the Walkthrough tab, then print again.'
+      : 'No checklist items loaded.'}</p>`;
+  }
+
+  return `<div class="wt-print-doc wt-print-doc--${mode}">
+    <header class="wt-print-header">
+      <h1>130 Kingfisher Dr</h1>
+      <p class="wt-print-subtitle">${esc(title)} · ${esc(dateStr)}</p>
+      <p class="wt-print-desc">${esc(subtitle)}</p>
+    </header>
+    <div class="wt-print-body">${body}</div>
+  </div>`;
+}
+
+async function printWalkthrough(mode = 'field') {
   if (!$('tab-walkthrough')?.classList.contains('active')) {
-    alert('Switch to the Walkthrough tab to print the checklist.');
+    alert('Switch to the Walkthrough tab to print.');
     return;
   }
 
-  const btn = $('btn-print-walkthrough');
+  const isSummary = mode === 'summary';
+  const btn = $(isSummary ? 'btn-print-wt-summary' : 'btn-print-walkthrough');
+  const btnRestore = isSummary ? WT_PRINT_BTN_SUMMARY : WT_PRINT_BTN_FIELD;
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Preparing print…';
@@ -3578,46 +3673,35 @@ async function printWalkthrough() {
     try {
       await loadWalkthrough();
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.innerHTML = WT_PRINT_BTN_HTML; }
+      if (btn) { btn.disabled = false; btn.innerHTML = btnRestore; }
       alert('Could not load walkthrough checklist.');
       return;
     }
   }
 
-  const savedChecklistOpen = new Set(wtChecklistOpen);
-  const savedExpandedItems = new Set(wtExpandedItems);
-  const savedRoomOpen = new Map();
-  document.querySelectorAll('.wt-room-card').forEach(card => {
-    if (card.dataset.zone) savedRoomOpen.set(card.dataset.zone, card.open);
-  });
+  const root = $('wt-print-root');
+  if (!root) {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnRestore; }
+    return;
+  }
 
-  wtSortZoneNames(wtGroupByZone(wtItems)).forEach(zone => wtChecklistOpen.add(zone));
-  document.querySelectorAll('.wt-room-card').forEach(card => { card.open = true; });
-  renderWalkthrough(wtItems);
-  document.querySelectorAll('.wt-checklist').forEach(cl => { cl.open = true; });
+  root.innerHTML = buildWalkthroughPrintHtml(mode);
+  root.removeAttribute('aria-hidden');
 
   window.printPrepMode = true;
   window.isPrinting = true;
-  document.body.classList.add('is-printing', 'is-printing-walkthrough');
+  document.body.classList.add('is-printing', 'is-printing-walkthrough', isSummary ? 'is-printing-wt-summary' : 'is-printing-wt-field');
 
   const finishPrint = () => {
     window.isPrinting = false;
     window.printPrepMode = false;
-    document.body.classList.remove('is-printing', 'is-printing-walkthrough');
-
-    wtChecklistOpen.clear();
-    savedChecklistOpen.forEach(z => wtChecklistOpen.add(z));
-    wtExpandedItems.clear();
-    savedExpandedItems.forEach(id => wtExpandedItems.add(id));
-    renderWalkthrough(wtItems);
-    savedRoomOpen.forEach((open, zone) => {
-      const card = wtFindRoomCard(zone);
-      if (card) card.open = open;
-    });
+    document.body.classList.remove('is-printing', 'is-printing-walkthrough', 'is-printing-wt-summary', 'is-printing-wt-field');
+    root.innerHTML = '';
+    root.setAttribute('aria-hidden', 'true');
 
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = WT_PRINT_BTN_HTML;
+      btn.innerHTML = btnRestore;
     }
     window.removeEventListener('afterprint', finishPrint);
   };
