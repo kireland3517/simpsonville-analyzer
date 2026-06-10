@@ -1285,11 +1285,15 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     background: #fff !important;
   }
 
-  /* Print the loaded ROI report only */
+  /* Print one tab at a time (ROI or Walkthrough) */
   .tab-pane { display: none !important; padding: 0 !important; }
-  #tab-roi { display: block !important; padding: 0 !important; }
+  body.is-printing-roi #tab-roi { display: block !important; padding: 0 !important; }
+  body.is-printing-walkthrough #tab-walkthrough { display: block !important; padding: 0 !important; }
+  /* Browser Print shortcut fallback (no expand-all prep) */
+  body:not(.is-printing) #tab-roi.active { display: block !important; padding: 0 !important; }
+  body:not(.is-printing) #tab-walkthrough.active { display: block !important; padding: 0 !important; }
 
-  #tab-roi::before {
+  body.is-printing-roi #tab-roi::before {
     content: '130 Kingfisher Dr - Pre-Listing Analysis Report';
     display: block;
     font-size: 18px;
@@ -1300,10 +1304,21 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     border-bottom: 1px solid #ccc;
   }
 
+  body.is-printing-walkthrough #tab-walkthrough::before {
+    content: '130 Kingfisher Dr - Seller Walkthrough Checklist';
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+  }
+
   /* Force every report section visible for print */
-  #tab-roi .section,
-  #tab-roi .section[style*="display: none"],
-  #tab-roi .section[style*="display:none"] {
+  body.is-printing-roi #tab-roi .section,
+  body.is-printing-roi #tab-roi .section[style*="display: none"],
+  body.is-printing-roi #tab-roi .section[style*="display:none"] {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -1338,7 +1353,23 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .wt-impact-stale { display: none !important; }
   .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
   .wt-concern-actions, .wt-overview { display: none !important; }
-  .wt-room-card { break-inside: avoid; }
+  body.is-printing-walkthrough .wt-page-header,
+  body.is-printing-walkthrough .wt-advanced-toggle,
+  body.is-printing-walkthrough .wt-dev-tools,
+  body.is-printing-walkthrough .wt-progress { display: none !important; }
+  body.is-printing-walkthrough .wt-layer-title { display: block !important; font-size: 14px; font-weight: 700;
+    margin: 20px 0 12px; page-break-after: avoid; }
+  body.is-printing-walkthrough .wt-room-card { break-inside: avoid; display: block !important; }
+  body.is-printing-walkthrough .wt-room-card-summary::after { display: none !important; }
+  body.is-printing-walkthrough .wt-checklist > summary { display: block !important; font-size: 12px;
+    font-weight: 700; color: #374151; padding: 8px 0 4px; }
+  body.is-printing-walkthrough .wt-checklist > summary::before { display: none !important; }
+  body.is-printing-walkthrough .wt-comp-expand .wt-expand-include,
+  body.is-printing-walkthrough .wt-comp-expand .wt-field,
+  body.is-printing-walkthrough .wt-comp-expand .wt-guidance { display: none !important; }
+  body.is-printing-walkthrough .wt-comp-expand .wt-expand-label { display: none !important; }
+  body.is-printing-walkthrough .wt-comp-expand { display: none !important; }
+  body.is-printing-walkthrough .wt-comp-preview { display: block !important; }
   .wt-room-primary, .wt-room-body, .wt-comp-expand, .wt-checklist-body { display: block !important; }
   .wt-checklist { display: block !important; }
   .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
@@ -1427,6 +1458,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <button class="btn-print" id="btn-print-report" onclick="printReport()">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Report
+        </button>
+        <button class="btn-print" id="btn-print-walkthrough" onclick="printWalkthrough()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Print Checklist
         </button>
       </div>
     </header>
@@ -1712,7 +1747,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Regenerate the ROI report when finished.</p>
+          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Use <strong>Print Checklist</strong> for a full expanded inventory, then regenerate the ROI report when finished.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -2010,6 +2045,7 @@ function updateTopBarForTab(tab) {
   $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
   $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-report').style.display = tab === 'roi' ? '' : 'none';
+  $('btn-print-walkthrough').style.display = tab === 'walkthrough' ? '' : 'none';
   $('btn-wt-recalc').style.display = 'none';
   $('report-meta').style.display = tab === 'roi' ? '' : 'none';
 }
@@ -3482,7 +3518,7 @@ async function printReport() {
 
   window.printPrepMode = true;
   window.isPrinting = true;
-  document.body.classList.add('is-printing');
+  document.body.classList.add('is-printing', 'is-printing-roi');
 
   document.querySelectorAll('.report-collapse').forEach(d => { d.open = true; });
 
@@ -3510,13 +3546,79 @@ async function printReport() {
   const finishPrint = () => {
     window.isPrinting = false;
     window.printPrepMode = false;
-    document.body.classList.remove('is-printing');
+    document.body.classList.remove('is-printing', 'is-printing-roi');
     restoredSections.forEach(([sec, display]) => { sec.style.display = display; });
     restoredDetails.forEach(row => { row.hidden = true; });
     printBtns.forEach((btn, i) => {
       btn.disabled = false;
       btn.innerHTML = origLabels[i];
     });
+    window.removeEventListener('afterprint', finishPrint);
+  };
+
+  window.addEventListener('afterprint', finishPrint);
+  window.print();
+}
+
+const WT_PRINT_BTN_HTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Checklist`;
+
+async function printWalkthrough() {
+  if (!$('tab-walkthrough')?.classList.contains('active')) {
+    alert('Switch to the Walkthrough tab to print the checklist.');
+    return;
+  }
+
+  const btn = $('btn-print-walkthrough');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Preparing print…';
+  }
+
+  if (!wtLoaded || !wtItems.length) {
+    try {
+      await loadWalkthrough();
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.innerHTML = WT_PRINT_BTN_HTML; }
+      alert('Could not load walkthrough checklist.');
+      return;
+    }
+  }
+
+  const savedChecklistOpen = new Set(wtChecklistOpen);
+  const savedExpandedItems = new Set(wtExpandedItems);
+  const savedRoomOpen = new Map();
+  document.querySelectorAll('.wt-room-card').forEach(card => {
+    if (card.dataset.zone) savedRoomOpen.set(card.dataset.zone, card.open);
+  });
+
+  wtSortZoneNames(wtGroupByZone(wtItems)).forEach(zone => wtChecklistOpen.add(zone));
+  document.querySelectorAll('.wt-room-card').forEach(card => { card.open = true; });
+  renderWalkthrough(wtItems);
+  document.querySelectorAll('.wt-checklist').forEach(cl => { cl.open = true; });
+
+  window.printPrepMode = true;
+  window.isPrinting = true;
+  document.body.classList.add('is-printing', 'is-printing-walkthrough');
+
+  const finishPrint = () => {
+    window.isPrinting = false;
+    window.printPrepMode = false;
+    document.body.classList.remove('is-printing', 'is-printing-walkthrough');
+
+    wtChecklistOpen.clear();
+    savedChecklistOpen.forEach(z => wtChecklistOpen.add(z));
+    wtExpandedItems.clear();
+    savedExpandedItems.forEach(id => wtExpandedItems.add(id));
+    renderWalkthrough(wtItems);
+    savedRoomOpen.forEach((open, zone) => {
+      const card = wtFindRoomCard(zone);
+      if (card) card.open = open;
+    });
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = WT_PRINT_BTN_HTML;
+    }
     window.removeEventListener('afterprint', finishPrint);
   };
 
