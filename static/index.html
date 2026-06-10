@@ -538,77 +538,90 @@ button { cursor: pointer; font: inherit; border: none; background: none; }
 .deep-detail-loading { display: flex; align-items: center; gap: 8px; color: var(--gray-500); font-size: 13px; }
 .deep-detail-section { margin-bottom: 12px; }
 
-/* ── Walkthrough checklist ───────────────────────────────────────── */
-.wt-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--gray-500); margin-bottom: 12px; }
-.wt-legend span::before { content: '●'; margin-right: 4px; }
-.wt-cat-cosmetic::before { color: #6366f1; }
-.wt-cat-functional::before { color: #0891b2; }
-.wt-cat-dated::before { color: #d97706; }
-.wt-cat-inspection_risk::before { color: #dc2626; }
-.wt-layer-title { font-size: 13px; font-weight: 700; color: var(--gray-700); margin: 16px 0 8px; }
-.wt-zone-block { margin-bottom: 12px; }
-.wt-zone-name { font-size: 12px; font-weight: 600; text-transform: capitalize; color: var(--gray-600); margin-bottom: 6px; }
-.wt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.wt-table th {
-  text-align: left; padding: 6px 8px; font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400);
-  border-bottom: 1px solid var(--gray-200);
-}
-.wt-table td { padding: 5px 6px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
-.wt-table tr.wt-row-owner td { background: #fffbeb; }
+/* ── Walkthrough checklist (room-by-room cards) ─────────────────── */
 .wt-field, .wt-select {
-  width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--gray-200);
-  border-radius: 4px; font-size: 12px; background: #fff;
+  width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--gray-200);
+  border-radius: 6px; font-size: 13px; background: #fff;
 }
 .wt-field:focus, .wt-select:focus { outline: none; border-color: var(--accent); }
-.wt-field.dirty, .wt-select.dirty { border-color: #f59e0b; background: #fffbeb; }
-.wt-note { min-width: 140px; }
-.wt-cost { width: 64px; }
-.wt-inc { text-align: center; }
-.wt-del { color: var(--gray-400); background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 6px; }
-.wt-del:hover { color: var(--red-600); }
+.wt-field.dirty { border-color: #f59e0b; background: #fffbeb; }
 .wt-save-bar { display: none; align-items: center; gap: 12px; padding: 8px 12px; margin-bottom: 12px;
   background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; font-size: 12px; }
 .wt-save-bar.visible { display: flex; }
-.wt-hint { font-size: 11px; color: var(--gray-400); margin-top: 8px; }
-.wt-page { max-width: 100%; }
-.wt-page-header { margin-bottom: 16px; }
+.wt-hint { font-size: 12px; color: var(--gray-500); margin-top: 16px; line-height: 1.5; }
+.wt-page { max-width: 720px; }
+.wt-page-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .wt-page-title { font-size: 20px; font-weight: 700; color: var(--gray-800); margin: 0 0 4px; }
 .wt-page-sub { font-size: 13px; color: var(--gray-500); margin: 0; }
-.wt-computed { font-size: 11.5px; color: var(--gray-600); background: #f8fafc; border-radius: 4px; padding: 3px 6px; white-space: nowrap; }
-.wt-computed.bucket-fix { background: #fef2f2; color: #991b1b; }
-.wt-computed.bucket-upgrade { background: #eff6ff; color: #1d4ed8; }
-.wt-computed.bucket-skip { background: #f3f4f6; color: #6b7280; }
-.wt-add-row {
-  margin-top: 6px; font-size: 11px; color: var(--accent); background: none; border: none;
-  cursor: pointer; padding: 4px 0; font-weight: 600;
-}
-.wt-add-row:hover { text-decoration: underline; }
 .wt-advanced-toggle { font-size: 12px; color: var(--gray-500); display: none; align-items: center; gap: 6px; }
 body.wt-dev-on .wt-advanced-toggle { display: flex; }
 .wt-dev-tools { display: none; font-size: 12px; color: var(--gray-500); gap: 8px; align-items: center; margin-bottom: 12px; }
 body.wt-dev-on .wt-dev-tools { display: flex; }
-.wt-page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.wt-zone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.wt-zone-bulk { font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--gray-200);
-  background: #fff; color: var(--gray-600); cursor: pointer; }
-.wt-zone-bulk:hover { border-color: var(--accent); color: var(--accent); }
-.wt-looks-fine { font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--gray-200);
-  background: #f8fafc; cursor: pointer; white-space: nowrap; }
-.wt-looks-fine:hover { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
-.wt-looks-fine.done { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
-tr.wt-row-default td { background: #fff; }
-tr.wt-row-fine td { opacity: 0.55; background: #f9fafb; }
-tr.wt-row-has-note td { background: #fffbeb; }
+.wt-progress-wrap { margin-bottom: 20px; padding: 14px 16px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 8px; }
+.wt-progress-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.wt-progress-label { font-size: 14px; font-weight: 700; color: var(--gray-800); }
+.wt-progress-count { font-size: 13px; color: var(--gray-600); font-weight: 600; }
+.wt-progress-bar { height: 10px; background: var(--gray-200); border-radius: 99px; overflow: hidden; }
+.wt-progress-fill { height: 100%; background: linear-gradient(90deg, #059669, var(--accent)); border-radius: 99px; transition: width 0.25s ease; }
+.wt-progress-sub { font-size: 11px; color: var(--gray-500); margin-top: 6px; }
+.wt-layer-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gray-400); margin: 20px 0 10px; }
+.wt-room { border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 10px; background: #fff; overflow: hidden; }
+.wt-room[open] { box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.wt-room-summary { padding: 14px 16px; cursor: pointer; list-style: none; display: flex;
+  align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 14px; color: var(--gray-800); }
+.wt-room-summary::-webkit-details-marker { display: none; }
+.wt-room-summary::after { content: '▾'; color: var(--gray-400); font-size: 12px; transition: transform 0.15s; }
+.wt-room:not([open]) .wt-room-summary::after { transform: rotate(-90deg); }
+.wt-room-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.wt-room-progress { font-size: 12px; font-weight: 600; color: var(--gray-500); }
+.wt-room-progress.done { color: #047857; }
+.wt-zone-bulk { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--gray-200);
+  background: #fff; color: var(--gray-600); cursor: pointer; white-space: nowrap; }
+.wt-zone-bulk:hover { border-color: #6ee7b7; color: #047857; background: #ecfdf5; }
+.wt-room-body { padding: 0 12px 12px; border-top: 1px solid var(--gray-100); }
+.wt-comp { border-radius: 8px; margin-top: 8px; border: 1px solid transparent; }
+.wt-comp--default { background: #fff; }
+.wt-comp--observation { background: #fffbeb; border-color: #fde68a; }
+.wt-comp--fine { background: #f9fafb; border-color: #e5e7eb; opacity: 0.92; }
+.wt-comp-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; }
+.wt-comp-name { font-size: 14px; font-weight: 600; color: var(--gray-800); flex: 1 1 120px; min-width: 0; }
+.wt-comp-preview { font-size: 12px; color: var(--gray-500); font-weight: 400; flex: 1 1 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 0; }
+.wt-comp-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.wt-comp-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.wt-btn-fine { font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid #6ee7b7; background: #ecfdf5; color: #047857; white-space: nowrap; }
+.wt-btn-fine:hover { background: #d1fae5; }
+.wt-btn-fine.done { background: #059669; color: #fff; border-color: #059669; }
+.wt-btn-fine:disabled { opacity: 0.4; cursor: not-allowed; }
+.wt-btn-observe { font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); white-space: nowrap; }
+.wt-btn-observe:hover { border-color: var(--accent); color: var(--accent); }
+.wt-btn-observe.active { border-color: var(--accent); background: var(--accent-mid); color: var(--accent); }
+.wt-comp-expand { padding: 0 12px 12px; border-top: 1px dashed var(--gray-200); margin: 0 8px 8px; padding-top: 12px; }
+.wt-expand-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--gray-500); margin-bottom: 6px; display: block; }
+.wt-expand-include { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--gray-700); }
+.wt-guidance { font-size: 12px; color: var(--gray-500); margin: 10px 0 0; line-height: 1.45; font-style: italic; }
+.wt-guidance::before { content: 'Guidance: '; font-style: normal; font-weight: 600; color: var(--gray-400); }
+.wt-dev-panel { display: none; margin-top: 10px; padding: 8px; background: #f1f5f9; border-radius: 6px;
+  font-size: 11px; color: var(--gray-600); gap: 4px 12px; flex-wrap: wrap; }
+body.wt-advanced-on .wt-dev-panel { display: flex; }
 .wt-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .wt-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
 .wt-badge-observation { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
 .wt-badge-fine { background: #ecfdf5; color: #047857; border: 1px solid #6ee7b7; }
 .wt-badge-included { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
-.wt-looks-fine:disabled { opacity: 0.45; cursor: not-allowed; }
-.wt-state-legend { font-size: 12px; color: var(--gray-500); margin-bottom: 12px; line-height: 1.5; }
-.wt-advanced-col { display: none; }
-body.wt-advanced-on .wt-advanced-col { display: table-cell; }
+.wt-del { color: var(--gray-400); background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; }
+.wt-del:hover { color: var(--red-600); }
+@media (max-width: 600px) {
+  .wt-page { max-width: 100%; }
+  .wt-comp-main { flex-direction: column; align-items: stretch; }
+  .wt-comp-actions { width: 100%; }
+  .wt-btn-fine, .wt-btn-observe { flex: 1; }
+  .wt-room-summary { flex-wrap: wrap; }
+}
 .rationale-block { margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 6px; }
 .rationale-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 8px; }
 .rationale-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); margin: 6px 0 4px; }
@@ -1181,7 +1194,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
   .rationale-block { display: block !important; visibility: visible !important; page-break-inside: avoid; }
-  .wt-del, .wt-save-bar, .wt-hint { display: none !important; }
+  .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-zone-bulk { display: none !important; }
+  .wt-room { break-inside: avoid; }
+  .wt-room-body, .wt-comp-expand { display: block !important; }
   .wt-select, .wt-field { border: none !important; background: transparent !important; padding: 0 !important; }
 
   .table-wrap { box-shadow: none; border-radius: 0; }
@@ -1534,12 +1549,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <span>Saving changes…</span>
             <span id="wt-save-status" style="color:var(--green-700)"></span>
           </div>
-          <p class="wt-state-legend">
-            <strong>Observation</strong> = your note · <strong>No Concerns</strong> = looks fine ·
-            <strong>Included</strong> = sent to ROI · Placeholder text is guidance only.
-          </p>
+          <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Type notes only where something matters. Mark the rest <strong>Looks Fine</strong>. Regenerate the ROI report after updating observations.</p>
+          <p class="wt-hint">Walk each room and tap <strong>Looks Fine</strong> for items with no concerns, or <strong>Add Observation</strong> only where something matters. Regenerate the ROI report when finished.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -2536,6 +2548,7 @@ async function loadInspectionFlags() {
 let wtItems = [];
 let wtLoaded = false;
 const wtPatchTimers = {};
+const wtExpandedItems = new Set();
 
 function deriveWalkthroughState(item) {
   const hasNote = !!(item.owner_note || '').trim();
@@ -2544,13 +2557,132 @@ function deriveWalkthroughState(item) {
   return 'untouched';
 }
 
+function isWtReviewed(item) {
+  return !!(item.owner_note || '').trim() || !!item.looks_fine;
+}
+
+function wtProgressStats(items) {
+  const total = items.length;
+  const reviewed = items.filter(isWtReviewed).length;
+  return { reviewed, total, pct: total ? Math.round((reviewed / total) * 100) : 0 };
+}
+
+function renderWtProgress(items) {
+  const el = $('wt-progress');
+  if (!el) return;
+  const { reviewed, total, pct } = wtProgressStats(items);
+  el.innerHTML = `
+    <div class="wt-progress-top">
+      <span class="wt-progress-label">Walkthrough Progress</span>
+      <span class="wt-progress-count">${reviewed} / ${total} reviewed</span>
+    </div>
+    <div class="wt-progress-bar"><div class="wt-progress-fill" style="width:${pct}%"></div></div>
+    <div class="wt-progress-sub">${pct}% complete — reviewed means you added an observation or marked Looks Fine</div>`;
+}
+
 function renderStateBadges(item) {
   const state = deriveWalkthroughState(item);
   const badges = [];
   if (state === 'observation') badges.push('<span class="wt-badge wt-badge-observation">Observation</span>');
   if (state === 'no_concerns') badges.push('<span class="wt-badge wt-badge-fine">No Concerns</span>');
   if (item.include_in_report) badges.push('<span class="wt-badge wt-badge-included">Included</span>');
-  return badges.length ? `<div class="wt-badges">${badges.join('')}</div>` : '';
+  return badges.length ? badges.join('') : '';
+}
+
+function toggleWtExpand(id) {
+  const opening = !wtExpandedItems.has(id);
+  if (opening) wtExpandedItems.add(id);
+  else wtExpandedItems.delete(id);
+  renderWalkthrough(wtItems);
+  if (opening) {
+    requestAnimationFrame(() => {
+      document.querySelector(`.wt-comp[data-id="${id}"] [data-field="owner_note"]`)?.focus();
+    });
+  }
+}
+
+function renderWtDevPanel(item) {
+  if (!wtAdvanced) return '';
+  return `<div class="wt-dev-panel">
+    <span>Cond: ${esc(item.condition_label || 'unknown')}</span>
+    <span>Action: ${esc(item.action || '—')}</span>
+    <span>Cat: ${esc(item.category || '—')}</span>
+    <span>Bucket: ${esc(item.recommendation_bucket || '—')}</span>
+  </div>`;
+}
+
+function bindWtComponent(compEl, item) {
+  const id = item.id;
+  const fineBtn = compEl.querySelector('.wt-btn-fine');
+  const observeBtn = compEl.querySelector('.wt-btn-observe');
+  const noteEl = compEl.querySelector('[data-field="owner_note"]');
+  const incEl = compEl.querySelector('[data-field="include_in_report"]');
+
+  fineBtn?.addEventListener('click', () => {
+    if (fineBtn.disabled) return;
+    looksFineItem(id);
+  });
+  observeBtn?.addEventListener('click', () => toggleWtExpand(id));
+  noteEl?.addEventListener('input', (e) => {
+    e.target.classList.add('dirty');
+    const val = (e.target.value || '').trim();
+    wtExpandedItems.add(id);
+    if (val) {
+      scheduleWtPatch(id, { owner_note: val, looks_fine: false, include_in_report: true });
+    } else {
+      scheduleWtPatch(id, { owner_note: null, include_in_report: false });
+    }
+  });
+  incEl?.addEventListener('change', (el) => {
+    scheduleWtPatch(id, 'include_in_report', el.target.checked);
+  });
+  compEl.querySelector('.wt-del')?.addEventListener('click', () => deleteWtItem(id));
+}
+
+function buildWtComponentEl(item) {
+  const state = deriveWalkthroughState(item);
+  const hasNote = !!(item.owner_note || '').trim();
+  if (hasNote) wtExpandedItems.add(item.id);
+
+  const expanded = wtExpandedItems.has(item.id);
+  const comp = document.createElement('div');
+  comp.className = `wt-comp wt-comp--${state === 'observation' ? 'observation' : state === 'no_concerns' ? 'fine' : 'default'}`;
+  comp.dataset.id = item.id;
+
+  const fineLabel = item.looks_fine ? '✓ Looks Fine' : 'Looks Fine';
+  const fineCls = `wt-btn-fine${item.looks_fine ? ' done' : ''}`;
+  const observeLabel = expanded ? 'Hide' : (hasNote ? 'Edit Observation' : 'Add Observation');
+  const observeCls = `wt-btn-observe${expanded ? ' active' : ''}`;
+  const preview = hasNote
+    ? `<div class="wt-comp-preview">${esc(item.owner_note)}</div>` : '';
+
+  const expandHtml = expanded ? `
+    <div class="wt-comp-expand">
+      <label class="wt-expand-label">Observation</label>
+      <input class="wt-field wt-note" data-field="owner_note" value="${escAttr(item.owner_note || '')}">
+      <label class="wt-expand-include">
+        <input type="checkbox" data-field="include_in_report" ${item.include_in_report ? 'checked' : ''}>
+        Include in ROI
+      </label>
+      <p class="wt-guidance">${esc(item.assessment_prompt || '')}</p>
+      ${renderWtDevPanel(item)}
+    </div>` : '';
+
+  comp.innerHTML = `
+    <div class="wt-comp-main">
+      <span class="wt-comp-name">${esc(item.component || '')}</span>
+      <div class="wt-comp-badges">${renderStateBadges(item)}</div>
+      <div class="wt-comp-actions">
+        <button type="button" class="${fineCls}"${hasNote ? ' disabled title="Clear your observation first"' : ''}>${fineLabel}</button>
+        <button type="button" class="${observeCls}">${observeLabel}</button>
+        ${item.source === 'user' ? '<button type="button" class="wt-del" title="Delete">×</button>' : ''}
+      </div>
+      ${preview}
+    </div>
+    ${expandHtml}`;
+
+  bindWtComponent(comp, item);
+  return comp;
 }
 
 function wtComputedCell(value) {
@@ -2618,6 +2750,7 @@ function renderWalkthrough(items) {
   if (!container) return;
   container.innerHTML = '';
   document.body.classList.toggle('wt-advanced-on', wtAdvanced);
+  renderWtProgress(items);
 
   const byLayer = { room: {}, systems: {} };
   items.forEach(item => {
@@ -2641,99 +2774,34 @@ function renderWalkthrough(items) {
 
     zoneNames.forEach(zone => {
       const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      const block = document.createElement('div');
-      block.className = 'wt-zone-block';
-      block.dataset.zone = zone;
-      block.dataset.layer = layer;
+      const zoneStats = wtProgressStats(sorted);
+      const zoneDone = zoneStats.reviewed === zoneStats.total;
+      const hasUnreviewed = zoneStats.reviewed < zoneStats.total;
 
-      const zoneHeader = document.createElement('div');
-      zoneHeader.className = 'wt-zone-header';
-      zoneHeader.innerHTML = `<span class="wt-zone-name">${esc(zone)}</span>`;
-      const bulkBtn = document.createElement('button');
-      bulkBtn.type = 'button';
-      bulkBtn.className = 'wt-zone-bulk';
-      bulkBtn.textContent = `Mark remaining in ${zone} as Looks Fine`;
-      bulkBtn.addEventListener('click', () => zoneLooksFine(zone));
-      zoneHeader.appendChild(bulkBtn);
-      block.appendChild(zoneHeader);
+      const details = document.createElement('details');
+      details.className = 'wt-room';
+      details.open = hasUnreviewed;
 
-      const table = document.createElement('table');
-      table.className = 'wt-table';
-      table.innerHTML = `
-        <thead><tr>
-          <th>Component</th><th>Status</th><th>Note</th><th>Looks Fine</th><th>Include</th><th></th>
-          <th class="wt-advanced-col">Condition</th>
-          <th class="wt-advanced-col">Action</th>
-          <th class="wt-advanced-col">Category</th>
-          <th class="wt-advanced-col">Visibility</th>
-          <th class="wt-advanced-col">Risk</th>
-          <th class="wt-advanced-col">Cost</th>
-          <th class="wt-advanced-col">Priority</th>
-          <th class="wt-advanced-col">Bucket</th>
-        </tr></thead>`;
-      const tbody = document.createElement('tbody');
-
-      sorted.forEach(item => {
-        const tr = document.createElement('tr');
-        const state = deriveWalkthroughState(item);
-        if (state === 'no_concerns') tr.className = 'wt-row-fine';
-        else if (state === 'observation') tr.className = 'wt-row-has-note';
-        else tr.className = 'wt-row-default';
-        tr.dataset.id = item.id;
-
-        const prompt = escAttr(item.assessment_prompt || '');
-        const hasNote = !!(item.owner_note || '').trim();
-        const fineCls = item.looks_fine ? 'wt-looks-fine done' : 'wt-looks-fine';
-        const fineLabel = item.looks_fine ? '✓ Fine' : 'Looks Fine';
-        const fineDisabled = hasNote ? ' disabled' : '';
-        const fineTitle = hasNote ? ' title="Clear your note first"' : '';
-
-        const delBtn = item.source === 'user'
-          ? `<button type="button" class="wt-del" title="Delete custom row">×</button>` : '';
-
-        tr.innerHTML = `
-          <td>${esc(item.component || '')}</td>
-          <td>${renderStateBadges(item)}</td>
-          <td><input class="wt-field wt-note" data-field="owner_note" placeholder="${prompt}"
-              value="${escAttr(item.owner_note || '')}"></td>
-          <td><button type="button" class="${fineCls}"${fineDisabled}${fineTitle}>${fineLabel}</button></td>
-          <td class="wt-inc"><input type="checkbox" data-field="include_in_report" ${item.include_in_report ? 'checked' : ''}></td>
-          <td>${delBtn}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.condition_label || 'unknown')}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.action)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.category)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.buyer_visibility)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.inspection_risk)}</td>
-          <td class="wt-advanced-col">${wtCostCell(item.estimated_cost_low, item.estimated_cost_high)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.priority_score)}</td>
-          <td class="wt-advanced-col">${wtComputedCell(item.recommendation_bucket)}</td>`;
-
-        const noteEl = tr.querySelector('[data-field="owner_note"]');
-        noteEl.addEventListener('input', (e) => {
-          e.target.classList.add('dirty');
-          const val = (e.target.value || '').trim();
-          if (val) {
-            scheduleWtPatch(item.id, { owner_note: val, looks_fine: false, include_in_report: true });
-          } else {
-            scheduleWtPatch(item.id, { owner_note: null, include_in_report: false });
-          }
-        });
-        tr.querySelector('[data-field="include_in_report"]').addEventListener('change', (el) => {
-          scheduleWtPatch(item.id, 'include_in_report', el.target.checked);
-        });
-        const fineBtn = tr.querySelector('.wt-looks-fine');
-        fineBtn.addEventListener('click', () => {
-          if (fineBtn.disabled) return;
-          looksFineItem(item.id);
-        });
-        tr.querySelector('.wt-del')?.addEventListener('click', () => deleteWtItem(item.id));
-
-        tbody.appendChild(tr);
+      const summary = document.createElement('summary');
+      summary.className = 'wt-room-summary';
+      summary.innerHTML = `
+        <span style="text-transform:capitalize">${esc(zone)}</span>
+        <span class="wt-room-meta">
+          <span class="wt-room-progress${zoneDone ? ' done' : ''}">${zoneStats.reviewed}/${zoneStats.total} reviewed</span>
+          <button type="button" class="wt-zone-bulk">Mark rest Looks Fine</button>
+        </span>`;
+      summary.querySelector('.wt-zone-bulk')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zoneLooksFine(zone);
       });
+      details.appendChild(summary);
 
-      table.appendChild(tbody);
-      block.appendChild(table);
-      layerEl.appendChild(block);
+      const body = document.createElement('div');
+      body.className = 'wt-room-body';
+      sorted.forEach(item => body.appendChild(buildWtComponentEl(item)));
+      details.appendChild(body);
+      layerEl.appendChild(details);
     });
 
     container.appendChild(layerEl);
@@ -2741,14 +2809,17 @@ function renderWalkthrough(items) {
 }
 
 async function looksFineItem(id) {
+  const item = wtItems.find(i => i.id === id);
+  if (item && (item.owner_note || '').trim()) return;
   try {
     const res = await fetch(`/walkthrough-items/${id}/looks-fine`, { method: 'POST' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const idx = wtItems.findIndex(i => i.id === id);
     if (idx >= 0) wtItems[idx] = data.item;
+    wtExpandedItems.delete(id);
     renderWalkthrough(wtItems);
-  } catch (e) { alert('Could not mark as looks fine'); }
+  } catch (e) { alert('Could not update Looks Fine'); }
 }
 
 async function zoneLooksFine(zone) {
