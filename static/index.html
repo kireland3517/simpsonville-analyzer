@@ -1226,6 +1226,25 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 @media print {
   @page { margin: 20mm 15mm; size: auto; }
 
+  @page roi-report {
+    size: auto;
+    margin: 12mm 12mm 16mm 12mm;
+  }
+
+  body.is-printing-roi::after {
+    content: "Page " counter(page);
+    position: fixed;
+    bottom: 6mm;
+    right: 10mm;
+    font-size: 9pt;
+    color: #666;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+
+  body.is-printing-roi #tab-roi {
+    page: roi-report;
+  }
+
   /* Remove all viewport height and scroll-container clipping */
   html, body {
     height: auto !important;
@@ -1306,9 +1325,75 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     font-size: 18px;
     font-weight: 700;
     color: #000;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #ccc;
+  }
+
+  /* ROI print — compact section spacing */
+  body.is-printing-roi #tab-roi .section {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  body.is-printing-roi #tab-roi .summary-cards {
+    margin-bottom: 6px !important;
+    gap: 8px !important;
+  }
+  body.is-printing-roi #tab-roi .summary-card {
+    padding: 10px 12px !important;
+    box-shadow: none !important;
+  }
+  body.is-printing-roi #tab-roi .section-header {
+    margin-bottom: 4px !important;
+  }
+  body.is-printing-roi #tab-roi .report-collapse {
+    margin-bottom: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+  }
+  body.is-printing-roi #tab-roi .report-collapse summary {
+    padding: 6px 0 !important;
+  }
+  body.is-printing-roi #tab-roi .report-collapse-body {
+    padding: 0 0 6px !important;
+  }
+  body.is-printing-roi #tab-roi .info-box {
+    padding: 8px 10px !important;
+    margin-bottom: 0 !important;
+  }
+  body.is-printing-roi #tab-roi .wt-impact-list {
+    gap: 6px !important;
+  }
+  body.is-printing-roi #tab-roi .wt-impact-row {
+    padding: 8px 10px !important;
+  }
+  body.is-printing-roi #tab-roi .wt-impact-meta {
+    margin-bottom: 4px !important;
+  }
+  body.is-printing-roi #tab-roi .table-wrap {
+    margin-bottom: 0 !important;
+  }
+  body.is-printing-roi #tab-roi .detail-inner {
+    padding: 6px 0 !important;
+  }
+  body.is-printing-roi #tab-roi .timeline-cards {
+    margin-bottom: 0 !important;
+    gap: 8px !important;
+  }
+  body.is-printing-roi #tab-roi .deep-detail-section {
+    margin-bottom: 4px !important;
+  }
+  body.is-printing-roi #tab-roi #section-upgrades,
+  body.is-printing-roi #tab-roi #section-repairs,
+  body.is-printing-roi #tab-roi #section-timeline,
+  body.is-printing-roi #tab-roi #section-dated,
+  body.is-printing-roi #tab-roi #section-sc,
+  body.is-printing-roi #tab-roi #section-inspection {
+    page-break-before: auto !important;
+    break-before: auto !important;
   }
 
   /* Walkthrough field worksheet — portrait, room two-column */
@@ -1418,9 +1503,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     break-inside: avoid;
   }
 
-  #section-upgrades, #section-repairs, #section-timeline {
-    page-break-before: always;
-  }
   .deep-detail-section {
     page-break-inside: avoid;
     break-inside: avoid;
@@ -1488,13 +1570,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Print Report
         </button>
-        <button class="btn-print" id="btn-print-walkthrough" onclick="printWalkthrough('field')" style="display:none">
+        <button class="btn-print" id="btn-print-walkthrough" onclick="printWalkthrough()" style="display:none">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Print Worksheet
-        </button>
-        <button class="btn-print" id="btn-print-wt-summary" onclick="printWalkthrough('summary')" style="display:none">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Print Summary
+          Print Walkthrough
         </button>
       </div>
     </header>
@@ -1780,7 +1858,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="wt-progress"></div>
           <div id="wt-layers"></div>
-          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. <strong>Print Worksheet</strong> gives a portrait room checklist; <strong>Print Summary</strong> shows rooms with observations only.</p>
+          <p class="wt-hint">Walk each room or area. If nothing stands out, tap <strong>No Issues Noted</strong>. Otherwise tap <strong>Add Concern</strong> and describe what you noticed. Use <strong>Print Walkthrough</strong> for a clipboard-ready room checklist.</p>
         </div>
       </div><!-- /tab-walkthrough -->
 
@@ -2081,7 +2159,6 @@ function updateTopBarForTab(tab) {
   $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-report').style.display = tab === 'roi' ? '' : 'none';
   $('btn-print-walkthrough').style.display = tab === 'walkthrough' ? '' : 'none';
-  $('btn-print-wt-summary').style.display = tab === 'walkthrough' ? '' : 'none';
   $('btn-wt-recalc').style.display = 'none';
   $('report-meta').style.display = tab === 'roi' ? '' : 'none';
 }
@@ -3596,8 +3673,7 @@ async function printReport() {
   window.print();
 }
 
-const WT_PRINT_BTN_FIELD = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Worksheet`;
-const WT_PRINT_BTN_SUMMARY = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Summary`;
+const WT_PRINT_BTN_LABEL = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Print Walkthrough`;
 
 function wtPrintZoneTitle(zone) {
   return wtCapitalizeZone(zone).toUpperCase();
@@ -3614,22 +3690,12 @@ function wtItemsByLayer(items) {
   return byLayer;
 }
 
-const WT_PRINT_RULE_LINES_FIELD = 10;
-const WT_PRINT_RULE_LINES_SUMMARY = 8;
+const WT_PRINT_RULE_LINES = 10;
 
-function wtPrintRuleLines(mode) {
-  return mode === 'summary' ? WT_PRINT_RULE_LINES_SUMMARY : WT_PRINT_RULE_LINES_FIELD;
-}
-
-function buildWalkthroughPrintRoom(zone, sorted, mode) {
-  const isSummary = mode === 'summary';
-  const checklistItems = isSummary
-    ? sorted.filter(i => (i.owner_note || '').trim())
-    : sorted;
+function buildWalkthroughPrintRoom(zone, sorted) {
   const noted = sorted.filter(i => (i.owner_note || '').trim());
-  const ruleCount = wtPrintRuleLines(mode);
 
-  const checklist = checklistItems.map(item =>
+  const checklist = sorted.map(item =>
     `<div class="wt-print-check-row">
       <span class="wt-print-check" aria-hidden="true"></span>
       <span>${esc(item.component || '')}</span>
@@ -3642,7 +3708,7 @@ function buildWalkthroughPrintRoom(zone, sorted, mode) {
       ).join('')}</ul>`
     : '';
 
-  const rules = Array.from({ length: ruleCount }, () => '<div class="wt-print-rule"></div>').join('');
+  const rules = Array.from({ length: WT_PRINT_RULE_LINES }, () => '<div class="wt-print-rule"></div>').join('');
 
   return `<section class="wt-print-room">
     <h2 class="wt-print-room-title">${esc(wtPrintZoneTitle(zone))}</h2>
@@ -3657,12 +3723,7 @@ function buildWalkthroughPrintRoom(zone, sorted, mode) {
   </section>`;
 }
 
-function buildWalkthroughPrintHtml(mode) {
-  const isSummary = mode === 'summary';
-  const title = isSummary ? 'Assessment Summary' : 'Walkthrough Field Worksheet';
-  const subtitle = isSummary
-    ? 'Rooms with recorded observations'
-    : 'Check items per room — write consolidated notes on the right';
+function buildWalkthroughPrintHtml() {
   const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const byLayer = wtItemsByLayer(wtItems);
   let body = '';
@@ -3672,46 +3733,36 @@ function buildWalkthroughPrintHtml(mode) {
     const zoneNames = wtSortZoneNames(zones);
     if (!zoneNames.length) return;
 
-    const visibleZones = zoneNames.filter(zone => {
-      const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      if (!isSummary) return sorted.length > 0;
-      return sorted.some(i => (i.owner_note || '').trim());
-    });
-    if (!visibleZones.length) return;
-
     body += `<div class="wt-print-layer-label">${esc(WT_LAYER_TITLES[layer])}</div>`;
 
-    visibleZones.forEach(zone => {
+    zoneNames.forEach(zone => {
       const sorted = zones[zone].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      body += buildWalkthroughPrintRoom(zone, sorted, mode);
+      if (!sorted.length) return;
+      body += buildWalkthroughPrintRoom(zone, sorted);
     });
   });
 
   if (!body.trim()) {
-    body = `<p class="wt-print-empty">${isSummary
-      ? 'No observations recorded yet. Add concerns on the Walkthrough tab, then print again.'
-      : 'No checklist items loaded.'}</p>`;
+    body = `<p class="wt-print-empty">No checklist items loaded.</p>`;
   }
 
-  return `<div class="wt-print-doc wt-print-doc--${mode}">
+  return `<div class="wt-print-doc">
     <header class="wt-print-header">
       <h1>130 Kingfisher Dr</h1>
-      <p class="wt-print-subtitle">${esc(title)} · ${esc(dateStr)}</p>
-      <p class="wt-print-desc">${esc(subtitle)}</p>
+      <p class="wt-print-subtitle">Walkthrough Worksheet · ${esc(dateStr)}</p>
+      <p class="wt-print-desc">Check items per room — write consolidated notes on the right</p>
     </header>
     <div class="wt-print-body">${body}</div>
   </div>`;
 }
 
-async function printWalkthrough(mode = 'field') {
+async function printWalkthrough() {
   if (!$('tab-walkthrough')?.classList.contains('active')) {
     alert('Switch to the Walkthrough tab to print.');
     return;
   }
 
-  const isSummary = mode === 'summary';
-  const btn = $(isSummary ? 'btn-print-wt-summary' : 'btn-print-walkthrough');
-  const btnRestore = isSummary ? WT_PRINT_BTN_SUMMARY : WT_PRINT_BTN_FIELD;
+  const btn = $('btn-print-walkthrough');
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Preparing print…';
@@ -3721,7 +3772,7 @@ async function printWalkthrough(mode = 'field') {
     try {
       await loadWalkthrough();
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.innerHTML = btnRestore; }
+      if (btn) { btn.disabled = false; btn.innerHTML = WT_PRINT_BTN_LABEL; }
       alert('Could not load walkthrough checklist.');
       return;
     }
@@ -3729,27 +3780,27 @@ async function printWalkthrough(mode = 'field') {
 
   const root = $('wt-print-root');
   if (!root) {
-    if (btn) { btn.disabled = false; btn.innerHTML = btnRestore; }
+    if (btn) { btn.disabled = false; btn.innerHTML = WT_PRINT_BTN_LABEL; }
     return;
   }
 
-  root.innerHTML = buildWalkthroughPrintHtml(mode);
+  root.innerHTML = buildWalkthroughPrintHtml();
   root.removeAttribute('aria-hidden');
 
   window.printPrepMode = true;
   window.isPrinting = true;
-  document.body.classList.add('is-printing', 'is-printing-walkthrough', isSummary ? 'is-printing-wt-summary' : 'is-printing-wt-field');
+  document.body.classList.add('is-printing', 'is-printing-walkthrough');
 
   const finishPrint = () => {
     window.isPrinting = false;
     window.printPrepMode = false;
-    document.body.classList.remove('is-printing', 'is-printing-walkthrough', 'is-printing-wt-summary', 'is-printing-wt-field');
+    document.body.classList.remove('is-printing', 'is-printing-walkthrough');
     root.innerHTML = '';
     root.setAttribute('aria-hidden', 'true');
 
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = btnRestore;
+      btn.innerHTML = WT_PRINT_BTN_LABEL;
     }
     window.removeEventListener('afterprint', finishPrint);
   };
