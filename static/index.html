@@ -1228,17 +1228,13 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
   @page roi-report {
     size: auto;
-    margin: 12mm 12mm 16mm 12mm;
-  }
-
-  body.is-printing-roi::after {
-    content: "Page " counter(page);
-    position: fixed;
-    bottom: 6mm;
-    right: 10mm;
-    font-size: 9pt;
-    color: #666;
-    font-family: "Segoe UI", system-ui, sans-serif;
+    margin: 12mm 12mm 20mm 12mm;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9pt;
+      color: #666;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
   }
 
   body.is-printing-roi #tab-roi {
@@ -1345,6 +1341,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   }
   body.is-printing-roi #tab-roi .section-header {
     margin-bottom: 4px !important;
+    break-after: avoid;
+    page-break-after: avoid;
   }
   body.is-printing-roi #tab-roi .report-collapse {
     margin-bottom: 0 !important;
@@ -1356,6 +1354,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   }
   body.is-printing-roi #tab-roi .report-collapse summary {
     padding: 6px 0 !important;
+    break-after: avoid;
+    page-break-after: avoid;
   }
   body.is-printing-roi #tab-roi .report-collapse-body {
     padding: 0 0 6px !important;
@@ -1386,14 +1386,36 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   body.is-printing-roi #tab-roi .deep-detail-section {
     margin-bottom: 4px !important;
   }
-  body.is-printing-roi #tab-roi #section-upgrades,
+  body.is-printing-roi #tab-roi .rationale-block {
+    margin-top: 6px !important;
+    padding: 8px 10px !important;
+  }
+  body.is-printing-roi #tab-roi .deep-detail-panel {
+    padding: 0 !important;
+  }
+  body.is-printing-roi #tab-roi .data-table thead {
+    display: table-header-group;
+  }
+  /* Major sections: forced break before repairs & timeline; upgrades flows after narrative */
+  body.is-printing-roi #tab-roi #section-upgrades {
+    break-before: auto;
+    page-break-before: auto;
+  }
   body.is-printing-roi #tab-roi #section-repairs,
-  body.is-printing-roi #tab-roi #section-timeline,
-  body.is-printing-roi #tab-roi #section-dated,
-  body.is-printing-roi #tab-roi #section-sc,
-  body.is-printing-roi #tab-roi #section-inspection {
-    page-break-before: auto !important;
-    break-before: auto !important;
+  body.is-printing-roi #tab-roi #section-timeline {
+    break-before: page;
+    page-break-before: always;
+  }
+  /* Allow table rows and detail blocks to split across pages */
+  body.is-printing-roi #tab-roi .data-table tbody tr,
+  body.is-printing-roi #tab-roi .deep-detail-section,
+  body.is-printing-roi #tab-roi .rationale-block,
+  body.is-printing-roi #tab-roi .wt-impact-row,
+  body.is-printing-roi #tab-roi .summary-card,
+  body.is-printing-roi #tab-roi .report-collapse,
+  body.is-printing-roi #tab-roi .info-box {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   /* Walkthrough field worksheet — portrait, room two-column */
@@ -1481,8 +1503,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     visibility: visible !important;
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
-  .rationale-block { display: block !important; visibility: visible !important; page-break-inside: avoid; }
-  .wt-impact-row { page-break-inside: avoid; break-inside: avoid; }
+  body.is-printing-roi #tab-roi .rationale-block { display: block !important; visibility: visible !important; }
   .wt-impact-link { color: inherit !important; text-decoration: none !important; cursor: default !important; }
   .wt-impact-stale { display: none !important; }
   .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
@@ -1491,22 +1512,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .table-wrap { box-shadow: none; border-radius: 0; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
   .detail-grid { grid-template-columns: repeat(3, 1fr); }
-
-  /* Keep individual rows intact across page breaks */
-  .data-table tbody tr.data-row,
-  .data-table tbody tr.detail-row {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-  .summary-card {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  .deep-detail-section {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
 }
 </style>
 </head>
@@ -3655,6 +3660,9 @@ async function printReport() {
   } catch (e) {
     console.warn('Deep detail prefetch failed:', e);
   }
+
+  // Flush layout so pagination and page counters are finalized before print
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   const finishPrint = () => {
     window.isPrinting = false;
