@@ -25,9 +25,9 @@ Report is saved to Supabase with id = "{detail}_{buyer}", e.g.
     "spend_nothing_first_time_buyer"
 
 Requires:
-    GEMINI_API_KEY        -- Google Gemini API key
-    SUPABASE_URL          -- Supabase project URL
-    SUPABASE_SERVICE_KEY  -- Supabase service role key
+    ANTHROPIC_API_KEY     — Anthropic API key
+    SUPABASE_URL          — Supabase project URL
+    SUPABASE_SERVICE_KEY  — Supabase service role key
 
 Supabase table (run once):
     CREATE TABLE roi_report (
@@ -51,6 +51,7 @@ from supabase import create_client
 from attom import get_last_sale, get_property_summary
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from walkthrough import PROPERTY_ID, load_walkthrough_items
+from claude_client import get_api_key
 from roi import (
     generate_roi_report,
     levels_up_to,
@@ -787,8 +788,8 @@ def main() -> None:
 
     report_id = f"{detail_level}_{buyer_profile}"
 
-    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
-        print("ERROR: GEMINI_API_KEY must be set.", file=sys.stderr)
+    if not get_api_key():
+        print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     if generate_all:
