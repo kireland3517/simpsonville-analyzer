@@ -1513,6 +1513,117 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .summary-cards { grid-template-columns: repeat(4, 1fr); }
   .detail-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Decision Matrix tab ─────────────────────────────────────────── */
+.dm-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.dm-page-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--gray-900); }
+.dm-page-sub { font-size: 13px; color: var(--gray-500); margin-top: 4px; line-height: 1.5; max-width: 560px; }
+.dm-meta { font-size: 12px; color: var(--gray-400); text-align: right; line-height: 1.5; }
+.dm-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.dm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  gap: 12px;
+  color: var(--gray-600);
+  text-align: center;
+  padding: 32px;
+}
+.dm-state[hidden] { display: none !important; }
+.dm-state h2 { font-size: 18px; font-weight: 600; color: var(--gray-700); }
+.dm-state p { font-size: 14px; max-width: 420px; line-height: 1.6; color: var(--gray-500); }
+.dm-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.dm-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+  margin-right: 4px;
+}
+.dm-filter-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dm-filter-pill:hover { border-color: var(--gray-300); color: var(--gray-900); }
+.dm-filter-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.dm-filter-count {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-left: 4px;
+}
+.dm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dm-badge.required_action { background: var(--red-100); color: var(--red-700); }
+.dm-badge.decision_required { background: var(--yellow-100); color: var(--amber-600); }
+.dm-badge.monitor { background: var(--accent-mid); color: var(--accent); }
+.dm-badge.informational { background: var(--gray-100); color: var(--gray-600); }
+.dm-badge.action { background: var(--gray-50); color: var(--gray-700); border: 1px solid var(--gray-200); }
+.dm-badge.source { background: var(--purple-50); color: var(--purple-600); }
+.dm-badge.tier { background: var(--green-50); color: var(--green-700); }
+.dm-row-highlight td { background: #fffbeb !important; }
+.dm-row-highlight:hover td { background: #fef3c7 !important; }
+.dm-row-highlight .dm-component-name { font-weight: 700; color: var(--gray-900); }
+.dm-component-name { font-weight: 500; color: var(--gray-800); }
+.dm-note {
+  font-size: 12px;
+  color: var(--gray-500);
+  line-height: 1.45;
+  max-width: 280px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dm-zone { color: var(--gray-600); text-transform: capitalize; white-space: nowrap; }
+@media (max-width: 1200px) {
+  .dm-summary-cards { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .dm-summary-cards { grid-template-columns: repeat(2, 1fr); }
+  .dm-meta { text-align: left; width: 100%; }
+}
 </style>
 </head>
 <body>
@@ -1532,6 +1643,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <div class="nav-item" data-tab="walkthrough">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Walkthrough
+      </div>
+      <div class="nav-item" data-tab="decision-matrix">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+        Decision Matrix
       </div>
       <div class="nav-item" data-tab="property">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 7v7h4v-4h4v4h4V7L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1867,6 +1982,55 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         </div>
       </div><!-- /tab-walkthrough -->
 
+      <!-- Decision Matrix Tab -->
+      <div id="tab-decision-matrix" class="tab-pane">
+        <div id="dm-loading" class="dm-state">
+          <div class="spinner"></div>
+          <h2>Loading decision matrix…</h2>
+          <p>Fetching component decisions from evidence package</p>
+        </div>
+        <div id="dm-error" class="dm-state" hidden>
+          <div class="state-icon">⚠️</div>
+          <h2>Could not load decision matrix</h2>
+          <p id="dm-error-msg">Unable to reach the server.</p>
+          <button type="button" class="btn-generate" onclick="loadDecisionMatrix(true)">Retry</button>
+        </div>
+        <div id="dm-empty" class="dm-state" hidden>
+          <div class="state-icon">📋</div>
+          <h2>No decision matrix yet</h2>
+          <p>Build the matrix from walkthrough and photo evidence on the server, then reload this tab.</p>
+        </div>
+        <div id="dm-content" hidden>
+          <div class="dm-page-header">
+            <div>
+              <h2 class="dm-page-title">Decision Matrix</h2>
+              <p class="dm-page-sub">Per-component decisions derived from evidence — reports are projections of this matrix.</p>
+            </div>
+            <div class="dm-meta" id="dm-meta"></div>
+          </div>
+          <div class="dm-summary-cards" id="dm-summary-cards"></div>
+          <div class="dm-filter-bar" id="dm-filter-bar"></div>
+          <div class="table-wrap">
+            <table class="data-table" id="dm-table">
+              <thead>
+                <tr>
+                  <th>Zone</th>
+                  <th>Component</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                  <th>Tier</th>
+                  <th>Source</th>
+                  <th>Photos</th>
+                  <th>Walkthrough note</th>
+                </tr>
+              </thead>
+              <tbody id="dm-tbody"></tbody>
+            </table>
+          </div>
+          <p class="dm-page-sub" id="dm-showing-count" style="margin-top:-12px;margin-bottom:24px;"></p>
+        </div>
+      </div><!-- /tab-decision-matrix -->
+
       <!-- Property Data Tab -->
       <div id="tab-property" class="tab-pane">
 
@@ -2156,9 +2320,13 @@ let reportData     = {};
 function updateTopBarForTab(tab) {
   const sub = document.querySelector('.top-bar-sub');
   if (sub) {
-    sub.textContent = tab === 'walkthrough'
-      ? 'Seller Walkthrough Checklist'
-      : 'Pre-Listing Analysis Report';
+    if (tab === 'walkthrough') {
+      sub.textContent = 'Seller Walkthrough Checklist';
+    } else if (tab === 'decision-matrix') {
+      sub.textContent = 'Component Decision Matrix';
+    } else {
+      sub.textContent = 'Pre-Listing Analysis Report';
+    }
   }
   $('detail-tabs').style.display = tab === 'roi' ? '' : 'none';
   $('btn-regenerate').style.display = tab === 'roi' ? '' : 'none';
@@ -2182,6 +2350,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (tab === 'walkthrough' && !wtLoaded) {
       wtLoaded = true;
       loadWalkthrough();
+    }
+    if (tab === 'decision-matrix') {
+      loadDecisionMatrix();
     }
   });
 });
@@ -4260,6 +4431,224 @@ async function saveFpRoom() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save';
+  }
+}
+
+/* ── Decision Matrix (read-only) ─────────────────────────────────── */
+const DM_STATUS_ORDER = {
+  required_action: 0,
+  decision_required: 1,
+  monitor: 2,
+  informational: 3,
+};
+const DM_HIGHLIGHT_COMPONENTS = new Set([
+  'Garage door',
+  'Countertops',
+  'Indoor air quality',
+  'Deck condition',
+  'Crawlspace',
+  'Ceiling water damage',
+]);
+const DM_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'required_action', label: 'Required Action' },
+  { key: 'decision_required', label: 'Decision Required' },
+  { key: 'monitor', label: 'Monitor' },
+  { key: 'informational', label: 'Informational' },
+  { key: 'photo-only', label: 'Photo-only' },
+];
+
+let dmRows = [];
+let dmMatrixMeta = null;
+let dmFilter = 'all';
+let dmLoadedOnce = false;
+
+function dmLabel(value) {
+  return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function dmSourceType(row) {
+  if (row.zone === 'unmatched' || !row.walkthrough_item_id) return 'photo-only';
+  const hasNote = !!(row.walkthrough_notes || '').trim();
+  const photoCount = Array.isArray(row.photo_evidence) ? row.photo_evidence.length : 0;
+  if (hasNote && photoCount > 0) return 'mixed';
+  if (hasNote) return 'walkthrough';
+  if (photoCount > 0) return 'photo-only';
+  return 'walkthrough';
+}
+
+function dmSortRows(rows) {
+  return [...rows].sort((a, b) => {
+    const sa = DM_STATUS_ORDER[a.decision_status] ?? 9;
+    const sb = DM_STATUS_ORDER[b.decision_status] ?? 9;
+    if (sa !== sb) return sa - sb;
+    const za = (a.zone || '').localeCompare(b.zone || '', undefined, { sensitivity: 'base' });
+    if (za !== 0) return za;
+    return (a.component || '').localeCompare(b.component || '', undefined, { sensitivity: 'base' });
+  });
+}
+
+function dmFilterRows(rows, filter) {
+  if (filter === 'all') return rows;
+  if (filter === 'photo-only') {
+    return rows.filter(r => r.zone === 'unmatched' || !r.walkthrough_item_id);
+  }
+  return rows.filter(r => r.decision_status === filter);
+}
+
+function dmCounts(rows) {
+  const counts = {
+    total: rows.length,
+    required_action: 0,
+    decision_required: 0,
+    monitor: 0,
+    informational: 0,
+    photo_only: 0,
+  };
+  rows.forEach(row => {
+    if (counts[row.decision_status] !== undefined) counts[row.decision_status] += 1;
+    if (row.zone === 'unmatched' || !row.walkthrough_item_id) counts.photo_only += 1;
+  });
+  return counts;
+}
+
+function dmShowState(state) {
+  ['dm-loading', 'dm-error', 'dm-empty', 'dm-content'].forEach(id => {
+    const el = $(id);
+    if (el) el.hidden = (id !== state);
+  });
+}
+
+function dmRenderSummary(counts) {
+  const cards = [
+    { label: 'Total rows', value: counts.total, cls: '' },
+    { label: 'Required action', value: counts.required_action, cls: 'red' },
+    { label: 'Decision required', value: counts.decision_required, cls: 'accent' },
+    { label: 'Monitor', value: counts.monitor, cls: '' },
+    { label: 'Informational', value: counts.informational, cls: 'green' },
+    { label: 'Photo-only rows', value: counts.photo_only, cls: '' },
+  ];
+  $('dm-summary-cards').innerHTML = cards.map(c => `
+    <div class="summary-card">
+      <div class="card-label">${esc(c.label)}</div>
+      <div class="card-value${c.cls ? ' ' + c.cls : ''}">${c.value}</div>
+    </div>
+  `).join('');
+}
+
+function dmRenderFilters(counts) {
+  const filterCounts = {
+    all: counts.total,
+    required_action: counts.required_action,
+    decision_required: counts.decision_required,
+    monitor: counts.monitor,
+    informational: counts.informational,
+    'photo-only': counts.photo_only,
+  };
+  $('dm-filter-bar').innerHTML = `
+    <span class="dm-filter-label">Filter</span>
+    ${DM_FILTERS.map(f => `
+      <button type="button" class="dm-filter-pill${dmFilter === f.key ? ' active' : ''}"
+        data-dm-filter="${f.key}" onclick="dmSetFilter('${f.key}')">
+        ${esc(f.label)}<span class="dm-filter-count">${filterCounts[f.key] ?? 0}</span>
+      </button>
+    `).join('')}
+  `;
+}
+
+function dmRenderTable(rows) {
+  const tbody = $('dm-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--gray-500);">No rows match this filter.</td></tr>`;
+    $('dm-showing-count').textContent = 'Showing 0 of ' + dmRows.length + ' rows';
+    return;
+  }
+  tbody.innerHTML = rows.map(row => {
+    const highlight = DM_HIGHLIGHT_COMPONENTS.has(row.component);
+    const note = (row.walkthrough_notes || '').trim();
+    const photoCount = Array.isArray(row.photo_evidence) ? row.photo_evidence.length : 0;
+    const source = dmSourceType(row);
+    return `
+      <tr class="data-row${highlight ? ' dm-row-highlight' : ''}">
+        <td class="dm-zone">${esc(row.zone || '')}</td>
+        <td><span class="dm-component-name">${esc(row.component || '')}</span></td>
+        <td><span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span></td>
+        <td><span class="dm-badge action">${esc(dmLabel(row.recommended_action))}</span></td>
+        <td><span class="dm-badge tier">${esc(row.confidence_tier || 'unknown')}</span></td>
+        <td><span class="dm-badge source">${esc(source)}</span></td>
+        <td>${photoCount}</td>
+        <td>${note ? `<div class="dm-note" title="${esc(note)}">${esc(note)}</div>` : '<span style="color:var(--gray-400)">—</span>'}</td>
+      </tr>
+    `;
+  }).join('');
+  $('dm-showing-count').textContent = `Showing ${rows.length} of ${dmRows.length} rows`;
+}
+
+function dmRenderMeta(matrix) {
+  const el = $('dm-meta');
+  if (!el || !matrix) return;
+  const parts = [];
+  if (matrix.version != null) parts.push('v' + matrix.version);
+  if (matrix.status) parts.push(matrix.status);
+  if (matrix.evidence_hash) parts.push('hash ' + matrix.evidence_hash.slice(0, 8));
+  el.innerHTML = parts.map(p => `<span>${esc(p)}</span>`).join('<br>');
+}
+
+function dmRenderAll() {
+  const counts = dmCounts(dmRows);
+  dmRenderSummary(counts);
+  dmRenderFilters(counts);
+  const visible = dmSortRows(dmFilterRows(dmRows, dmFilter));
+  dmRenderTable(visible);
+}
+
+function dmSetFilter(key) {
+  dmFilter = key;
+  dmRenderAll();
+}
+
+async function loadDecisionMatrix(force) {
+  if (!$('tab-decision-matrix')?.classList.contains('active')) return;
+  if (dmLoadedOnce && !force) {
+    dmRenderAll();
+    return;
+  }
+  dmShowState('dm-loading');
+  try {
+    const [headerRes, rowsRes] = await Promise.all([
+      fetch('/decision-matrix'),
+      fetch('/decision-matrix/rows'),
+    ]);
+    if (headerRes.status === 404 || rowsRes.status === 404) {
+      dmShowState('dm-empty');
+      dmLoadedOnce = true;
+      return;
+    }
+    if (!headerRes.ok) {
+      const err = await headerRes.json().catch(() => ({}));
+      throw new Error(err.detail || `Matrix header HTTP ${headerRes.status}`);
+    }
+    if (!rowsRes.ok) {
+      const err = await rowsRes.json().catch(() => ({}));
+      throw new Error(err.detail || `Matrix rows HTTP ${rowsRes.status}`);
+    }
+    const headerData = await headerRes.json();
+    const rowsData = await rowsRes.json();
+    dmMatrixMeta = headerData.matrix || null;
+    dmRows = rowsData.rows || [];
+    if (!dmRows.length) {
+      dmShowState('dm-empty');
+      dmLoadedOnce = true;
+      return;
+    }
+    dmRenderMeta(dmMatrixMeta);
+    dmShowState('dm-content');
+    dmRenderAll();
+    dmLoadedOnce = true;
+  } catch (err) {
+    $('dm-error-msg').textContent = err.message || 'Unknown error';
+    dmShowState('dm-error');
   }
 }
 </script>
