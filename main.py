@@ -30,7 +30,10 @@ GET  /inventory              Materials shopping list with room-by-room breakdown
 POST /inventory/override     Save user-edited room counts to Supabase
 GET  /inventory/override     Return saved room-level overrides
 GET  /decision-matrix          Current decision matrix header
-GET  /decision-matrix/rows     Rows for current decision matrix
+GET  /decision-matrix/rows     Rows for current decision matrix (with options)
+GET  /decision-matrix/health   Matrix completeness metrics
+GET  /decision-matrix/scenarios/{scenario}  Scenario selection preview
+PATCH /decision-matrix/rows/{row_id}  Seller override selected option
 POST /decision-matrix/rebuild  Rebuild matrix from evidence package
 GET  /walkthrough-items      List walkthrough checklist rows
 POST /walkthrough-items      Create a walkthrough row
@@ -92,8 +95,16 @@ from roi import (
 from run_roi import build_analysis_summary
 from datetime import datetime, timezone
 
-from decision_matrix import build_decision_matrix, load_current_matrix, load_matrix_rows
+from decision_matrix import (
+    apply_row_override,
+    build_decision_matrix,
+    compute_matrix_health,
+    load_current_matrix,
+    load_matrix_rows,
+    load_matrix_rows_with_options,
+)
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
+from report_composer import compose_for_scenario, format_matrix_evidence_block
 from walkthrough_impact import build_walkthrough_impact
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
@@ -121,6 +132,8 @@ roi_cache: Optional[dict] = None
 # Supabase table / row for the ROI report
 ROI_TABLE = "roi_report"
 ROI_ID    = "current"
+
+REPORT_FROM_MATRIX = os.environ.get("REPORT_FROM_MATRIX", "true").lower() in ("1", "true", "yes")
 
 # ─── App setup ────────────────────────────────────────────────────────────────
 
@@ -181,6 +194,50 @@ def _attach_walkthrough_impact(
     )
     report["generated_at"] = datetime.now(timezone.utc).isoformat()
     return report
+
+
+def _matrix_rows_for_property(sb, property_id: str) -> tuple[dict, list[dict]] | None:
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        return None
+    rows = load_matrix_rows_with_options(sb, matrix["id"])
+    return matrix, rows
+
+
+def _generate_report_for_level(
+    *,
+    level: str,
+    buyer_profile: str,
+    summary: dict,
+    property_summary: dict,
+    last_sale: dict,
+    prior: dict | None,
+    sb,
+    matrix_rows: list[dict] | None,
+    use_matrix: bool,
+) -> dict:
+    package, walkthrough_block, wt_rows = _evidence_context(sb, level)
+    matrix_block = ""
+    matrix_line_items = None
+
+    if use_matrix and matrix_rows:
+        _, matrix_line_items = compose_for_scenario(matrix_rows, level, buyer_profile)
+        matrix_block = format_matrix_evidence_block(matrix_rows)
+
+    report = generate_roi_report(
+        summary,
+        property_summary,
+        last_sale,
+        detail_level=level,
+        buyer_profile=buyer_profile,
+        prior_report=prior,
+        walkthrough_block=walkthrough_block,
+        matrix_block=matrix_block,
+        matrix_line_items=matrix_line_items,
+    )
+    if report.get("error"):
+        return report
+    return _attach_walkthrough_impact(report, package, level, wt_rows)
 
 
 def _walkthrough_prompt_block(sb=None) -> str:
@@ -457,22 +514,25 @@ def report_generate(body: ReportRequest):
     prior: dict | None = None
     report: dict | None = None
     sb = _sb()
+    matrix_ctx = _matrix_rows_for_property(sb, WALKTHROUGH_PROPERTY_ID) if sb else None
+    matrix_rows = matrix_ctx[1] if matrix_ctx else None
+    use_matrix = REPORT_FROM_MATRIX and bool(matrix_rows)
+
     for level in chain:
         level_id = f"{level}_{buyer_profile}"
-        package, walkthrough_block, wt_rows = _evidence_context(sb, level)
-        report = generate_roi_report(
-            summary,
-            property_summary,
-            last_sale,
-            detail_level=level,
+        report = _generate_report_for_level(
+            level=level,
             buyer_profile=buyer_profile,
-            prior_report=prior,
-            walkthrough_block=walkthrough_block,
+            summary=summary,
+            property_summary=property_summary,
+            last_sale=last_sale,
+            prior=prior,
+            sb=sb,
+            matrix_rows=matrix_rows,
+            use_matrix=use_matrix,
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=report["error"])
-
-        report = _attach_walkthrough_impact(report, package, level, wt_rows)
 
         if sb:
             try:
@@ -597,20 +657,25 @@ def report_regenerate_all(profile: str = Query(default="general")):
 
     prior: dict | None = None
     reports: dict[str, dict] = {}
+    matrix_ctx = _matrix_rows_for_property(sb, WALKTHROUGH_PROPERTY_ID) if sb else None
+    matrix_rows = matrix_ctx[1] if matrix_ctx else None
+    use_matrix = REPORT_FROM_MATRIX and bool(matrix_rows)
+
     for level in DETAIL_LEVEL_ORDER:
         print(f"\n=== Regenerating [{level}_{profile}] ===")
-        package, walkthrough_block, wt_rows = _evidence_context(sb, level)
-        report = generate_roi_report(
-            summary, property_summary, last_sale,
-            detail_level=level,
+        report = _generate_report_for_level(
+            level=level,
             buyer_profile=profile,
-            prior_report=prior,
-            walkthrough_block=walkthrough_block,
+            summary=summary,
+            property_summary=property_summary,
+            last_sale=last_sale,
+            prior=prior,
+            sb=sb,
+            matrix_rows=matrix_rows,
+            use_matrix=use_matrix,
         )
         if report.get("error"):
             raise HTTPException(status_code=500, detail=f"[{level}] {report['error']}")
-
-        report = _attach_walkthrough_impact(report, package, level, wt_rows)
 
         level_id = f"{level}_{profile}"
         if sb:
@@ -1130,6 +1195,7 @@ def get_decision_matrix(
 @app.get("/decision-matrix/rows")
 def get_decision_matrix_rows(
     property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+    include_options: bool = Query(default=True),
 ):
     sb = _sb()
     if not sb:
@@ -1137,13 +1203,92 @@ def get_decision_matrix_rows(
     matrix = load_current_matrix(sb, property_id)
     if not matrix:
         raise HTTPException(status_code=404, detail="No decision matrix for this property")
-    rows = load_matrix_rows(sb, matrix["id"])
+    if include_options:
+        rows = load_matrix_rows_with_options(sb, matrix["id"])
+    else:
+        rows = load_matrix_rows(sb, matrix["id"])
     return {
         "property_id": property_id,
         "matrix_id": matrix["id"],
         "row_count": len(rows),
         "rows": rows,
     }
+
+
+@app.get("/decision-matrix/health")
+def get_decision_matrix_health(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    rows = load_matrix_rows_with_options(sb, matrix["id"])
+    health = compute_matrix_health(rows)
+    return {
+        "property_id": property_id,
+        "matrix_id": matrix["id"],
+        "health": health,
+    }
+
+
+@app.get("/decision-matrix/scenarios/{scenario}")
+def get_decision_matrix_scenario(
+    scenario: str,
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+    buyer_profile: str = Query(default="general"),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    rows = load_matrix_rows_with_options(sb, matrix["id"])
+    try:
+        selection, line_items = compose_for_scenario(rows, scenario, buyer_profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "property_id": property_id,
+        "matrix_id": matrix["id"],
+        "scenario": scenario,
+        "buyer_profile": buyer_profile,
+        "selection": selection,
+        "line_item_counts": {
+            "upgrades": len(line_items.get("upgrades") or []),
+            "repairs": len(line_items.get("repairs") or []),
+        },
+    }
+
+
+class DecisionMatrixRowOverride(BaseModel):
+    selected_option_key: str
+    note: str | None = None
+
+
+@app.patch("/decision-matrix/rows/{row_id}")
+def patch_decision_matrix_row(
+    row_id: str,
+    body: DecisionMatrixRowOverride,
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        updated = apply_row_override(
+            sb,
+            row_id,
+            selected_option_key=body.selected_option_key,
+            note=body.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Row not found or update failed")
+    return {"row": updated}
 
 
 @app.post("/decision-matrix/rebuild")

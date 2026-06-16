@@ -1617,6 +1617,48 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   overflow: hidden;
 }
 .dm-zone { color: var(--gray-600); text-transform: capitalize; white-space: nowrap; }
+.dm-expand-btn {
+  background: none; border: 1px solid var(--gray-200); border-radius: 6px;
+  width: 28px; height: 28px; cursor: pointer; color: var(--gray-600);
+  font-size: 14px; line-height: 1; flex-shrink: 0;
+}
+.dm-expand-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+.dm-expand-btn[aria-expanded="true"] { background: var(--accent-mid); border-color: var(--accent); color: var(--accent); }
+.dm-options-panel td { background: var(--gray-50) !important; padding: 0 !important; border-bottom: 1px solid var(--gray-200); }
+.dm-options-inner { padding: 12px 16px 16px 48px; }
+.dm-options-title { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.dm-options-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dm-options-table th { text-align: left; padding: 6px 8px; color: var(--gray-500); font-weight: 600; border-bottom: 1px solid var(--gray-200); }
+.dm-options-table td { padding: 8px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); }
+.dm-options-table tr.recommended td { background: #f0fdf4; }
+.dm-options-table tr.recommended td:first-child { font-weight: 600; }
+.dm-feasibility { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--gray-100); }
+.dm-feasibility.recommended { background: var(--green-100); color: var(--green-700); }
+.dm-feasibility.discouraged { background: var(--red-100); color: var(--red-700); }
+.dm-override-bar { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.dm-override-bar select { font-size: 12px; padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; }
+.dm-override-bar button { font-size: 12px; padding: 6px 12px; }
+.dm-seller-override { font-size: 11px; color: var(--purple-600); font-weight: 600; }
+.dm-workspace { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 16px; }
+.dm-card {
+  border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px;
+  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.dm-card.highlight { border-color: #fbbf24; background: #fffbeb; }
+.dm-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.dm-card-title { font-weight: 700; font-size: 14px; color: var(--gray-900); }
+.dm-card-zone { font-size: 11px; color: var(--gray-500); text-transform: capitalize; }
+.dm-card-state { font-size: 12px; color: var(--gray-600); line-height: 1.5; margin-bottom: 12px; }
+.dm-view-toggle { display: flex; gap: 4px; margin-left: auto; }
+.dm-view-btn {
+  font-size: 12px; padding: 6px 12px; border: 1px solid var(--gray-200);
+  background: #fff; border-radius: 6px; cursor: pointer; color: var(--gray-600);
+}
+.dm-view-btn.active { background: var(--accent-mid); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.dm-scenario-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.dm-scenario-bar select { font-size: 13px; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 6px; }
+.dm-scenario-summary { font-size: 12px; color: var(--gray-600); }
+.dm-row-scenario td { box-shadow: inset 3px 0 0 var(--accent); }
 @media (max-width: 1200px) {
   .dm-summary-cards { grid-template-columns: repeat(3, 1fr); }
 }
@@ -2003,17 +2045,35 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <div id="dm-content" hidden>
           <div class="dm-page-header">
             <div>
-              <h2 class="dm-page-title">Decision Matrix</h2>
-              <p class="dm-page-sub">Per-component decisions derived from evidence — reports are projections of this matrix.</p>
+              <h2 class="dm-page-title">Decision Workspace</h2>
+              <p class="dm-page-sub">Per-component decisions with option comparison — reports are projections of selections here.</p>
             </div>
-            <div class="dm-meta" id="dm-meta"></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <div class="dm-view-toggle">
+                <button type="button" class="dm-view-btn active" id="dm-view-table" onclick="dmSetView('table')">Table</button>
+                <button type="button" class="dm-view-btn" id="dm-view-cards" onclick="dmSetView('cards')">Cards</button>
+              </div>
+              <div class="dm-meta" id="dm-meta"></div>
+            </div>
+          </div>
+          <div class="dm-scenario-bar">
+            <label for="dm-scenario-select" class="dm-filter-label">Scenario preview</label>
+            <select id="dm-scenario-select" onchange="dmLoadScenarioPreview()">
+              <option value="spend_nothing">Spend Nothing (~$2k)</option>
+              <option value="budget_5k">Budget $5k</option>
+              <option value="budget_15k" selected>Budget $15k</option>
+              <option value="maximize">Maximize</option>
+            </select>
+            <span class="dm-scenario-summary" id="dm-scenario-summary"></span>
           </div>
           <div class="dm-summary-cards" id="dm-summary-cards"></div>
           <div class="dm-filter-bar" id="dm-filter-bar"></div>
+          <div id="dm-table-view">
           <div class="table-wrap">
             <table class="data-table" id="dm-table">
               <thead>
                 <tr>
+                  <th style="width:36px;"></th>
                   <th>Zone</th>
                   <th>Component</th>
                   <th>Status</th>
@@ -2026,6 +2086,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               </thead>
               <tbody id="dm-tbody"></tbody>
             </table>
+          </div>
+          </div>
+          <div id="dm-cards-view" hidden>
+            <div class="dm-workspace" id="dm-workspace"></div>
           </div>
           <p class="dm-page-sub" id="dm-showing-count" style="margin-top:-12px;margin-bottom:24px;"></p>
         </div>
@@ -4462,6 +4526,145 @@ let dmRows = [];
 let dmMatrixMeta = null;
 let dmFilter = 'all';
 let dmLoadedOnce = false;
+let dmExpanded = new Set();
+let dmView = 'table';
+let dmHealth = null;
+let dmScenarioPreview = null;
+
+function dmFormatCost(low, high) {
+  const lo = Number(low) || 0;
+  const hi = Number(high) || 0;
+  if (lo === 0 && hi === 0) return '$0';
+  if (lo === hi) return '$' + lo.toLocaleString();
+  return '$' + lo.toLocaleString() + '–$' + hi.toLocaleString();
+}
+
+function dmToggleExpand(rowId) {
+  if (dmExpanded.has(rowId)) dmExpanded.delete(rowId);
+  else dmExpanded.add(rowId);
+  dmRenderAll();
+}
+
+function dmSetView(view) {
+  dmView = view;
+  $('dm-view-table')?.classList.toggle('active', view === 'table');
+  $('dm-view-cards')?.classList.toggle('active', view === 'cards');
+  if ($('dm-table-view')) $('dm-table-view').hidden = view !== 'table';
+  if ($('dm-cards-view')) $('dm-cards-view').hidden = view !== 'cards';
+  dmRenderAll();
+}
+
+function dmRenderOptionsPanel(row) {
+  const options = row.options || [];
+  if (!options.length) {
+    return `<div class="dm-options-inner"><p style="font-size:12px;color:var(--gray-500);">No options generated — rebuild matrix after v2 migration.</p></div>`;
+  }
+  const overrideNote = row.seller_override ? '<span class="dm-seller-override">Seller override active</span>' : '';
+  const rows = options.map(opt => `
+    <tr class="${opt.is_recommended ? 'recommended' : ''}">
+      <td>${esc(dmLabel(opt.option_key))}${opt.is_recommended ? ' ★' : ''}</td>
+      <td>${dmFormatCost(opt.cost_low, opt.cost_high)}</td>
+      <td>${esc(opt.buyer_impact || '')}</td>
+      <td>${esc(opt.inspection_risk_impact || '')}</td>
+      <td>${esc(opt.marketability_impact || '')}</td>
+      <td>${esc(opt.roi_quality || '')}</td>
+      <td><span class="dm-feasibility ${esc(opt.feasibility)}">${esc(opt.feasibility || '')}</span></td>
+    </tr>
+  `).join('');
+  const selectOpts = options.map(opt =>
+    `<option value="${esc(opt.option_key)}"${row.selected_option_key === opt.option_key ? ' selected' : ''}>${esc(dmLabel(opt.option_key))}</option>`
+  ).join('');
+  return `
+    <div class="dm-options-inner">
+      <div class="dm-options-title">Option comparison ${overrideNote}</div>
+      <table class="dm-options-table">
+        <thead><tr>
+          <th>Option</th><th>Cost</th><th>Buyer</th><th>Inspection</th><th>Market</th><th>ROI</th><th>Feasibility</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="dm-override-bar">
+        <label style="font-size:12px;color:var(--gray-600);">Seller override:</label>
+        <select id="dm-override-${esc(row.id)}">${selectOpts}</select>
+        <button type="button" class="btn-secondary" onclick="dmApplyOverride('${esc(row.id)}')">Apply</button>
+      </div>
+    </div>
+  `;
+}
+
+async function dmApplyOverride(rowId) {
+  const sel = $(`dm-override-${rowId}`);
+  if (!sel) return;
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ selected_option_key: sel.value }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const idx = dmRows.findIndex(r => r.id === rowId);
+    if (idx >= 0 && data.row) dmRows[idx] = data.row;
+    dmRenderAll();
+  } catch (err) {
+    alert('Override failed: ' + (err.message || err));
+  }
+}
+
+function dmRenderCards(rows) {
+  const el = $('dm-workspace');
+  if (!el) return;
+  if (!rows.length) {
+    el.innerHTML = '<p style="color:var(--gray-500);font-size:13px;">No rows match this filter.</p>';
+    return;
+  }
+  el.innerHTML = rows.map(row => {
+    const highlight = DM_HIGHLIGHT_COMPONENTS.has(row.component);
+    const options = row.options || [];
+    const rec = options.find(o => o.is_recommended);
+    const optRows = options.map(opt => `
+      <tr class="${opt.is_recommended ? 'recommended' : ''}">
+        <td>${esc(dmLabel(opt.option_key))}</td>
+        <td>${dmFormatCost(opt.cost_low, opt.cost_high)}</td>
+        <td>${esc(opt.feasibility || '')}</td>
+      </tr>
+    `).join('');
+    return `
+      <div class="dm-card${highlight ? ' highlight' : ''}">
+        <div class="dm-card-header">
+          <div>
+            <div class="dm-card-title">${esc(row.component || '')}</div>
+            <div class="dm-card-zone">${esc(row.zone || '')}</div>
+          </div>
+          <span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span>
+        </div>
+        <div class="dm-card-state">${esc((row.current_state || '').slice(0, 160))}</div>
+        ${rec ? `<div style="font-size:12px;margin-bottom:8px;"><strong>Recommended:</strong> ${esc(dmLabel(rec.option_key))} (${dmFormatCost(rec.cost_low, rec.cost_high)})</div>` : ''}
+        ${options.length ? `<table class="dm-options-table"><thead><tr><th>Option</th><th>Cost</th><th>Fit</th></tr></thead><tbody>${optRows}</tbody></table>` : ''}
+        ${row.seller_override ? '<div class="dm-seller-override" style="margin-top:8px;">Seller override</div>' : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function dmLoadScenarioPreview() {
+  const scenario = $('dm-scenario-select')?.value || 'budget_15k';
+  const summaryEl = $('dm-scenario-summary');
+  if (!summaryEl) return;
+  try {
+    const res = await fetch(`/decision-matrix/scenarios/${scenario}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    dmScenarioPreview = data.selection;
+    const sel = data.selection || {};
+    summaryEl.textContent = `${sel.selection_count || 0} items selected · ${dmFormatCost(sel.total_cost_low, sel.total_cost_high)} · ${(data.line_item_counts?.upgrades || 0)} upgrades, ${(data.line_item_counts?.repairs || 0)} repairs`;
+  } catch (_) {
+    summaryEl.textContent = '';
+  }
+}
 
 function dmLabel(value) {
   return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -4520,13 +4723,15 @@ function dmShowState(state) {
 }
 
 function dmRenderSummary(counts) {
+  const health = dmHealth || {};
   const cards = [
     { label: 'Total rows', value: counts.total, cls: '' },
     { label: 'Required action', value: counts.required_action, cls: 'red' },
     { label: 'Decision required', value: counts.decision_required, cls: 'accent' },
     { label: 'Monitor', value: counts.monitor, cls: '' },
     { label: 'Informational', value: counts.informational, cls: 'green' },
-    { label: 'Photo-only rows', value: counts.photo_only, cls: '' },
+    { label: 'Manual review', value: health.manual_review_count ?? '—', cls: health.manual_review_count ? 'red' : '' },
+    { label: 'Missing options', value: health.missing_options ?? '—', cls: health.missing_options ? 'red' : 'green' },
   ];
   $('dm-summary-cards').innerHTML = cards.map(c => `
     <div class="summary-card">
@@ -4560,19 +4765,26 @@ function dmRenderTable(rows) {
   const tbody = $('dm-tbody');
   if (!tbody) return;
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--gray-500);">No rows match this filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="padding:24px;text-align:center;color:var(--gray-500);">No rows match this filter.</td></tr>`;
     $('dm-showing-count').textContent = 'Showing 0 of ' + dmRows.length + ' rows';
     return;
   }
+  const selectedIds = new Set((dmScenarioPreview?.selected || []).map(s => s.row_id));
   tbody.innerHTML = rows.map(row => {
     const highlight = DM_HIGHLIGHT_COMPONENTS.has(row.component);
     const note = (row.walkthrough_notes || '').trim();
     const photoCount = Array.isArray(row.photo_evidence) ? row.photo_evidence.length : 0;
     const source = dmSourceType(row);
-    return `
-      <tr class="data-row${highlight ? ' dm-row-highlight' : ''}">
+    const expanded = dmExpanded.has(row.id);
+    const inScenario = selectedIds.has(row.id);
+    const expandBtn = row.options?.length
+      ? `<button type="button" class="dm-expand-btn" aria-expanded="${expanded}" onclick="dmToggleExpand('${esc(row.id)}')" title="Show options">${expanded ? '−' : '+'}</button>`
+      : '';
+    const mainRow = `
+      <tr class="data-row${highlight ? ' dm-row-highlight' : ''}${inScenario ? ' dm-row-scenario' : ''}">
+        <td>${expandBtn}</td>
         <td class="dm-zone">${esc(row.zone || '')}</td>
-        <td><span class="dm-component-name">${esc(row.component || '')}</span></td>
+        <td><span class="dm-component-name">${esc(row.component || '')}${row.seller_override ? ' <span class="dm-seller-override">✎</span>' : ''}</span></td>
         <td><span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span></td>
         <td><span class="dm-badge action">${esc(dmLabel(row.recommended_action))}</span></td>
         <td><span class="dm-badge tier">${esc(row.confidence_tier || 'unknown')}</span></td>
@@ -4581,8 +4793,29 @@ function dmRenderTable(rows) {
         <td>${note ? `<div class="dm-note" title="${esc(note)}">${esc(note)}</div>` : '<span style="color:var(--gray-400)">—</span>'}</td>
       </tr>
     `;
+    const panelRow = expanded
+      ? `<tr class="dm-options-panel"><td colspan="9">${dmRenderOptionsPanel(row)}</td></tr>`
+      : '';
+    return mainRow + panelRow;
   }).join('');
   $('dm-showing-count').textContent = `Showing ${rows.length} of ${dmRows.length} rows`;
+}
+
+function dmRenderAll() {
+  const counts = dmCounts(dmRows);
+  dmRenderSummary(counts);
+  dmRenderFilters(counts);
+  const visible = dmSortRows(dmFilterRows(dmRows, dmFilter));
+  if (dmView === 'cards') {
+    dmRenderCards(visible);
+  } else {
+    dmRenderTable(visible);
+  }
+}
+
+function dmSetFilter(key) {
+  dmFilter = key;
+  dmRenderAll();
 }
 
 function dmRenderMeta(matrix) {
@@ -4595,19 +4828,6 @@ function dmRenderMeta(matrix) {
   el.innerHTML = parts.map(p => `<span>${esc(p)}</span>`).join('<br>');
 }
 
-function dmRenderAll() {
-  const counts = dmCounts(dmRows);
-  dmRenderSummary(counts);
-  dmRenderFilters(counts);
-  const visible = dmSortRows(dmFilterRows(dmRows, dmFilter));
-  dmRenderTable(visible);
-}
-
-function dmSetFilter(key) {
-  dmFilter = key;
-  dmRenderAll();
-}
-
 async function loadDecisionMatrix(force) {
   if (!$('tab-decision-matrix')?.classList.contains('active')) return;
   if (dmLoadedOnce && !force) {
@@ -4616,9 +4836,10 @@ async function loadDecisionMatrix(force) {
   }
   dmShowState('dm-loading');
   try {
-    const [headerRes, rowsRes] = await Promise.all([
+    const [headerRes, rowsRes, healthRes] = await Promise.all([
       fetch('/decision-matrix'),
       fetch('/decision-matrix/rows'),
+      fetch('/decision-matrix/health').catch(() => null),
     ]);
     if (headerRes.status === 404 || rowsRes.status === 404) {
       dmShowState('dm-empty');
@@ -4637,6 +4858,10 @@ async function loadDecisionMatrix(force) {
     const rowsData = await rowsRes.json();
     dmMatrixMeta = headerData.matrix || null;
     dmRows = rowsData.rows || [];
+    if (healthRes && healthRes.ok) {
+      const healthData = await healthRes.json();
+      dmHealth = healthData.health || null;
+    }
     if (!dmRows.length) {
       dmShowState('dm-empty');
       dmLoadedOnce = true;
@@ -4645,6 +4870,7 @@ async function loadDecisionMatrix(force) {
     dmRenderMeta(dmMatrixMeta);
     dmShowState('dm-content');
     dmRenderAll();
+    dmLoadScenarioPreview();
     dmLoadedOnce = true;
   } catch (err) {
     $('dm-error-msg').textContent = err.message || 'Unknown error';

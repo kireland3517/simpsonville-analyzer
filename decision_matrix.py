@@ -12,6 +12,11 @@ from typing import Any
 
 from evidence import build_evidence_package, default_property_facts, _norm
 from run_roi import build_analysis_summary
+from matrix_options import (
+    blocked_option_keys,
+    build_options_for_row,
+    pick_recommended_option,
+)
 from walkthrough import (
     _derive_buyer_impact,
     load_walkthrough_items,
@@ -19,6 +24,8 @@ from walkthrough import (
 
 MATRICES_TABLE = "decision_matrices"
 ROWS_TABLE = "decision_matrix_rows"
+OPTIONS_TABLE = "decision_matrix_options"
+SCENARIOS_TABLE = "decision_matrix_scenarios"
 STATE_TABLE = "property_decision_state"
 PHOTO_TABLE = "photo_analyses"
 
@@ -770,6 +777,8 @@ def build_decision_matrix(
     if rows_to_insert:
         sb.table(ROWS_TABLE).insert(rows_to_insert).execute()
 
+    options_summary = _persist_options_for_matrix(sb, matrix_id)
+
     stale_count = _mark_prior_matrices_stale(sb, property_id, matrix_id)
 
     state_payload = {
@@ -816,7 +825,219 @@ def build_decision_matrix(
         "counts_by_decision_status": status_counts,
         "counts_by_recommended_action": action_counts,
         "preview_top_20": preview,
+        "options": options_summary,
     }
+
+
+def _persist_options_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
+    """Generate and persist options for all rows in a matrix."""
+    rows = load_matrix_rows(sb, matrix_id)
+    if not rows:
+        return {"total_options": 0, "rows_with_options": 0}
+
+    total_options = 0
+    rows_with_options = 0
+    for row in rows:
+        row_id = row.get("id")
+        if not row_id:
+            continue
+        options = build_options_for_row(row)
+        if not options:
+            continue
+
+        try:
+            sb.table(OPTIONS_TABLE).delete().eq("row_id", row_id).execute()
+        except Exception:
+            pass
+
+        option_rows = []
+        for opt in options:
+            option_rows.append({
+                "row_id": row_id,
+                "option_key": opt["option_key"],
+                "cost_low": opt["cost_low"],
+                "cost_high": opt["cost_high"],
+                "buyer_impact": opt["buyer_impact"],
+                "inspection_risk_impact": opt["inspection_risk_impact"],
+                "marketability_impact": opt["marketability_impact"],
+                "roi_quality": opt["roi_quality"],
+                "feasibility": opt["feasibility"],
+                "is_recommended": opt["is_recommended"],
+                "rationale": opt["rationale"],
+            })
+
+        if option_rows:
+            sb.table(OPTIONS_TABLE).insert(option_rows).execute()
+            total_options += len(option_rows)
+            rows_with_options += 1
+
+        viable = [o["option_key"] for o in options]
+        blocked = blocked_option_keys(row, viable)
+        rec_key = pick_recommended_option(options, row)
+        needs_review = _needs_manual_review(row, options)
+
+        try:
+            sb.table(ROWS_TABLE).update({
+                "available_options": viable,
+                "blocked_options": blocked,
+                "recommended_action": rec_key,
+                "needs_manual_review": needs_review,
+            }).eq("id", row_id).execute()
+        except Exception:
+            pass
+
+    return {
+        "total_options": total_options,
+        "rows_with_options": rows_with_options,
+        "rows_total": len(rows),
+    }
+
+
+def _needs_manual_review(row: dict[str, Any], options: list[dict[str, Any]]) -> bool:
+    if not options:
+        return True
+    recs = [o for o in options if o.get("is_recommended")]
+    if not recs:
+        return True
+    if row.get("decision_status") == "required_action":
+        rec_key = recs[0].get("option_key")
+        if rec_key == "leave_as_is":
+            return True
+    note = _norm(row.get("walkthrough_notes") or "")
+    photos = " ".join(
+        pe.get("observation") or ""
+        for pe in (row.get("photo_evidence") or [])
+    )
+    if "serviceable" in note and any(s in _norm(photos) for s in _REPLACE_SIGNALS):
+        return True
+    return False
+
+
+def load_matrix_options(sb, row_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    if not row_ids:
+        return {}
+    try:
+        result = (
+            sb.table(OPTIONS_TABLE)
+            .select("*")
+            .in_("row_id", row_ids)
+            .execute()
+        )
+    except Exception:
+        return {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for opt in result.data or []:
+        rid = opt.get("row_id")
+        if rid:
+            grouped.setdefault(rid, []).append(opt)
+    for opts in grouped.values():
+        opts.sort(key=lambda o: (not o.get("is_recommended"), o.get("option_key") or ""))
+    return grouped
+
+
+def load_matrix_rows_with_options(sb, matrix_id: str) -> list[dict[str, Any]]:
+    rows = load_matrix_rows(sb, matrix_id)
+    if not rows:
+        return []
+    row_ids = [r["id"] for r in rows if r.get("id")]
+    options_by_row = load_matrix_options(sb, row_ids)
+    for row in rows:
+        row["options"] = options_by_row.get(row.get("id"), [])
+    return rows
+
+
+def compute_matrix_health(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    missing_options = 0
+    missing_recommendation = 0
+    manual_review = 0
+    conflicting_evidence = 0
+    option_counts: dict[str, int] = {}
+
+    rec_dist: dict[str, int] = {}
+    for row in rows:
+        opts = row.get("options") or []
+        if not opts:
+            missing_options += 1
+        recs = [o for o in opts if o.get("is_recommended")]
+        if opts and not recs:
+            missing_recommendation += 1
+        if row.get("needs_manual_review"):
+            manual_review += 1
+        note = _norm(row.get("walkthrough_notes") or "")
+        photos = " ".join(
+            pe.get("observation") or ""
+            for pe in (row.get("photo_evidence") or [])
+        )
+        if "serviceable" in note and any(s in _norm(photos) for s in _REPLACE_SIGNALS):
+            conflicting_evidence += 1
+        for opt in opts:
+            key = opt.get("option_key") or "?"
+            option_counts[key] = option_counts.get(key, 0) + 1
+        rec_key = row.get("recommended_action") or "?"
+        rec_dist[rec_key] = rec_dist.get(rec_key, 0) + 1
+
+    return {
+        "total_rows": len(rows),
+        "missing_options": missing_options,
+        "missing_recommendation": missing_recommendation,
+        "manual_review_count": manual_review,
+        "conflicting_evidence_count": conflicting_evidence,
+        "recommended_action_distribution": rec_dist,
+        "option_key_counts": option_counts,
+    }
+
+
+def apply_row_override(
+    sb,
+    row_id: str,
+    *,
+    selected_option_key: str,
+    note: str | None = None,
+) -> dict[str, Any] | None:
+    """Seller override — lock selected option for scenario engine."""
+    try:
+        row_result = (
+            sb.table(ROWS_TABLE)
+            .select("*")
+            .eq("id", row_id)
+            .maybe_single()
+            .execute()
+        )
+        row = row_result.data if row_result else None
+        if not row:
+            return None
+
+        options = load_matrix_options(sb, [row_id]).get(row_id, [])
+        valid_keys = {o.get("option_key") for o in options}
+        if selected_option_key not in valid_keys:
+            raise ValueError(f"Option {selected_option_key!r} not viable for this row")
+
+        update = {
+            "seller_override": True,
+            "seller_override_at": "now()",
+            "selected_option_key": selected_option_key,
+            "recommended_action": selected_option_key,
+        }
+        if note is not None:
+            update["seller_override_note"] = note
+
+        sb.table(ROWS_TABLE).update(update).eq("id", row_id).execute()
+
+        for opt in options:
+            sb.table(OPTIONS_TABLE).update({
+                "is_recommended": opt.get("option_key") == selected_option_key,
+                "feasibility": (
+                    "recommended" if opt.get("option_key") == selected_option_key
+                    else opt.get("feasibility")
+                ),
+            }).eq("id", opt["id"]).execute()
+
+        fresh = load_matrix_rows_with_options(sb, row["matrix_id"])
+        return next((r for r in fresh if r.get("id") == row_id), None)
+    except ValueError:
+        raise
+    except Exception:
+        return None
 
 
 def load_current_matrix(sb, property_id: str) -> dict[str, Any] | None:

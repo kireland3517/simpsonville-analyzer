@@ -1011,7 +1011,12 @@ def _list_block(items: list[str]) -> str:
     return "\n".join(f"  - {text}" for text in items)
 
 
-def _build_assessment_prompt(summary: dict, detail_level: str, buyer_profile: str) -> str:
+def _build_assessment_prompt(
+    summary: dict,
+    detail_level: str,
+    buyer_profile: str,
+    matrix_block: str = "",
+) -> str:
     """Call 1: photo summary → executive_summary, deal_killers, timeline, SC notes, profile notes."""
     top_issues, top_upgrades = _INPUT_COUNTS[detail_level]
 
@@ -1084,6 +1089,8 @@ TOP {top_upgrades} UPGRADES BY FREQUENCY
 ------------------------------------------
 {_freq_block(upgrades_freq, top_upgrades)}{room_section}
 
+{matrix_block}
+
 {_REPAIR_SEVERITY_RULES}
 
 INSTRUCTIONS
@@ -1115,6 +1122,8 @@ def generate_roi_report(
     buyer_profile: str = "general",
     prior_report: dict | None = None,
     walkthrough_block: str = "",
+    matrix_block: str = "",
+    matrix_line_items: dict[str, list] | None = None,
 ) -> dict:
     """
     Generate a pre-sale ROI report using three sequential Gemini calls (all levels):
@@ -1141,7 +1150,7 @@ def generate_roi_report(
     print("  [1/3] Assessment call...")
     # gemini-2.5-pro can spend much of the output budget on internal reasoning
     assessment, err = generate_text(
-        _build_assessment_prompt(summary, detail_level, buyer_profile),
+        _build_assessment_prompt(summary, detail_level, buyer_profile, matrix_block=matrix_block),
         system=SYSTEM_PROMPT,
         max_tokens=_PRO_MAX_TOKENS,
         label="Assessment",
@@ -1151,33 +1160,37 @@ def generate_roi_report(
 
     executive_summary = assessment.get("executive_summary") or {}
 
-    # ── Call 2: Upgrades ───────────────────────────────────────────
-    print("  [2/3] Upgrades call...")
-    upgrades_result, err = generate_text(
-        _build_upgrades_prompt(
-            summary, executive_summary, detail_level, buyer_profile, prior_report,
-            walkthrough_block=walkthrough_block,
-        ),
-        system=SYSTEM_PROMPT,
-        max_tokens=_PRO_MAX_TOKENS,
-        label="Upgrades",
-    )
-    if err:
-        return {**_ERROR_RESULT, "error": err}
+    if matrix_line_items is not None:
+        upgrades_result = {"upgrades": matrix_line_items.get("upgrades") or []}
+        repairs_result = {"repairs": matrix_line_items.get("repairs") or []}
+    else:
+        # ── Call 2: Upgrades ───────────────────────────────────────────
+        print("  [2/3] Upgrades call...")
+        upgrades_result, err = generate_text(
+            _build_upgrades_prompt(
+                summary, executive_summary, detail_level, buyer_profile, prior_report,
+                walkthrough_block=walkthrough_block,
+            ),
+            system=SYSTEM_PROMPT,
+            max_tokens=_PRO_MAX_TOKENS,
+            label="Upgrades",
+        )
+        if err:
+            return {**_ERROR_RESULT, "error": err}
 
-    # ── Call 3: Repairs ────────────────────────────────────────────
-    print("  [3/3] Repairs call...")
-    repairs_result, err = generate_text(
-        _build_repairs_prompt(
-            summary, executive_summary, detail_level, buyer_profile, prior_report,
-            walkthrough_block=walkthrough_block,
-        ),
-        system=SYSTEM_PROMPT,
-        max_tokens=_PRO_MAX_TOKENS,
-        label="Repairs",
-    )
-    if err:
-        return {**_ERROR_RESULT, "error": err}
+        # ── Call 3: Repairs ────────────────────────────────────────────
+        print("  [3/3] Repairs call...")
+        repairs_result, err = generate_text(
+            _build_repairs_prompt(
+                summary, executive_summary, detail_level, buyer_profile, prior_report,
+                walkthrough_block=walkthrough_block,
+            ),
+            system=SYSTEM_PROMPT,
+            max_tokens=_PRO_MAX_TOKENS,
+            label="Repairs",
+        )
+        if err:
+            return {**_ERROR_RESULT, "error": err}
 
     # ── Merge (additive when prior_report is set) ───────────────────
     limits   = _RECOMMENDATION_LIMITS[detail_level]
@@ -1220,6 +1233,7 @@ def generate_roi_report(
         "upgrades":            upgrades,
         "repairs":             repairs,
         "prompt_version":      PROMPT_VERSION,
+        "report_source":       "matrix" if matrix_line_items is not None else "legacy",
     }
 
 
