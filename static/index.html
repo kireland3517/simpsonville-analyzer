@@ -2399,6 +2399,11 @@ if (WT_DEV) document.body.classList.add('wt-dev-on');
 let wtAdvanced = false;
 const BUYER_PROFILE = 'general';
 let reportData     = {};
+let activeMainTab  = 'roi';
+
+function isRoiTabActive() {
+  return activeMainTab === 'roi';
+}
 
 function updateTopBarForTab(tab) {
   const sub = document.querySelector('.top-bar-sub');
@@ -2424,6 +2429,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
     const tab = item.dataset.tab;
     if (!tab) return;
+    activeMainTab = tab;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -2462,6 +2468,7 @@ function showState(id) {
 
 /* ── Regenerate report (force re-run current level) ─────────────── */
 async function regenerateReport() {
+  if (!isRoiTabActive()) return;
   const btn = $('btn-regenerate');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner sm"></div> Regenerating…';
@@ -2472,11 +2479,13 @@ async function regenerateReport() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
     });
+    if (!isRoiTabActive()) return;
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
     const report = await res.json();
+    if (!isRoiTabActive()) return;
     populateReport(report);
     showState('tab-roi');
   } catch(err) {
@@ -2490,6 +2499,7 @@ async function regenerateReport() {
 
 /* ── Generate report ─────────────────────────────────────────────── */
 async function generateReport() {
+  if (!isRoiTabActive()) return;
   const btn = $('btn-generate');
   btn.disabled = true;
   btn.textContent = 'Generating…';
@@ -2500,11 +2510,13 @@ async function generateReport() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
     });
+    if (!isRoiTabActive()) return;
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
     const report = await res.json();
+    if (!isRoiTabActive()) return;
     populateReport(report);
     showState('tab-roi');
   } catch(err) {
@@ -2524,20 +2536,25 @@ const LEGACY_REPORT_LEVELS = {
 };
 
 async function loadReport() {
+  if (!isRoiTabActive()) return;
   showState('state-loading');
   const tryLevels = [currentLevel, LEGACY_REPORT_LEVELS[currentLevel]].filter(Boolean);
   let report = null;
   for (const level of tryLevels) {
+    if (!isRoiTabActive()) return;
     const id = `${level}_${BUYER_PROFILE}`;
     try {
       const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
+      if (!isRoiTabActive()) return;
       if (res.ok) { report = await res.json(); break; }
       if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
+      if (!isRoiTabActive()) return;
       if (!err.message?.startsWith('HTTP')) throw err;
     }
   }
   try {
+    if (!isRoiTabActive()) return;
     if (!report) {
       $('not-gen-title').textContent = labelFor(currentLevel);
       $('not-gen-msg').textContent = 'This budget scenario has not been generated yet.';
