@@ -33,6 +33,7 @@ GET  /decision-matrix          Current decision matrix header
 GET  /decision-matrix/rows     Rows for current decision matrix (with options)
 GET  /decision-matrix/health   Matrix completeness metrics
 GET  /decision-matrix/scenarios/{scenario}  Scenario selection preview
+GET  /decision-matrix/tiers/{tier}  Listing-readiness tier plan (cumulative)
 PATCH /decision-matrix/rows/{row_id}  Seller override selected option
 POST /decision-matrix/rebuild  Rebuild matrix from evidence package
 GET  /walkthrough-items      List walkthrough checklist rows
@@ -104,6 +105,7 @@ from decision_matrix import (
     load_matrix_rows_with_options,
 )
 from matrix_tiers import compute_tier_counts
+from tier_selector import select_for_tier
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from report_composer import compose_for_scenario, format_matrix_evidence_block
 from walkthrough_impact import build_walkthrough_impact
@@ -1239,6 +1241,24 @@ def get_decision_matrix_health(
         "matrix_id": matrix["id"],
         "health": health,
     }
+
+
+@app.get("/decision-matrix/tiers/{tier}")
+def get_decision_matrix_tier(
+    tier: str,
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        result = select_for_tier(tier, sb=sb, property_id=property_id)
+    except ValueError as exc:
+        msg = str(exc)
+        if "No decision matrix" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    return result
 
 
 @app.get("/decision-matrix/scenarios/{scenario}")

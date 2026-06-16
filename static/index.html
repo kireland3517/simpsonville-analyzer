@@ -1676,6 +1676,35 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-scenario-bar select { font-size: 13px; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 6px; }
 .dm-scenario-summary { font-size: 12px; color: var(--gray-600); }
 .dm-row-scenario td { box-shadow: inset 3px 0 0 var(--accent); }
+.dm-lrp-section {
+  margin-bottom: 28px;
+  padding: 20px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+.dm-lrp-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.dm-lrp-title { font-size: 16px; font-weight: 700; color: var(--gray-900); letter-spacing: -0.02em; }
+.dm-lrp-sub { font-size: 12px; color: var(--gray-500); margin-top: 4px; max-width: 520px; line-height: 1.5; }
+.dm-lrp-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.dm-lrp-tab {
+  font-size: 12px; font-weight: 600; padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--gray-200); background: #fff; cursor: pointer; color: var(--gray-600);
+}
+.dm-lrp-tab:hover { border-color: var(--gray-300); color: var(--gray-900); }
+.dm-lrp-tab.active { background: var(--accent-mid); border-color: var(--accent); color: var(--accent); }
+.dm-lrp-tab.must_do.active { background: var(--red-100); border-color: var(--red-500); color: var(--red-700); }
+.dm-lrp-summary {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+.dm-lrp-stat {
+  padding: 10px 12px; border-radius: 8px; background: #fff; border: 1px solid var(--gray-100);
+}
+.dm-lrp-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); }
+.dm-lrp-stat-value { font-size: 18px; font-weight: 700; color: var(--gray-900); margin-top: 2px; }
+.dm-lrp-tier-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; font-size: 11px; }
+.dm-lrp-rationale { font-size: 11px; color: var(--gray-500); max-width: 280px; line-height: 1.4; }
 @media (max-width: 1200px) {
   .dm-summary-cards { grid-template-columns: repeat(3, 1fr); }
 }
@@ -2085,6 +2114,40 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div class="dm-summary-cards" id="dm-summary-cards"></div>
           <div class="dm-tier-summary-cards" id="dm-tier-summary-cards"></div>
+
+          <div class="dm-lrp-section" id="dm-lrp-section">
+            <div class="dm-lrp-header">
+              <div>
+                <div class="dm-lrp-title">Listing Readiness Plan</div>
+                <p class="dm-lrp-sub">Cumulative tier selection from the matrix — Must Do includes only must-do rows; higher tiers add should-do, nice-to-do, and aspirational items.</p>
+              </div>
+              <div class="dm-lrp-tabs" id="dm-lrp-tabs">
+                <button type="button" class="dm-lrp-tab must_do" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
+                <button type="button" class="dm-lrp-tab" data-tier="should_do" onclick="dmSetLrpTier('should_do')">Should Do</button>
+                <button type="button" class="dm-lrp-tab" data-tier="nice_to_do" onclick="dmSetLrpTier('nice_to_do')">Nice To Do</button>
+                <button type="button" class="dm-lrp-tab" data-tier="aspirational" onclick="dmSetLrpTier('aspirational')">Aspirational</button>
+              </div>
+            </div>
+            <div class="dm-lrp-summary" id="dm-lrp-summary"></div>
+            <div class="dm-lrp-tier-chips" id="dm-lrp-tier-chips"></div>
+            <div class="table-wrap">
+              <table class="data-table" id="dm-lrp-table">
+                <thead>
+                  <tr>
+                    <th>Zone</th>
+                    <th>Component</th>
+                    <th>Min tier</th>
+                    <th>Status</th>
+                    <th>Option</th>
+                    <th>Cost</th>
+                    <th>Rationale</th>
+                  </tr>
+                </thead>
+                <tbody id="dm-lrp-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="dm-filter-bar" id="dm-filter-bar"></div>
           <div class="dm-filter-bar" id="dm-tier-filter-bar"></div>
           <div id="dm-table-view">
@@ -4577,6 +4640,15 @@ let dmExpanded = new Set();
 let dmView = 'table';
 let dmHealth = null;
 let dmScenarioPreview = null;
+let dmLrpTier = 'should_do';
+let dmLrpData = null;
+
+const DM_LRP_TIER_LABELS = {
+  must_do: 'Must Do',
+  should_do: 'Should Do',
+  nice_to_do: 'Nice To Do',
+  aspirational: 'Aspirational',
+};
 
 function dmTierLabel(tier) {
   if (!tier) return '—';
@@ -4724,6 +4796,86 @@ function dmRenderCards(rows) {
     `;
   }).join('');
 }
+
+async function dmLoadTierPlan(tier) {
+  tier = tier || dmLrpTier;
+  dmLrpTier = tier;
+  document.querySelectorAll('.dm-lrp-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tier === tier);
+  });
+  const tbody = $('dm-lrp-tbody');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray-500);">Loading plan…</td></tr>`;
+  try {
+    const res = await fetch(`/decision-matrix/tiers/${encodeURIComponent(tier)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    dmLrpData = await res.json();
+    dmRenderTierPlan(dmLrpData);
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--red-600);">${esc(err.message || 'Failed to load tier plan')}</td></tr>`;
+    }
+  }
+}
+
+function dmSetLrpTier(tier) {
+  dmLoadTierPlan(tier);
+}
+
+function dmRenderTierPlan(data) {
+  const summaryEl = $('dm-lrp-summary');
+  const chipsEl = $('dm-lrp-tier-chips');
+  const tbody = $('dm-lrp-tbody');
+  if (!summaryEl || !tbody) return;
+
+  const tierLabel = DM_LRP_TIER_LABELS[data.tier] || data.tier;
+  summaryEl.innerHTML = [
+    { label: 'Selected rows', value: data.selected_count ?? 0 },
+    { label: 'Est. cost (low)', value: dmFormatCost(data.cost_low_total, data.cost_low_total) },
+    { label: 'Est. cost (high)', value: dmFormatCost(data.cost_high_total, data.cost_high_total) },
+    { label: 'Excluded', value: data.excluded_count ?? 0 },
+  ].map(s => `
+    <div class="dm-lrp-stat">
+      <div class="dm-lrp-stat-label">${esc(s.label)}</div>
+      <div class="dm-lrp-stat-value">${esc(String(s.value))}</div>
+    </div>
+  `).join('');
+
+  const byMin = data.counts_by_minimum_tier || {};
+  if (chipsEl) {
+    chipsEl.innerHTML = TIER_ORDER_UI.map(t => {
+      const n = byMin[t] ?? 0;
+      if (!n) return '';
+      return `<span class="dm-badge tier-badge ${esc(t)}">${esc(dmTierLabel(t))}: ${n}</span>`;
+    }).filter(Boolean).join(' ');
+  }
+
+  const rows = data.selected_rows || [];
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray-500);">No rows in ${esc(tierLabel)} plan.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => {
+    const rat = row.rationale || {};
+    const reason = rat.reason || '';
+    return `
+      <tr class="data-row${DM_HIGHLIGHT_COMPONENTS.has(row.component) ? ' dm-row-highlight' : ''}">
+        <td class="dm-zone">${esc(row.zone || '')}</td>
+        <td><span class="dm-component-name">${esc(row.component || '')}</span></td>
+        <td>${dmRenderTierBadge(row.minimum_tier, 'Min')}</td>
+        <td><span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span></td>
+        <td><span class="dm-badge action">${esc(dmLabel(row.option_key))}</span></td>
+        <td>${dmFormatCost(row.cost_low, row.cost_high)}</td>
+        <td><div class="dm-lrp-rationale" title="${esc(reason)}">${reason ? esc(reason) : '—'}</div></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+const TIER_ORDER_UI = ['must_do', 'should_do', 'nice_to_do', 'aspirational'];
 
 async function dmLoadScenarioPreview() {
   const scenario = $('dm-scenario-select')?.value || 'budget_15k';
@@ -4993,6 +5145,7 @@ async function loadDecisionMatrix(force) {
     dmShowState('dm-content');
     dmRenderAll();
     dmLoadScenarioPreview();
+    dmLoadTierPlan(dmLrpTier);
     dmLoadedOnce = true;
   } catch (err) {
     $('dm-error-msg').textContent = err.message || 'Unknown error';
