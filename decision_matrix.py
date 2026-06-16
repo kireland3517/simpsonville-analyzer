@@ -838,6 +838,7 @@ def _persist_tiers_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
     if not rows:
         return compute_tier_counts([])
 
+    failed = 0
     for row in rows:
         row_id = row.get("id")
         if not row_id:
@@ -849,11 +850,18 @@ def _persist_tiers_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
                 "recommended_tier": recommended_tier,
             }).eq("id", row_id).execute()
         except Exception:
-            pass
+            failed += 1
+            continue
         row["minimum_tier"] = minimum_tier
         row["recommended_tier"] = recommended_tier
 
-    return compute_tier_counts(rows)
+    result = compute_tier_counts(rows)
+    if failed:
+        result["persist_failures"] = failed
+        result["persist_warning"] = (
+            "Tier columns missing or update failed — apply migrations/decision_matrix_v3_tiers.sql"
+        )
+    return result
 
 
 def _persist_options_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
