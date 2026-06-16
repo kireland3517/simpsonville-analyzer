@@ -17,6 +17,7 @@ from matrix_options import (
     build_options_for_row,
     pick_recommended_option,
 )
+from matrix_tiers import assign_readiness_tiers, compute_tier_counts
 from walkthrough import (
     _derive_buyer_impact,
     load_walkthrough_items,
@@ -778,6 +779,7 @@ def build_decision_matrix(
         sb.table(ROWS_TABLE).insert(rows_to_insert).execute()
 
     options_summary = _persist_options_for_matrix(sb, matrix_id)
+    tier_summary = _persist_tiers_for_matrix(sb, matrix_id)
 
     stale_count = _mark_prior_matrices_stale(sb, property_id, matrix_id)
 
@@ -826,7 +828,32 @@ def build_decision_matrix(
         "counts_by_recommended_action": action_counts,
         "preview_top_20": preview,
         "options": options_summary,
+        "tiers": tier_summary,
     }
+
+
+def _persist_tiers_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
+    """Assign and persist minimum_tier + recommended_tier for all matrix rows."""
+    rows = load_matrix_rows(sb, matrix_id)
+    if not rows:
+        return compute_tier_counts([])
+
+    for row in rows:
+        row_id = row.get("id")
+        if not row_id:
+            continue
+        minimum_tier, recommended_tier = assign_readiness_tiers(row)
+        try:
+            sb.table(ROWS_TABLE).update({
+                "minimum_tier": minimum_tier,
+                "recommended_tier": recommended_tier,
+            }).eq("id", row_id).execute()
+        except Exception:
+            pass
+        row["minimum_tier"] = minimum_tier
+        row["recommended_tier"] = recommended_tier
+
+    return compute_tier_counts(rows)
 
 
 def _persist_options_for_matrix(sb, matrix_id: str) -> dict[str, Any]:
@@ -984,6 +1011,9 @@ def compute_matrix_health(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "conflicting_evidence_count": conflicting_evidence,
         "recommended_action_distribution": rec_dist,
         "option_key_counts": option_counts,
+        "missing_minimum_tier": sum(1 for r in rows if not r.get("minimum_tier")),
+        "missing_recommended_tier": sum(1 for r in rows if not r.get("recommended_tier")),
+        "tier_counts": compute_tier_counts(rows),
     }
 
 

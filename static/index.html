@@ -1602,6 +1602,23 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-badge.action { background: var(--gray-50); color: var(--gray-700); border: 1px solid var(--gray-200); }
 .dm-badge.source { background: var(--purple-50); color: var(--purple-600); }
 .dm-badge.tier { background: var(--green-50); color: var(--green-700); }
+.dm-tier-badge.must_do { background: var(--red-100); color: var(--red-700); }
+.dm-tier-badge.should_do { background: var(--yellow-100); color: var(--amber-600); }
+.dm-tier-badge.nice_to_do { background: #dbeafe; color: #1d4ed8; }
+.dm-tier-badge.aspirational { background: var(--gray-100); color: var(--gray-600); }
+.dm-tier-cell { white-space: nowrap; font-size: 11px; }
+.dm-tier-arrow { color: var(--gray-400); margin: 0 2px; font-size: 10px; }
+.dm-tier-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.dm-tier-summary-cards .summary-card { border-left: 3px solid var(--gray-200); }
+.dm-tier-summary-cards .summary-card.must_do { border-left-color: var(--red-500); }
+.dm-tier-summary-cards .summary-card.should_do { border-left-color: #f59e0b; }
+.dm-tier-summary-cards .summary-card.nice_to_do { border-left-color: #3b82f6; }
+.dm-tier-summary-cards .summary-card.aspirational { border-left-color: var(--gray-400); }
 .dm-row-highlight td { background: #fffbeb !important; }
 .dm-row-highlight:hover td { background: #fef3c7 !important; }
 .dm-row-highlight .dm-component-name { font-weight: 700; color: var(--gray-900); }
@@ -2067,7 +2084,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <span class="dm-scenario-summary" id="dm-scenario-summary"></span>
           </div>
           <div class="dm-summary-cards" id="dm-summary-cards"></div>
+          <div class="dm-tier-summary-cards" id="dm-tier-summary-cards"></div>
           <div class="dm-filter-bar" id="dm-filter-bar"></div>
+          <div class="dm-filter-bar" id="dm-tier-filter-bar"></div>
           <div id="dm-table-view">
           <div class="table-wrap">
             <table class="data-table" id="dm-table">
@@ -2078,7 +2097,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                   <th>Component</th>
                   <th>Status</th>
                   <th>Action</th>
-                  <th>Tier</th>
+                  <th>Readiness</th>
                   <th>Source</th>
                   <th>Photos</th>
                   <th>Walkthrough note</th>
@@ -4522,16 +4541,60 @@ const DM_FILTERS = [
   { key: 'photo-only', label: 'Photo-only' },
 ];
 
+const DM_TIER_FILTERS = [
+  { key: 'all', label: 'All tiers' },
+  { key: 'must_do', label: 'Must Do' },
+  { key: 'should_do', label: 'Should Do' },
+  { key: 'nice_to_do', label: 'Nice To Do' },
+  { key: 'aspirational', label: 'Aspirational' },
+];
+const DM_TIER_ORDER = { must_do: 0, should_do: 1, nice_to_do: 2, aspirational: 3 };
+
 let dmRows = [];
 let dmMatrixMeta = null;
 let dmFilter = 'all';
+let dmTierFilter = 'all';
+let dmTierCounts = null;
 let dmLoadedOnce = false;
 let dmExpanded = new Set();
 let dmView = 'table';
 let dmHealth = null;
 let dmScenarioPreview = null;
 
+function dmTierLabel(tier) {
+  if (!tier) return '—';
+  return tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function dmRenderTierBadge(tier, prefix) {
+  if (!tier) return '<span style="color:var(--gray-400)">—</span>';
+  const title = prefix ? `${prefix}: ${dmTierLabel(tier)}` : dmTierLabel(tier);
+  return `<span class="dm-badge tier-badge ${esc(tier)}" title="${esc(title)}">${esc(dmTierLabel(tier))}</span>`;
+}
+
+function dmRenderReadinessCell(row) {
+  const min = row.minimum_tier;
+  const rec = row.recommended_tier;
+  if (!min && !rec) return '<span style="color:var(--gray-400)">—</span>';
+  if (min === rec) return dmRenderTierBadge(min, 'Min & rec');
+  return `${dmRenderTierBadge(min, 'Min')}<span class="dm-tier-arrow">→</span>${dmRenderTierBadge(rec, 'Rec')}`;
+}
+
+function dmTierCountsLocal(rows) {
+  const byMin = { must_do: 0, should_do: 0, nice_to_do: 0, aspirational: 0 };
+  rows.forEach(r => {
+    if (byMin[r.minimum_tier] !== undefined) byMin[r.minimum_tier] += 1;
+  });
+  return byMin;
+}
+
 function dmFormatCost(low, high) {
+  const lo = Number(low) || 0;
+  const hi = Number(high) || 0;
+  if (lo === 0 && hi === 0) return '$0';
+  if (lo === hi) return '$' + lo.toLocaleString();
+  return '$' + lo.toLocaleString() + '–$' + hi.toLocaleString();
+}
   const lo = Number(low) || 0;
   const hi = Number(high) || 0;
   if (lo === 0 && hi === 0) return '$0';
@@ -4643,6 +4706,7 @@ function dmRenderCards(rows) {
         </div>
         <div class="dm-card-state">${esc((row.current_state || '').slice(0, 160))}</div>
         ${rec ? `<div style="font-size:12px;margin-bottom:8px;"><strong>Recommended:</strong> ${esc(dmLabel(rec.option_key))} (${dmFormatCost(rec.cost_low, rec.cost_high)})</div>` : ''}
+        <div style="font-size:12px;margin-bottom:8px;">${dmRenderReadinessCell(row)}</div>
         ${options.length ? `<table class="dm-options-table"><thead><tr><th>Option</th><th>Cost</th><th>Fit</th></tr></thead><tbody>${optRows}</tbody></table>` : ''}
         ${row.seller_override ? '<div class="dm-seller-override" style="margin-top:8px;">Seller override</div>' : ''}
       </div>
@@ -4691,12 +4755,19 @@ function dmSortRows(rows) {
   });
 }
 
-function dmFilterRows(rows, filter) {
-  if (filter === 'all') return rows;
-  if (filter === 'photo-only') {
-    return rows.filter(r => r.zone === 'unmatched' || !r.walkthrough_item_id);
+function dmFilterRows(rows, filter, tierFilter) {
+  let out = rows;
+  if (filter !== 'all') {
+    if (filter === 'photo-only') {
+      out = out.filter(r => r.zone === 'unmatched' || !r.walkthrough_item_id);
+    } else {
+      out = out.filter(r => r.decision_status === filter);
+    }
   }
-  return rows.filter(r => r.decision_status === filter);
+  if (tierFilter && tierFilter !== 'all') {
+    out = out.filter(r => r.minimum_tier === tierFilter || r.recommended_tier === tierFilter);
+  }
+  return out;
 }
 
 function dmCounts(rows) {
@@ -4722,6 +4793,24 @@ function dmShowState(state) {
   });
 }
 
+function dmRenderTierSummary(counts) {
+  const el = $('dm-tier-summary-cards');
+  if (!el) return;
+  const byMin = counts || { must_do: 0, should_do: 0, nice_to_do: 0, aspirational: 0 };
+  const cards = [
+    { key: 'must_do', label: 'Must Do (min)', cls: 'must_do' },
+    { key: 'should_do', label: 'Should Do (min)', cls: 'should_do' },
+    { key: 'nice_to_do', label: 'Nice To Do (min)', cls: 'nice_to_do' },
+    { key: 'aspirational', label: 'Aspirational (min)', cls: 'aspirational' },
+  ];
+  el.innerHTML = cards.map(c => `
+    <div class="summary-card ${c.cls}">
+      <div class="card-label">${esc(c.label)}</div>
+      <div class="card-value">${byMin[c.key] ?? 0}</div>
+    </div>
+  `).join('');
+}
+
 function dmRenderSummary(counts) {
   const health = dmHealth || {};
   const cards = [
@@ -4739,6 +4828,19 @@ function dmRenderSummary(counts) {
       <div class="card-value${c.cls ? ' ' + c.cls : ''}">${c.value}</div>
     </div>
   `).join('');
+}
+
+function dmRenderTierFilters(rows) {
+  const byMin = dmTierCountsLocal(rows);
+  $('dm-tier-filter-bar').innerHTML = `
+    <span class="dm-filter-label">Tier</span>
+    ${DM_TIER_FILTERS.map(f => `
+      <button type="button" class="dm-filter-pill${dmTierFilter === f.key ? ' active' : ''}"
+        onclick="dmSetTierFilter('${f.key}')">
+        ${esc(f.label)}<span class="dm-filter-count">${f.key === 'all' ? rows.length : (byMin[f.key] ?? 0)}</span>
+      </button>
+    `).join('')}
+  `;
 }
 
 function dmRenderFilters(counts) {
@@ -4787,7 +4889,7 @@ function dmRenderTable(rows) {
         <td><span class="dm-component-name">${esc(row.component || '')}${row.seller_override ? ' <span class="dm-seller-override">✎</span>' : ''}</span></td>
         <td><span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span></td>
         <td><span class="dm-badge action">${esc(dmLabel(row.recommended_action))}</span></td>
-        <td><span class="dm-badge tier">${esc(row.confidence_tier || 'unknown')}</span></td>
+        <td class="dm-tier-cell">${dmRenderReadinessCell(row)}</td>
         <td><span class="dm-badge source">${esc(source)}</span></td>
         <td>${photoCount}</td>
         <td>${note ? `<div class="dm-note" title="${esc(note)}">${esc(note)}</div>` : '<span style="color:var(--gray-400)">—</span>'}</td>
@@ -4804,8 +4906,11 @@ function dmRenderTable(rows) {
 function dmRenderAll() {
   const counts = dmCounts(dmRows);
   dmRenderSummary(counts);
+  const tierByMin = dmTierCounts?.by_minimum_tier || dmTierCountsLocal(dmRows);
+  dmRenderTierSummary(tierByMin);
   dmRenderFilters(counts);
-  const visible = dmSortRows(dmFilterRows(dmRows, dmFilter));
+  dmRenderTierFilters(dmRows);
+  const visible = dmSortRows(dmFilterRows(dmRows, dmFilter, dmTierFilter));
   if (dmView === 'cards') {
     dmRenderCards(visible);
   } else {
@@ -4815,6 +4920,11 @@ function dmRenderAll() {
 
 function dmSetFilter(key) {
   dmFilter = key;
+  dmRenderAll();
+}
+
+function dmSetTierFilter(key) {
+  dmTierFilter = key;
   dmRenderAll();
 }
 
@@ -4857,6 +4967,7 @@ async function loadDecisionMatrix(force) {
     const headerData = await headerRes.json();
     const rowsData = await rowsRes.json();
     dmMatrixMeta = headerData.matrix || null;
+    dmTierCounts = headerData.tier_counts || null;
     dmRows = rowsData.rows || [];
     if (healthRes && healthRes.ok) {
       const healthData = await healthRes.json();

@@ -103,6 +103,7 @@ from decision_matrix import (
     load_matrix_rows,
     load_matrix_rows_with_options,
 )
+from matrix_tiers import compute_tier_counts
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from report_composer import compose_for_scenario, format_matrix_evidence_block
 from walkthrough_impact import build_walkthrough_impact
@@ -1189,7 +1190,13 @@ def get_decision_matrix(
     matrix = load_current_matrix(sb, property_id)
     if not matrix:
         raise HTTPException(status_code=404, detail="No decision matrix for this property")
-    return {"property_id": property_id, "matrix": matrix}
+    rows = load_matrix_rows(sb, matrix["id"])
+    tier_counts = compute_tier_counts(rows)
+    return {
+        "property_id": property_id,
+        "matrix": matrix,
+        "tier_counts": tier_counts,
+    }
 
 
 @app.get("/decision-matrix/rows")
