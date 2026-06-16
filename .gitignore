@@ -9,6 +9,8 @@ attom_sales.json
 *.jpg
 *.jpeg
 *.png
+!media/
+!media/**
 *.heic
 *.MOV
 .video_frames/
