@@ -1192,30 +1192,34 @@ def generate_roi_report(
         if err:
             return {**_ERROR_RESULT, "error": err}
 
-    # ── Merge (additive when prior_report is set) ───────────────────
-    limits   = _RECOMMENDATION_LIMITS[detail_level]
+    # ── Merge (additive when prior_report is set; matrix lists pass through uncapped) ──
     upgrades: list = upgrades_result.get("upgrades", []) if isinstance(upgrades_result.get("upgrades"), list) else []
-    repairs:  list = repairs_result.get("repairs",  []) if isinstance(repairs_result.get("repairs"), list) else []
+    repairs: list = repairs_result.get("repairs", []) if isinstance(repairs_result.get("repairs"), list) else []
 
-    prior_upgrades = (prior_report or {}).get("upgrades") or []
-    prior_repairs  = (prior_report or {}).get("repairs") or []
+    if matrix_line_items is not None:
+        upgrades = [_normalize_upgrade(u) for u in upgrades]
+        repairs = _enforce_repair_priorities(repairs, summary)
+    else:
+        limits = _RECOMMENDATION_LIMITS[detail_level]
+        prior_upgrades = (prior_report or {}).get("upgrades") or []
+        prior_repairs = (prior_report or {}).get("repairs") or []
 
-    upgrades = _merge_recommendations(
-        prior_upgrades,
-        upgrades,
-        limits["max_upgrades"],
-        sort_key=lambda u: float(u.get("roi_percent") or 0),
-    )
-    upgrades = [_normalize_upgrade(u) for u in upgrades]
+        upgrades = _merge_recommendations(
+            prior_upgrades,
+            upgrades,
+            limits["max_upgrades"],
+            sort_key=lambda u: float(u.get("roi_percent") or 0),
+        )
+        upgrades = [_normalize_upgrade(u) for u in upgrades]
 
-    repairs = _merge_recommendations(
-        prior_repairs,
-        repairs,
-        limits["max_repairs"],
-        sort_key=lambda r: _PRI_ORDER.get((r.get("priority") or "low").lower(), 9),
-        reverse=False,
-    )
-    repairs = _enforce_repair_priorities(repairs, summary)
+        repairs = _merge_recommendations(
+            prior_repairs,
+            repairs,
+            limits["max_repairs"],
+            sort_key=lambda r: _PRI_ORDER.get((r.get("priority") or "low").lower(), 9),
+            reverse=False,
+        )
+        repairs = _enforce_repair_priorities(repairs, summary)
 
     executive_summary = _sync_executive_summary(
         executive_summary, detail_level, property_summary, upgrades, repairs,

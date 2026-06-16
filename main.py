@@ -17,6 +17,7 @@ POST /analyze                Analyze a single photo with Gemini Vision
 POST /analyze/bulk           Analyze a batch of photos sequentially
 GET  /analyze/results        Return all cached analysis results
 POST /report                 Generate ROI report (body: {detail_level, buyer_profile})
+POST /report/from-tier       Generate ROI report from listing-readiness tier
 GET  /report                 Return ROI report by ?id= (default standard_general)
 GET  /report/status          Cache status + prompt_version for every report slot
 POST /report/invalidate      Delete cached reports (?profile=all or specific profile)
@@ -105,9 +106,14 @@ from decision_matrix import (
     load_matrix_rows_with_options,
 )
 from matrix_tiers import compute_tier_counts
-from tier_selector import select_for_tier
+from tier_selector import select_for_tier, select_tier_from_rows
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
-from report_composer import compose_for_scenario, format_matrix_evidence_block
+from report_composer import (
+    TIER_TO_DETAIL_LEVEL,
+    compose_for_scenario,
+    compose_report_from_tier,
+    format_matrix_evidence_block,
+)
 from walkthrough_impact import build_walkthrough_impact
 from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
@@ -243,6 +249,56 @@ def _generate_report_for_level(
     return _attach_walkthrough_impact(report, package, level, wt_rows)
 
 
+def _generate_report_from_tier(
+    *,
+    tier: str,
+    buyer_profile: str,
+    property_id: str,
+    summary: dict,
+    property_summary: dict,
+    last_sale: dict,
+    sb,
+) -> dict:
+    """Generate ROI report from cumulative listing-readiness tier selection."""
+    tier = tier.strip().lower()
+    if tier not in TIER_TO_DETAIL_LEVEL:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid tier: {tier!r}. Choose from: {sorted(TIER_TO_DETAIL_LEVEL)}",
+        )
+
+    matrix_ctx = _matrix_rows_for_property(sb, property_id) if sb else None
+    if not matrix_ctx:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No decision matrix for property {property_id!r} — rebuild matrix first",
+        )
+    matrix, rows = matrix_ctx
+    tier_selection = select_tier_from_rows(
+        rows,
+        tier,
+        matrix_id=matrix["id"],
+        property_id=property_id,
+    )
+
+    detail_level = TIER_TO_DETAIL_LEVEL[tier]
+    package, walkthrough_block, wt_rows = _evidence_context(sb, detail_level)
+
+    report = compose_report_from_tier(
+        rows,
+        tier_selection,
+        summary=summary,
+        property_summary=property_summary,
+        last_sale=last_sale,
+        buyer_profile=buyer_profile,
+        walkthrough_block=walkthrough_block,
+    )
+    if report.get("error"):
+        raise HTTPException(status_code=500, detail=report["error"])
+
+    return _attach_walkthrough_impact(report, package, detail_level, wt_rows)
+
+
 def _walkthrough_prompt_block(sb=None) -> str:
     """Legacy alias — evidence prompt at default scenario."""
     return _evidence_prompt_block(sb, "budget_15k")
@@ -280,6 +336,12 @@ class BulkAnalyzeRequest(BaseModel):
 class ReportRequest(BaseModel):
     detail_level: str = "budget_15k"
     buyer_profile: str = "general"
+
+
+class TierReportRequest(BaseModel):
+    tier: str
+    buyer_profile: str = "general"
+    property_id: str = WALKTHROUGH_PROPERTY_ID
 
 
 # ─── Auth endpoints ───────────────────────────────────────────────────────────
@@ -546,6 +608,59 @@ def report_generate(body: ReportRequest):
         prior = report
 
     assert report is not None
+    roi_cache = report
+    return report
+
+
+@app.post("/report/from-tier")
+def report_from_tier(body: TierReportRequest):
+    """Generate and persist ROI report from listing-readiness tier selection."""
+    global roi_cache
+
+    buyer_profile = body.buyer_profile
+    report_id = f"tier_{body.tier.strip().lower()}_{buyer_profile}"
+
+    analyses = list(analysis_cache.values())
+    sb = _sb()
+    if not analyses:
+        if not sb:
+            raise HTTPException(
+                status_code=503,
+                detail="Supabase not configured — check SUPABASE_URL and SUPABASE_SERVICE_KEY env vars",
+            )
+        try:
+            rows = sb.table("photo_analyses").select("analysis").execute()
+            analyses = [r["analysis"] for r in (rows.data or []) if r.get("analysis")]
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"Supabase query failed: {exc}")
+    if not analyses:
+        raise HTTPException(
+            status_code=422,
+            detail="No analyses found — run run_analysis.py first",
+        )
+
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase required for tier reports")
+
+    summary = build_analysis_summary(analyses)
+    property_summary = get_property_summary()
+    last_sale = get_last_sale()
+
+    report = _generate_report_from_tier(
+        tier=body.tier,
+        buyer_profile=buyer_profile,
+        property_id=body.property_id,
+        summary=summary,
+        property_summary=property_summary,
+        last_sale=last_sale,
+        sb=sb,
+    )
+
+    try:
+        sb.table(ROI_TABLE).upsert({"id": report_id, "report": report}).execute()
+    except Exception as exc:
+        print(f"WARNING: could not save tier report {report_id} to Supabase: {exc}")
+
     roi_cache = report
     return report
 

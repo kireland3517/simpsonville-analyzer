@@ -1704,6 +1704,22 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); }
 .dm-lrp-stat-value { font-size: 18px; font-weight: 700; color: var(--gray-900); margin-top: 2px; }
 .dm-lrp-tier-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; font-size: 11px; }
+.dm-lrp-generate {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 12px; padding: 10px 12px;
+  background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px;
+}
+.dm-lrp-generate-label {
+  font-size: 11px; font-weight: 600; color: var(--gray-600);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.dm-lrp-generate-btn {
+  font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); cursor: pointer;
+}
+.dm-lrp-generate-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.dm-lrp-generate-btn:disabled { opacity: 0.6; cursor: wait; }
+.dm-lrp-generate-btn.must_do:hover:not(:disabled) { border-color: var(--red-500); color: var(--red-700); }
 .dm-lrp-rationale { font-size: 11px; color: var(--gray-500); max-width: 280px; line-height: 1.4; }
 @media (max-width: 1200px) {
   .dm-summary-cards { grid-template-columns: repeat(3, 1fr); }
@@ -2130,6 +2146,13 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             </div>
             <div class="dm-lrp-summary" id="dm-lrp-summary"></div>
             <div class="dm-lrp-tier-chips" id="dm-lrp-tier-chips"></div>
+            <div class="dm-lrp-generate" id="dm-lrp-generate">
+              <span class="dm-lrp-generate-label">Generate Report From:</span>
+              <button type="button" class="dm-lrp-generate-btn must_do" data-tier="must_do" onclick="dmGenerateTierReport('must_do')">Must Do</button>
+              <button type="button" class="dm-lrp-generate-btn" data-tier="should_do" onclick="dmGenerateTierReport('should_do')">Should Do</button>
+              <button type="button" class="dm-lrp-generate-btn" data-tier="nice_to_do" onclick="dmGenerateTierReport('nice_to_do')">Nice To Do</button>
+              <button type="button" class="dm-lrp-generate-btn" data-tier="aspirational" onclick="dmGenerateTierReport('aspirational')">Aspirational</button>
+            </div>
             <div class="table-wrap">
               <table class="data-table" id="dm-lrp-table">
                 <thead>
@@ -2468,6 +2491,17 @@ function isRoiTabActive() {
   return activeMainTab === 'roi';
 }
 
+function switchToMainTab(tab) {
+  activeMainTab = tab;
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  $('tab-' + tab)?.classList.add('active');
+  document.querySelector('.content-area')?.scrollTo(0, 0);
+  updateTopBarForTab(tab);
+}
+
 function updateTopBarForTab(tab) {
   const sub = document.querySelector('.top-bar-sub');
   if (sub) {
@@ -2645,6 +2679,10 @@ function labelFor(level) {
     budget_15k: '$15,000 Budget',
     maximize: 'Maximize Sale Price',
   }[level] || level;
+}
+
+function tierLabelFor(tier) {
+  return DM_LRP_TIER_LABELS[tier] || (tier ? tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—');
 }
 
 function renderRationaleBlock(rationale) {
@@ -3169,7 +3207,8 @@ function populateReport(report) {
   reportData.generated_at = report.generated_at || null;
   reportData.walkthrough_impact = report.walkthrough_impact || null;
 
-  const level = normalizeLevel(currentLevel);
+  const level = normalizeLevel(report.detail_level || currentLevel);
+  const tierKey = report.tier || report.listing_readiness_tier;
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
@@ -3180,7 +3219,10 @@ function populateReport(report) {
     maximize:      'Scenario anchor — $305K top ceiling (307 Blue Heron + sqft)',
   };
   $('card-arv-sub').textContent = 'After-repair value ceiling';
-  $('card-arv-note').textContent = arvNotes[level] || 'Anchored to River Ridge sold comps';
+  const tierArvNote = tierKey && report.projection_source === 'matrix_tier'
+    ? `${tierLabelFor(tierKey)} tier — matrix-driven listing readiness projection`
+    : null;
+  $('card-arv-note').textContent = tierArvNote || arvNotes[level] || 'Anchored to River Ridge sold comps';
 
   // Reset unchecked sets on fresh data load (all start checked)
   unchecked.upgrades.clear();
@@ -3247,9 +3289,15 @@ function populateReport(report) {
   }
 
   // Report meta
+  const levelLabel = tierKey
+    ? `${tierLabelFor(tierKey)} · matrix tier`
+    : labelFor(report.detail_level || currentLevel);
+  const allItems = [...upgrades, ...repairs];
+  const traced = allItems.filter(i => i.matrix_row_id && (i.matrix_option_id || i.option_id)).length;
   $('report-meta').innerHTML = `
     <span style="font-weight:600;color:var(--gray-600)">${upgrades.length} upgrades · ${repairs.length} repairs</span>
-    <span>${labelFor(report.detail_level || currentLevel)}</span>
+    <span>${esc(levelLabel)}</span>
+    ${report.projection_source === 'matrix_tier' ? `<span class="dm-badge tier-badge ${esc(tierKey || '')}">${traced}/${allItems.length} matrix-linked</span>` : ''}
   `;
 
 }
@@ -4642,6 +4690,47 @@ let dmHealth = null;
 let dmScenarioPreview = null;
 let dmLrpTier = 'should_do';
 let dmLrpData = null;
+
+async function dmGenerateTierReport(tier) {
+  tier = tier || dmLrpTier;
+  const origText = {};
+  document.querySelectorAll('.dm-lrp-generate-btn').forEach(btn => {
+    origText[btn.dataset.tier] = btn.textContent;
+    btn.disabled = true;
+    if (btn.dataset.tier === tier) btn.textContent = 'Generating…';
+  });
+  try {
+    const res = await fetch('/report/from-tier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tier,
+        buyer_profile: typeof BUYER_PROFILE !== 'undefined' ? BUYER_PROFILE : 'general',
+        property_id: '130_kingfisher',
+      }),
+    });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        detail = err.detail || detail;
+      } catch (_) { /* ignore */ }
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+    const report = await res.json();
+    switchToMainTab('roi');
+    showState('state-loading');
+    populateReport(report);
+    showState('tab-roi');
+  } catch (e) {
+    alert('Tier report failed: ' + (e.message || e));
+  } finally {
+    document.querySelectorAll('.dm-lrp-generate-btn').forEach(btn => {
+      btn.disabled = false;
+      if (origText[btn.dataset.tier]) btn.textContent = origText[btn.dataset.tier];
+    });
+  }
+}
 
 const DM_LRP_TIER_LABELS = {
   must_do: 'Must Do',
