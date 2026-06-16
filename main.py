@@ -29,6 +29,9 @@ GET  /inspection-flags       Top 20 inspection flags across all photo analyses
 GET  /inventory              Materials shopping list with room-by-room breakdown
 POST /inventory/override     Save user-edited room counts to Supabase
 GET  /inventory/override     Return saved room-level overrides
+GET  /decision-matrix          Current decision matrix header
+GET  /decision-matrix/rows     Rows for current decision matrix
+POST /decision-matrix/rebuild  Rebuild matrix from evidence package
 GET  /walkthrough-items      List walkthrough checklist rows
 POST /walkthrough-items      Create a walkthrough row
 PATCH /walkthrough-items/{id} Update a walkthrough row
@@ -89,6 +92,7 @@ from roi import (
 from run_roi import build_analysis_summary
 from datetime import datetime, timezone
 
+from decision_matrix import build_decision_matrix, load_current_matrix, load_matrix_rows
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from walkthrough_impact import build_walkthrough_impact
 from walkthrough import (
@@ -1108,6 +1112,51 @@ def walkthrough_items_create(
         return {"item": enrich_walkthrough_item(item)}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.get("/decision-matrix")
+def get_decision_matrix(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    return {"property_id": property_id, "matrix": matrix}
+
+
+@app.get("/decision-matrix/rows")
+def get_decision_matrix_rows(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    rows = load_matrix_rows(sb, matrix["id"])
+    return {
+        "property_id": property_id,
+        "matrix_id": matrix["id"],
+        "row_count": len(rows),
+        "rows": rows,
+    }
+
+
+@app.post("/decision-matrix/rebuild")
+def rebuild_decision_matrix(
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    try:
+        return build_decision_matrix(property_id=property_id, sb=sb)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Decision matrix build failed: {exc}")
 
 
 @app.get("/walkthrough-items/evidence-package")
