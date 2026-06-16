@@ -4612,12 +4612,6 @@ function dmFormatCost(low, high) {
   if (lo === hi) return '$' + lo.toLocaleString();
   return '$' + lo.toLocaleString() + '–$' + hi.toLocaleString();
 }
-  const lo = Number(low) || 0;
-  const hi = Number(high) || 0;
-  if (lo === 0 && hi === 0) return '$0';
-  if (lo === hi) return '$' + lo.toLocaleString();
-  return '$' + lo.toLocaleString() + '–$' + hi.toLocaleString();
-}
 
 function dmToggleExpand(rowId) {
   if (dmExpanded.has(rowId)) dmExpanded.delete(rowId);
