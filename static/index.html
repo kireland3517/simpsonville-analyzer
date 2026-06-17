@@ -4877,7 +4877,7 @@ function dmFormatCost(low, high) {
 function dmFormatCostForRow(row) {
   const key = row.option_key || '';
   if (DM_NO_COST_KEYS.has(key)) return '<span style="color:var(--gray-400);">—</span>';
-  if (DM_TBD_COST_KEYS.has(key)) return '<span style="color:var(--gray-400);" title="Cost unknown until assessment">TBD</span>';
+  if (DM_TBD_COST_KEYS.has(key) && !Number(row.cost_high) && !Number(row.cost_low)) return '<span style="color:var(--gray-400);" title="Cost unknown until assessment">TBD</span>';
   const lo = Number(row.cost_low) || 0;
   const hi = Number(row.cost_high) || 0;
   if (lo === 0 && hi === 0) return '<span style="color:var(--gray-400);">—</span>';
