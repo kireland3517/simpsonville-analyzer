@@ -1489,11 +1489,12 @@ class DecisionMatrixRowMeta(BaseModel):
     minimum_tier: str | None = None
     cost_low: float | None = None
     cost_high: float | None = None
+    selected_option_key: str | None = None
 
 
 @app.patch("/decision-matrix/rows/{row_id}/meta")
 def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
-    """Update zone or minimum tier override for a decision matrix row."""
+    """Update zone, tier, cost, or decision override for a decision matrix row."""
     sb = _sb()
     if not sb:
         raise HTTPException(status_code=503, detail="Supabase not configured")
@@ -1501,10 +1502,13 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
     if body.zone is not None:
         update["zone"] = body.zone.strip()
     if body.minimum_tier is not None:
-        valid = {"must_do", "should_do", "nice_to_do"}
+        valid = {"must_do", "should_do", "nice_to_do", "not_doing"}
         if body.minimum_tier not in valid:
             raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
         update["minimum_tier"] = body.minimum_tier
+    if body.selected_option_key is not None:
+        update["selected_option_key"] = body.selected_option_key
+        update["seller_override"] = True
     cost_update: dict = {}
     if body.cost_low is not None:
         cost_update["cost_low"] = body.cost_low

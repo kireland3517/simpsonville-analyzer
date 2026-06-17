@@ -94,7 +94,7 @@ def select_tier_from_rows(
     for row in sorted_rows:
         min_t = normalize_tier(row.get("minimum_tier"))
         rec_t = normalize_tier(row.get("recommended_tier"))
-        if not tier_includes_row(min_t, tier):
+        if min_t == "not_doing" or not tier_includes_row(min_t, tier):
             rows_excluded.append({
                 "row_id": row.get("id"),
                 "component": row.get("component"),

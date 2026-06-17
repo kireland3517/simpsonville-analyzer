@@ -1786,9 +1786,21 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   border: 1.5px solid transparent; white-space: nowrap;
 }
 .dm-tier-select:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-mid); }
-.dm-tier-select.must_do   { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
-.dm-tier-select.should_do { background: #fef9c3; color: #713f12; border-color: #fde047; }
+.dm-tier-select.must_do    { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+.dm-tier-select.should_do  { background: #fef9c3; color: #713f12; border-color: #fde047; }
 .dm-tier-select.nice_to_do { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
+.dm-tier-select.not_doing  { background: #f4f4f5; color: #71717a; border-color: #d4d4d8; }
+/* Decision dropdown — same pill language */
+.dm-decision-select {
+  appearance: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 3px 8px; border-radius: 99px; cursor: pointer;
+  border: 1.5px solid var(--accent); background: var(--accent); color: #fff;
+  white-space: nowrap; min-width: 110px;
+}
+.dm-decision-select:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-mid); }
+.dm-decision-select.unset {
+  background: #fff; color: var(--gray-400); border-color: var(--gray-200); font-weight: 600;
+}
 /* Zone — pill select, matches tier select language */
 .dm-zone-select {
   appearance: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -2222,9 +2234,10 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
           <div class="dm-tier-bar">
             <span class="dm-filter-label">Scope</span>
-            <button type="button" class="dm-lrp-tab must_do" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
-            <button type="button" class="dm-lrp-tab active" data-tier="should_do" onclick="dmSetLrpTier('should_do')">Should Do</button>
+            <button type="button" class="dm-lrp-tab must_do active" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
+            <button type="button" class="dm-lrp-tab" data-tier="should_do" onclick="dmSetLrpTier('should_do')">Should Do</button>
             <button type="button" class="dm-lrp-tab" data-tier="nice_to_do" onclick="dmSetLrpTier('nice_to_do')">Nice To Do</button>
+            <button type="button" class="dm-lrp-tab" data-tier="not_doing" onclick="dmSetLrpTier('not_doing')" style="color:var(--gray-400);">Not Doing</button>
             <span class="dm-cost-summary" id="dm-cost-summary"></span>
           </div>
 
@@ -4722,7 +4735,16 @@ const DM_ZONES = [
   'hvac', 'electrical', 'plumbing', 'structural / moisture',
   'whole house', 'unmatched',
 ];
-const DM_TIER_CYCLE = ['must_do', 'should_do', 'nice_to_do'];
+const DM_TIER_CYCLE = ['must_do', 'should_do', 'nice_to_do', 'not_doing'];
+const DM_DECISIONS = [
+  { key: 'replace',        label: 'Replace' },
+  { key: 'repair',         label: 'Repair' },
+  { key: 'clean',          label: 'Clean' },
+  { key: 'paint',          label: 'Paint' },
+  { key: 'leave_as_is',    label: 'Leave As-Is' },
+  { key: 'further_inspect',label: 'Further Inspect' },
+  { key: 'not_doing',      label: 'Not Doing' },
+];
 const DM_ZONE_COLOR = {
   'kitchen': 'zone-kitchen',
   'great room': 'zone-living', 'dining room': 'zone-living', 'entry foyer': 'zone-living', 'sun room': 'zone-living', 'hallways': 'zone-living',
@@ -4737,7 +4759,7 @@ const DM_ZONE_COLOR = {
 function dmZoneClass(zone) { return DM_ZONE_COLOR[(zone||'').toLowerCase()] || 'zone-other'; }
 
 let dmRows = [];
-let dmLrpTier = 'should_do';
+let dmLrpTier = 'must_do';
 let dmLrpData = null;
 let dmLrpFilter = 'all';
 let dmApplyingRowId = null;
@@ -4766,7 +4788,7 @@ function dmLabel(value) {
   return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-const DM_LRP_TIER_LABELS = { must_do: 'Must Do', should_do: 'Should Do', nice_to_do: 'Nice To Do' };
+const DM_LRP_TIER_LABELS = { must_do: 'Must Do', should_do: 'Should Do', nice_to_do: 'Nice To Do', not_doing: 'Not Doing' };
 function dmTierLabel(tier) {
   if (!tier) return '—';
   return DM_LRP_TIER_LABELS[normalizeTier(tier)] || dmLabel(tier);
@@ -4780,32 +4802,17 @@ function dmShowState(state) {
 }
 
 function dmRenderLrpOptionCell(lrpRow) {
-  const full = dmRowById(lrpRow.row_id);
-  const options = full?.options || [];
-  const selected = lrpRow.option_key;
   const rowId = lrpRow.row_id;
-  const busy = dmApplyingRowId === rowId;
-
-  if (!options.length) {
-    return `<span class="dm-badge action">${esc(dmLabel(lrpRow.option_key))}</span>`;
-  }
-
-  return `<div class="dm-lrp-options" role="group" aria-label="Choose action for ${esc(lrpRow.component || 'component')}">
-    ${options.map(opt => {
-      const active = opt.option_key === selected;
-      const rec = opt.is_recommended && !(full?.seller_override);
-      const costHint = dmFormatCost(opt.cost_low, opt.cost_high);
-      const title = rec ? `${costHint} · System recommended` : costHint;
-      return `<button type="button"
-        class="dm-lrp-opt-btn${active ? ' active' : ''}${rec ? ' recommended' : ''}"
-        ${busy ? 'disabled' : ''}
-        onclick="dmApplyOption('${esc(rowId)}', '${esc(opt.option_key)}')"
-        title="${esc(title)}"
-        aria-pressed="${active}">
-        ${esc(dmLabel(opt.option_key))}${rec ? ' ★' : ''}
-      </button>`;
-    }).join('')}
-  </div>`;
+  const selected = lrpRow.option_key || '';
+  const unset = !selected;
+  const opts = DM_DECISIONS.map(d =>
+    `<option value="${d.key}"${d.key === selected ? ' selected' : ''}>${d.label}</option>`
+  ).join('');
+  return `<select class="dm-decision-select${unset ? ' unset' : ''}"
+    onchange="dmSaveDecision('${esc(rowId)}', this.value); this.classList.toggle('unset', !this.value)">
+    ${unset ? '<option value="" disabled selected>Choose…</option>' : ''}
+    ${opts}
+  </select>`;
 }
 
 async function dmApplyOption(rowId, optionKey) {
@@ -4832,6 +4839,26 @@ async function dmApplyOption(rowId, optionKey) {
     dmRenderTierPlan(dmLrpData);
   } finally {
     dmApplyingRowId = null;
+  }
+}
+
+async function dmSaveDecision(rowId, optionKey) {
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ selected_option_key: optionKey }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const row = dmRowById(rowId);
+    if (row) row.selected_option_key = optionKey;
+    if (dmLrpData) {
+      const lr = (dmLrpData.selected_rows || []).find(r => r.row_id === rowId);
+      if (lr) lr.option_key = optionKey;
+    }
+    dmScheduleRoiUpdate();
+  } catch (err) {
+    alert('Could not save decision: ' + (err.message || err));
   }
 }
 
@@ -4961,7 +4988,12 @@ function dmScheduleRoiUpdate() {
 }
 
 function dmSetLrpTier(tier) {
-  dmLoadTierPlan(tier);
+  dmLrpTier = tier;
+  // Update active tab button
+  document.querySelectorAll('.dm-lrp-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tier === tier);
+  });
+  dmRenderTierPlan(dmLrpData);
 }
 
 function dmSetLrpFilter(key) {
@@ -4976,15 +5008,12 @@ function dmToggleLrpExpand(rowId) {
 }
 
 async function dmLoadTierPlan(tier) {
-  tier = tier || dmLrpTier;
-  dmLrpTier = tier;
-  document.querySelectorAll('.dm-lrp-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tier === tier);
-  });
+  // Always load nice_to_do (all non-not_doing items); filter client-side per selected scope
+  const loadTier = 'nice_to_do';
   const tbody = $('dm-lrp-tbody');
   if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--gray-500);">Loading…</td></tr>`;
   try {
-    const res = await fetch(`/decision-matrix/tiers/${encodeURIComponent(tier)}`);
+    const res = await fetch(`/decision-matrix/tiers/${encodeURIComponent(loadTier)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
@@ -5003,39 +5032,30 @@ function dmRenderTierPlan(data) {
   const costEl = $('dm-cost-summary');
   if (!tbody || !data) return;
 
+  // Exact-tier filter: show only rows matching the selected scope tab
+  // "Not Doing" comes from dmRows directly (excluded from tier_plan)
+  let rows;
+  if (dmLrpTier === 'not_doing') {
+    rows = dmRows
+      .filter(r => (r.minimum_tier || '') === 'not_doing')
+      .map(r => ({ row_id: r.id, component: r.component, zone: r.zone, minimum_tier: 'not_doing', option_key: r.selected_option_key, cost_low: 0, cost_high: 0 }));
+  } else {
+    const allRows = data.selected_rows || [];
+    rows = allRows.filter(r => (r.minimum_tier || '') === dmLrpTier);
+  }
+
+  if (hintEl) hintEl.hidden = true;
+  if (filterEl) filterEl.innerHTML = '';
+
+  const costLo = rows.reduce((s, r) => s + (Number(r.cost_low) || 0), 0);
+  const costHi = rows.reduce((s, r) => s + (Number(r.cost_high) || 0), 0);
   if (costEl) {
-    const lo = dmFormatCost(data.cost_low_total, data.cost_low_total);
-    const hi = dmFormatCost(data.cost_high_total, data.cost_high_total);
-    costEl.textContent = `${data.selected_count ?? 0} items · ${lo}–${hi}`;
-  }
-
-  const allRows = data.selected_rows || [];
-  const needsCount = allRows.filter(dmLrpNeedsDecision).length;
-
-
-  if (filterEl) {
-    filterEl.innerHTML = `
-      <span class="dm-filter-label">Show</span>
-      <button type="button" class="dm-filter-pill${dmLrpFilter === 'all' ? ' active' : ''}" onclick="dmSetLrpFilter('all')">
-        All<span class="dm-filter-count">${allRows.length}</span>
-      </button>
-      <button type="button" class="dm-filter-pill${dmLrpFilter === 'needs_decision' ? ' active' : ''}" onclick="dmSetLrpFilter('needs_decision')">
-        Needs decision<span class="dm-filter-count">${needsCount}</span>
-      </button>
-    `;
-  }
-
-  if (hintEl) {
-    if (needsCount > 0) {
-      hintEl.hidden = false;
-      hintEl.innerHTML = `<strong>${needsCount} item${needsCount === 1 ? '' : 's'}</strong> still need your decision — click an option to set it.`;
+    if (dmLrpTier === 'not_doing') {
+      costEl.textContent = `${rows.length} items · excluded from cost`;
     } else {
-      hintEl.hidden = true;
+      costEl.textContent = `${rows.length} items · ${dmFormatCost(costLo, costLo)}–${dmFormatCost(costHi, costHi)}`;
     }
   }
-
-  let rows = allRows;
-  if (dmLrpFilter === 'needs_decision') rows = rows.filter(dmLrpNeedsDecision);
 
   if (!rows.length) {
     const msg = dmLrpFilter === 'needs_decision'
