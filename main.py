@@ -1547,6 +1547,56 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         raise HTTPException(status_code=503, detail=str(exc))
 
 
+class DecisionMatrixCustomRow(BaseModel):
+    zone: str
+    component: str
+    minimum_tier: str = "must_do"
+    selected_option_key: str | None = None
+    cost_low: float = 0
+    cost_high: float = 0
+    property_id: str = WALKTHROUGH_PROPERTY_ID
+
+
+@app.post("/decision-matrix/rows/custom")
+def add_custom_decision_row(body: DecisionMatrixCustomRow):
+    """Add a manually created line item to the decision matrix."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    valid_tiers = {"must_do", "should_do", "nice_to_do", "not_doing"}
+    if body.minimum_tier not in valid_tiers:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
+    matrix = load_current_matrix(sb, body.property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    row_data = {
+        "matrix_id": matrix["id"],
+        "property_id": body.property_id,
+        "zone": body.zone.strip(),
+        "component": body.component.strip(),
+        "minimum_tier": body.minimum_tier,
+        "recommended_tier": body.minimum_tier,
+        "selected_option_key": body.selected_option_key,
+        "recommended_action": body.selected_option_key,
+        "seller_override": bool(body.selected_option_key),
+        "is_custom": True,
+    }
+    result = sb.table("decision_matrix_rows").insert(row_data).execute()
+    row = (result.data or [{}])[0]
+    row_id = row.get("id")
+    if row_id and (body.cost_low or body.cost_high):
+        sb.table("decision_matrix_options").insert({
+            "row_id": row_id,
+            "matrix_id": matrix["id"],
+            "option_key": body.selected_option_key or "custom",
+            "cost_low": body.cost_low,
+            "cost_high": body.cost_high,
+            "is_recommended": True,
+        }).execute()
+    _matrix_cache_clear()
+    return {"row": row}
+
+
 @app.post("/decision-matrix/rebuild")
 def rebuild_decision_matrix(
     property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),

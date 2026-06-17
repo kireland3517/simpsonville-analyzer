@@ -2248,7 +2248,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <table class="data-table" id="dm-lrp-table">
               <thead>
                 <tr>
-                  <th>Zone</th>
+                  <th style="cursor:pointer;user-select:none;" onclick="dmToggleZoneSort()" title="Sort by zone">Zone <span id="dm-zone-sort-icon">↕</span></th>
                   <th>Component</th>
                   <th>Tier</th>
                   <th class="dm-lrp-decision-col">Your Decision</th>
@@ -2258,6 +2258,47 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               </thead>
               <tbody id="dm-lrp-tbody"></tbody>
             </table>
+          </div>
+          <div style="margin-top:10px;">
+            <button type="button" class="btn-secondary" onclick="dmShowAddItem()">+ Add Item</button>
+          </div>
+          <div id="dm-add-item-form" hidden style="margin-top:12px;padding:14px;background:#f9fafb;border:1px solid var(--gray-200);border-radius:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Zone</label>
+              <select id="dm-add-zone" class="dm-zone-select zone-other" onchange="this.className='dm-zone-select '+dmZoneClass(this.value)">
+                ${(()=>DM_ZONES.map(z=>`<option value="${z}">${z.replace(/\b\w/g,c=>c.toUpperCase())}</option>`).join(''))()}
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Component / Item</label>
+              <input id="dm-add-component" type="text" placeholder="e.g. Replace front door" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:200px;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Tier</label>
+              <select id="dm-add-tier" class="dm-tier-select must_do" onchange="this.className='dm-tier-select '+this.value">
+                <option value="must_do">Must Do</option>
+                <option value="should_do">Should Do</option>
+                <option value="nice_to_do">Nice To Do</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Decision</label>
+              <select id="dm-add-decision" class="dm-decision-select">
+                ${(()=>DM_DECISIONS.map(d=>`<option value="${d.key}">${d.label}</option>`).join(''))()}
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Cost Low</label>
+              <input id="dm-add-cost-lo" type="number" min="0" placeholder="0" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:90px;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Cost High</label>
+              <input id="dm-add-cost-hi" type="number" min="0" placeholder="0" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:90px;">
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn-primary" onclick="dmSaveAddItem()">Add</button>
+              <button type="button" class="btn-secondary" onclick="$('dm-add-item-form').hidden=true">Cancel</button>
+            </div>
           </div>
         </div>
       </div><!-- /tab-decision-matrix -->
@@ -4726,15 +4767,17 @@ async function saveFpRoom() {
 
 /* ── Decision Matrix ─────────────────────────────────────────────── */
 /* ── Decision Matrix ────────────────────────────────────────── */
+// Canonical zones matching walkthrough.py order
 const DM_ZONES = [
-  'kitchen', 'great room', 'dining room', 'entry foyer', 'sun room',
+  'entry foyer', 'great room', 'kitchen', 'dining room', 'sun room',
   'primary bedroom', 'bedroom 2', 'bedroom 3',
   'primary bathroom', 'guest bathroom', 'full bath',
-  'laundry', 'laundry room', 'hallways', 'interior doors', 'windows',
-  'garage', 'exterior',
-  'hvac', 'electrical', 'plumbing', 'structural / moisture',
-  'whole house', 'unmatched',
+  'laundry room', 'hallways', 'interior doors', 'windows', 'garage',
+  'whole house',
+  'exterior', 'structural / moisture', 'hvac', 'electrical', 'plumbing',
+  'unmatched',
 ];
+let dmSortZoneAsc = true;
 const DM_TIER_CYCLE = ['must_do', 'should_do', 'nice_to_do', 'not_doing'];
 const DM_DECISIONS = [
   { key: 'replace',        label: 'Replace' },
@@ -5001,6 +5044,44 @@ function dmSetLrpFilter(key) {
   dmRenderTierPlan(dmLrpData);
 }
 
+function dmToggleZoneSort() {
+  dmSortZoneAsc = !dmSortZoneAsc;
+  const icon = $('dm-zone-sort-icon');
+  if (icon) icon.textContent = dmSortZoneAsc ? '↑' : '↓';
+  dmRenderTierPlan(dmLrpData);
+}
+
+function dmShowAddItem() {
+  const form = $('dm-add-item-form');
+  if (form) { form.hidden = false; $('dm-add-component')?.focus(); }
+}
+
+async function dmSaveAddItem() {
+  const zone = $('dm-add-zone')?.value;
+  const component = ($('dm-add-component')?.value || '').trim();
+  const tier = $('dm-add-tier')?.value || 'must_do';
+  const decision = $('dm-add-decision')?.value || null;
+  const costLo = Number($('dm-add-cost-lo')?.value) || 0;
+  const costHi = Number($('dm-add-cost-hi')?.value) || costLo;
+  if (!component) { alert('Please enter a component/item name.'); return; }
+  try {
+    const res = await fetch('/decision-matrix/rows/custom', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ zone, component, minimum_tier: tier, selected_option_key: decision, cost_low: costLo, cost_high: costHi }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    $('dm-add-item-form').hidden = true;
+    $('dm-add-component').value = '';
+    $('dm-add-cost-lo').value = '';
+    $('dm-add-cost-hi').value = '';
+    await dmLoadDecisionMatrix();
+    dmScheduleRoiUpdate();
+  } catch (err) {
+    alert('Could not add item: ' + (err.message || err));
+  }
+}
+
 function dmToggleLrpExpand(rowId) {
   if (dmLrpExpanded.has(rowId)) dmLrpExpanded.delete(rowId);
   else dmLrpExpanded.add(rowId);
@@ -5043,6 +5124,14 @@ function dmRenderTierPlan(data) {
     const allRows = data.selected_rows || [];
     rows = allRows.filter(r => (r.minimum_tier || '') === dmLrpTier);
   }
+
+  // Zone sort
+  const zoneOrder = Object.fromEntries(DM_ZONES.map((z, i) => [z, i]));
+  rows = [...rows].sort((a, b) => {
+    const ai = zoneOrder[a.zone?.toLowerCase()] ?? 999;
+    const bi = zoneOrder[b.zone?.toLowerCase()] ?? 999;
+    return dmSortZoneAsc ? ai - bi : bi - ai;
+  });
 
   if (hintEl) hintEl.hidden = true;
   if (filterEl) filterEl.innerHTML = '';
