@@ -971,13 +971,22 @@ def load_matrix_options(sb, row_ids: list[str]) -> dict[str, list[dict[str, Any]
 
 
 def load_matrix_rows_with_options(sb, matrix_id: str) -> list[dict[str, Any]]:
-    rows = load_matrix_rows(sb, matrix_id)
-    if not rows:
+    try:
+        result = (
+            sb.table(ROWS_TABLE)
+            .select("*, decision_matrix_options(*)")
+            .eq("matrix_id", matrix_id)
+            .order("zone")
+            .order("component")
+            .execute()
+        )
+        rows = result.data or []
+    except Exception:
         return []
-    row_ids = [r["id"] for r in rows if r.get("id")]
-    options_by_row = load_matrix_options(sb, row_ids)
     for row in rows:
-        row["options"] = options_by_row.get(row.get("id"), [])
+        opts = row.pop("decision_matrix_options", []) or []
+        opts.sort(key=lambda o: (not o.get("is_recommended"), o.get("option_key") or ""))
+        row["options"] = opts
     return rows
 
 
