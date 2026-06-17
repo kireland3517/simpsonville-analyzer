@@ -95,12 +95,18 @@ def test_frontend_forecasted_spend_column_is_editable():
 
 def test_frontend_budget_summary_has_estimated_and_forecast_lines():
     text = Path("static/index.html").read_text(encoding="utf-8")
+    fn_start = text.index("const calcTierForecastedSpend")
+    fn_end = text.index("const [mlo,mhi]", fn_start)
+    body = text[fn_start:fn_end]
 
     assert "Estimated Range" in text
     assert "Forecasted Spend" in text
     assert "dm-forecast-total-must" in text
     assert "calcTierForecastedSpend" in text
     assert "setEl('dm-forecast-total-all'" in text
+    assert "Number(r.forecasted_spend)" in body
+    assert "DM_TBD_COST_KEYS" not in body
+    assert "DM_NO_COST_KEYS" not in body
 
 
 def test_decision_matrix_empty_placeholders_use_html_entities():

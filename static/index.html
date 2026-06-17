@@ -5423,7 +5423,7 @@ function dmRenderTierPlan(data) {
               tRows.reduce((s,r)=>{ const o=getOpt(r); return s+(Number(r.cost_high??o?.cost_high)||0); },0)];
     };
     const calcTierForecastedSpend = (tier) => {
-      const tRows = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') === tier && !DM_NO_COST_KEYS.has(r.selected_option_key||'') && !DM_TBD_COST_KEYS.has(r.selected_option_key||''));
+      const tRows = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') === tier);
       return tRows.reduce((s,r)=>s+(Number(r.forecasted_spend)||0),0);
     };
     const [mlo,mhi] = calcTierCost('must_do');
