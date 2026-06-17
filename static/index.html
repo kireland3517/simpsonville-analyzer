@@ -5070,13 +5070,16 @@ function dmScheduleRoiUpdate() {
   const statusEl = $('dm-roi-status');
   if (statusEl) { statusEl.textContent = 'ROI updating…'; statusEl.className = 'dm-roi-status updating'; }
   clearTimeout(dmRoiTimer);
+  if (dmLrpTier === 'all' || dmLrpTier === 'not_doing' || !dmLrpTier) {
+    if (statusEl) { statusEl.textContent = ''; statusEl.className = 'dm-roi-status'; }
+    return;
+  }
   dmRoiTimer = setTimeout(async () => {
     try {
-      const roiTier = (dmLrpTier === 'all' || dmLrpTier === 'not_doing' || !dmLrpTier) ? 'nice_to_do' : dmLrpTier;
       const res = await fetch('/report/from-tier', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ tier: roiTier, buyer_profile: BUYER_PROFILE, property_id: '130_kingfisher' }),
+        body: JSON.stringify({ tier: dmLrpTier, buyer_profile: BUYER_PROFILE, property_id: '130_kingfisher' }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const report = await res.json();

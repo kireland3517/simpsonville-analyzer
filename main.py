@@ -120,6 +120,7 @@ from walkthrough import (
     PROPERTY_ID as WALKTHROUGH_PROPERTY_ID,
     LooksFineError,
     apply_calculated_persist_fields,
+    apply_looks_fine,
     enrich_walkthrough_item,
     enrich_walkthrough_items,
     is_assessment_prompt_text,
@@ -507,12 +508,32 @@ def _download_and_analyze(base_url: str, creds) -> dict:
             tmp_path.unlink()
 
 
+def _save_photo_analysis(photo_id: str, base_url: str, result: dict, sb=None) -> None:
+    """Persist an analysis result to memory and Supabase when configured."""
+    analysis_cache[photo_id] = result
+
+    client = sb or _sb()
+    if not client:
+        return
+    try:
+        client.table("photo_analyses").upsert({
+            "id":       photo_id,
+            "filename": photo_id,
+            "base_url": base_url,
+            "analysis": result,
+        }).execute()
+    except Exception as exc:
+        print(f"WARNING: could not save analysis {photo_id} to Supabase: {exc}")
+
+
 @app.post("/analyze")
 def analyze_single(body: AnalyzeRequest):
     creds = get_credentials()
     if not creds:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return _download_and_analyze(body.base_url, creds)
+    result = _download_and_analyze(body.base_url, creds)
+    _save_photo_analysis(body.photo_id, body.base_url, result)
+    return result
 
 
 @app.post("/analyze/bulk")
@@ -523,10 +544,26 @@ def analyze_bulk(body: BulkAnalyzeRequest):
 
     total = len(body.photos)
     completed = 0
+    sb = _sb()
 
     for item in body.photos:
         if item.photo_id in analysis_cache:
             continue
+
+        if sb:
+            try:
+                existing = (
+                    sb.table("photo_analyses")
+                    .select("analysis")
+                    .eq("id", item.photo_id)
+                    .maybe_single()
+                    .execute()
+                )
+                if existing and existing.data and existing.data.get("analysis"):
+                    analysis_cache[item.photo_id] = existing.data["analysis"]
+                    continue
+            except Exception:
+                pass
 
         photo_bytes = get_photo_bytes(item.base_url, creds, width=0)
         if photo_bytes is None:
@@ -542,19 +579,7 @@ def analyze_bulk(body: BulkAnalyzeRequest):
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink()
 
-        analysis_cache[item.photo_id] = result
-
-        sb = _sb()
-        if sb:
-            try:
-                sb.table("photo_analyses").upsert({
-                    "id":       item.photo_id,
-                    "filename": item.photo_id,
-                    "base_url": item.base_url,
-                    "analysis": result,
-                }).execute()
-            except Exception as exc:
-                print(f"WARNING: could not save analysis {item.photo_id} to Supabase: {exc}")
+        _save_photo_analysis(item.photo_id, item.base_url, result, sb=sb)
 
         completed += 1
 
@@ -563,6 +588,18 @@ def analyze_bulk(body: BulkAnalyzeRequest):
 
 @app.get("/analyze/results")
 def analyze_results():
+    if analysis_cache:
+        return analysis_cache
+    sb = _sb()
+    if not sb:
+        return analysis_cache
+    try:
+        rows = sb.table("photo_analyses").select("id, analysis").execute()
+        for row in rows.data or []:
+            if row.get("id") and row.get("analysis"):
+                analysis_cache[row["id"]] = row["analysis"]
+    except Exception:
+        pass
     return analysis_cache
 
 
@@ -1053,7 +1090,7 @@ def inventory_get():
             "total_cabinet_doors":    total_cabinet_doors,
             "total_cabinet_hardware": total_cabinet_doors,
             "estimated_total_sqft":   total_sqft,
-            "estimated_paint_gallons": round(total_sqft / 350) if total_sqft else 0,
+            "estimated_paint_gallons": round(total_sqft / 175) if total_sqft else 0,
         })
 
     result["overrides"] = overrides  # send to frontend so it knows which fields are edited

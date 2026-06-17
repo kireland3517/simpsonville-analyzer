@@ -5,7 +5,7 @@
 
 ## Overview
 
-The ROI Analyzer helps a homeowner prepare a house for sale by combining photo analysis, a seller walkthrough checklist, property metadata, and Gemini text generation into budget-driven renovation recommendations grounded in Greenville SC contractor costs and local comps.
+The ROI Analyzer helps a homeowner prepare a house for sale by combining photo analysis, a seller walkthrough checklist, property metadata, and Claude text generation into listing-readiness renovation recommendations grounded in Greenville SC contractor costs and local comps.
 
 **Product split:**
 
@@ -27,7 +27,7 @@ flowchart TB
     end
 
     subgraph ingest [Ingestion]
-        vision[Gemini Vision - analyzer.py]
+        vision[Claude Vision - analyzer.py]
         photoDB[(photo_analyses)]
         wtDB[(walkthrough_items)]
     end
@@ -38,7 +38,7 @@ flowchart TB
     end
 
     subgraph decision [Decision layer]
-        roi[Gemini Text - roi.py]
+        roi[Claude Text - roi.py]
         reportDB[(roi_report)]
         detailsDB[(upgrade_details)]
     end
@@ -80,7 +80,7 @@ Primary web server. Serves `static/index.html`, exposes REST API, orchestrates r
 - Inventory overrides (`run_inventory.py`)
 - CSV export, deep-detail caching
 
-**Deploy:** `uvicorn main:app` (Railway via `Procfile`)
+**Deploy:** `uvicorn main:app` (Railway via `Procfile`). Deployment is intended for a private trusted-access environment, not public unauthenticated internet exposure.
 
 ### Static SPA (`static/index.html`)
 
@@ -92,7 +92,7 @@ Single-page app with no build step. Tabs include Photos, Analysis, Walkthrough, 
 
 ### ROI engine (`roi.py`)
 
-Uses Gemini text model (`claude_client.py` / `gemini_client.py`) to produce JSON reports.
+Uses Claude through `claude_client.py` to produce JSON reports. `gemini_client.py` is legacy/unused by the main FastAPI path.
 
 **Detail levels (budget scenarios — current production):**
 
@@ -118,7 +118,7 @@ Legacy cache keys (`executive`, `standard`, `deep_dive`) map to the above via `L
 
 ### Photo analysis (`analyzer.py`, `run_analysis.py`)
 
-Gemini Vision (`gemini-2.5-flash` default) analyzes each photo:
+Claude vision analyzes each photo:
 
 - Room type, condition, issues, upgrades, inspection flags, deal risk, dated features
 - Results stored in Supabase `photo_analyses` (keyed by filename)
@@ -179,7 +179,7 @@ Merges walkthrough rows + photo summary + property facts into a unified structur
 
 | Table | Key | Purpose |
 |-------|-----|---------|
-| `photo_analyses` | `id` (filename) | Per-photo Gemini Vision JSON |
+| `photo_analyses` | `id` (filename) | Per-photo Claude vision JSON |
 | `roi_report` | `id` (`{level}_{profile}`) | Cached ROI report JSON |
 | `upgrade_details` | `id` + `item_type` | Deep how-to detail cache |
 | `oauth_tokens` | `id` (`google`) | Google OAuth token |
@@ -225,7 +225,7 @@ python run_inventory.py   # Inventory generation
 
 | Service | Use |
 |---------|-----|
-| Google Gemini | Vision + report + deep detail |
+| Anthropic Claude | Vision + report + deep detail |
 | Supabase | PostgreSQL persistence |
 | Google Photos | Source images (OAuth, read-only) |
 | ATTOM | Property facts (cached) |
@@ -237,7 +237,7 @@ python run_inventory.py   # Inventory generation
 
 1. **Walkthrough = evidence backbone** — 100% component coverage; photos supplement gaps.
 2. **Seller sees facts only** on Walkthrough tab; recommendations live on ROI tab.
-3. **Rule-based inference in Phase 1** — Gemini does not infer walkthrough condition from notes (deferred Phase 3).
+3. **Rule-based inference in Phase 1** — Claude does not infer walkthrough condition from notes in the current deterministic walkthrough path.
 4. **Cost anchors are ground truth** — `_KNOWN_REPAIR_FACTS` and Greenville anchors override ambiguous AI interpretation.
 5. **No application framework** — vanilla HTML/CSS/JS SPA; changes are direct file edits.
 
@@ -246,6 +246,6 @@ python run_inventory.py   # Inventory generation
 ## Related docs
 
 - [ux-decisions.md](ux-decisions.md) — walkthrough UX choices
-- [listing-readiness-tiers.md](listing-readiness-tiers.md) — **planned** tier model (replaces budget scenarios)
+- [listing-readiness-tiers.md](listing-readiness-tiers.md) — listing-readiness tier model
 - [rejected-designs.md](rejected-designs.md) — approaches we did not ship
 - [open-questions.md](open-questions.md) — unresolved decisions

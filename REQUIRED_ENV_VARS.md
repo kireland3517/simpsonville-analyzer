@@ -8,7 +8,7 @@ Complete audit of environment variables used in **simpsonville-analyzer** (clone
 
 | Artifact | Status | Notes |
 |---|---|---|
-| `.env.example` | **Missing from repo** | Referenced in `README.md` but not committed; this audit adds one |
+| `.env.example` | Present | Template for local/dev and Railway variables; do not commit real secrets |
 | `.env` / `.env.local` | Gitignored | Loaded by `python-dotenv` in several entry points |
 | `google_credentials.json` | Gitignored file fallback | Alternative to `GOOGLE_CREDENTIALS_JSON` |
 | `google_token.json` | Gitignored file fallback | Alternative to `GOOGLE_TOKEN_JSON` |
@@ -28,8 +28,8 @@ Production code (`analyzer.py`, `roi.py`, `run_analysis.py`, `run_inventory.py`,
 
 | What docs say | What code does |
 |---|---|
-| `README.md` lists `GEMINI_API_KEY` as required | Runtime checks `ANTHROPIC_API_KEY` via `claude_client.get_api_key()` |
-| `run_roi.py` exits if `GEMINI_API_KEY` is unset | `generate_roi_report()` calls Claude; you need `ANTHROPIC_API_KEY` at call time |
+| Legacy docs may mention `GEMINI_API_KEY` | Runtime checks `ANTHROPIC_API_KEY` via `claude_client.get_api_key()` |
+| Active app paths call Claude | You need `ANTHROPIC_API_KEY` for photo analysis, reports, and item detail |
 | `app.py` (Streamlit) sets `GEMINI_API_KEY` from UI | `analyze_image()` still reads `ANTHROPIC_API_KEY` |
 
 `gemini_client.py` exists but is **not imported** by any production module.
@@ -219,10 +219,8 @@ Also obtain (not env vars):
 
 ---
 
-## Known documentation drift
+## Known legacy drift
 
-1. `README.md` lists Gemini as the active LLM; code uses Anthropic (`ANTHROPIC_API_KEY`).
-2. `README.md` references `cp .env.example .env` but `.env.example` was not in the repo (added by this audit).
-3. `run_roi.py` docstring and startup guard reference `GEMINI_API_KEY`; runtime uses `claude_client` → `ANTHROPIC_API_KEY`.
-4. Error strings in `analyzer.py` / `roi.py` sometimes say `GEMINI_API_KEY` when the check is `ANTHROPIC_API_KEY`.
-5. `app.py` (Streamlit) prompts for Gemini key but `analyzer.py` requires Anthropic.
+1. `gemini_client.py` remains in the repo for legacy experimentation but is not used by the main FastAPI app.
+2. Some legacy CLI/docstrings may still say Gemini even though active app paths use Anthropic (`ANTHROPIC_API_KEY`).
+3. `app.py` is a legacy Streamlit tool and does not represent the main Railway deployment path.

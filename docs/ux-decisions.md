@@ -100,17 +100,18 @@ Each ROI item includes a **rationale** block: evidence citations, tier, and reas
 
 ---
 
-## 9. Listing-readiness tiers replace budget scenarios *(planned — not implemented)*
+## 9. Listing-readiness tiers replace budget scenarios *(canonical)*
 
-**Decision:** Remove `spend_nothing`. Replace budget-cap scenarios with three **listing-readiness tiers**:
+**Decision:** Use listing-readiness tiers as the seller-facing decision model:
 
 | Tier | Seller question |
 |------|-----------------|
 | Must Do | What must be fixed for safety, inspection, odor, or listing readiness? |
 | Should Do | What improvements have strong buyer impact and return? |
 | Nice to Do | What optional polish helps presentation or competitiveness but isn't necessary? |
+| Not Doing | What has the seller explicitly excluded? |
 
-**Rationale:** Sellers think in listing readiness, not arbitrary budget buckets. `spend_nothing` duplicated `must_do` intent. A fourth "aspirational" tier duplicated `nice_to_do` in practice and was collapsed. Tiers are cumulative (`must_do` ⊂ `should_do` ⊂ `nice_to_do`). Cost remains visible on options but does not gate inclusion.
+**Rationale:** Sellers think in listing readiness, not arbitrary budget buckets. `spend_nothing` duplicated `must_do` intent. Tiers are cumulative (`must_do` ⊂ `should_do` ⊂ `nice_to_do`); `not_doing` is a matrix decision bucket, not a report-generation tier. Cost remains visible on options but does not gate inclusion.
 
 **Matrix rows** will carry `minimum_tier` and `recommended_tier` (e.g. garage door → `must_do`; countertops → `nice_to_do` min / `should_do` rec).
 

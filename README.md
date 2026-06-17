@@ -1,6 +1,8 @@
 # Simpsonville Pre-Sale ROI Report
 
-AI-powered pre-sale renovation analysis for 130 Kingfisher Dr, Simpsonville SC 29680. Analyzes property photos with Gemini Vision, aggregates findings across 130+ images, and generates grounded repair and upgrade recommendations across three scopes of work — anchored to real Greenville SC contractor costs and recent subdivision comps.
+AI-powered pre-sale renovation analysis for 130 Kingfisher Dr, Simpsonville SC 29680. Analyzes property photos with Claude vision, aggregates findings across 130+ images, and generates grounded listing-readiness recommendations anchored to real Greenville SC contractor costs and recent subdivision comps.
+
+> Deployment note: this app assumes a private Railway deployment for trusted users. Mutating endpoints are not protected for public internet exposure.
 
 ---
 
@@ -10,7 +12,7 @@ AI-powered pre-sale renovation analysis for 130 Kingfisher Dr, Simpsonville SC 2
 Google Photos
      │
      ▼
-Gemini Vision (gemini-2.5-flash)
+Claude Vision (`CLAUDE_VISION_MODEL`)
   → per-photo: room type, condition, issues, upgrades,
     inspection flags, deal risk, dated features
      │
@@ -21,7 +23,7 @@ build_analysis_summary()
   → critical/high issues pinned regardless of frequency
      │
      ▼
-Gemini Text (gemini-2.5-pro) — 3 calls per detail level
+Claude Text (`CLAUDE_TEXT_MODEL`) — assessment/report calls
   Call 1: Assessment (ARV, deal killers, timeline, SC notes)
   Call 2: Upgrades  (sorted by ROI)
   Call 3: Repairs   (sorted by priority)
@@ -29,7 +31,7 @@ Gemini Text (gemini-2.5-pro) — 3 calls per detail level
      ▼ (stored in Supabase: roi_report)
      │
 FastAPI + static/index.html
-  → three tabs: Quick Wins / Balanced / Leave Nothing Behind
+  → listing tiers: Must Do / Should Do / Nice To Do / Not Doing
   → on-demand deep dive per item (cached in upgrade_details)
 ```
 
@@ -39,15 +41,16 @@ FastAPI + static/index.html
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key (alias: `GOOGLE_API_KEY`) |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude vision, report generation, and item detail |
 | `SUPABASE_URL` | Yes | Supabase project URL (e.g. `https://xxxxx.supabase.co`) |
 | `SUPABASE_SERVICE_KEY` | Yes | Supabase service role key |
 | `GOOGLE_CREDENTIALS_JSON` | Yes | Google OAuth2 client config as JSON string (or `google_credentials.json` on disk) |
 | `GOOGLE_TOKEN_JSON` | No | Cached OAuth token as JSON string (or `google_token.json` on disk) |
 | `REDIRECT_URI` | No | OAuth callback URL (default: `http://localhost:8000/auth/callback`) |
-| `GEMINI_VISION_MODEL` | No | Vision model override (default: `gemini-2.5-flash`) |
-| `GEMINI_TEXT_MODEL` | No | Text model override (default: `gemini-2.5-pro`) |
-| `GEMINI_DETAIL_MODEL` | No | Deep-dive model override (default: `gemini-2.5-flash`) |
+| `CLAUDE_MODEL` | No | Optional override for all Claude calls |
+| `CLAUDE_VISION_MODEL` | No | Vision model override |
+| `CLAUDE_TEXT_MODEL` | No | Text/report model override |
+| `CLAUDE_DETAIL_MODEL` | No | Deep-dive model override |
 
 ---
 
@@ -55,9 +58,9 @@ FastAPI + static/index.html
 
 | Table | Key | Purpose |
 |---|---|---|
-| `photo_analyses` | `id` (filename) | Raw Gemini Vision output per photo — room type, condition, issues, upgrades, inspection flags, deal risk, dated features |
+| `photo_analyses` | `id` (filename) | Raw Claude vision output per photo — room type, condition, issues, upgrades, inspection flags, deal risk, dated features |
 | `roi_report` | `id` (e.g. `standard_general`) | Generated ROI reports for each (detail_level, buyer_profile) combination |
-| `upgrade_details` | `id` (item name) + `item_type` | On-demand deep how-to detail cached after first Gemini call |
+| `upgrade_details` | `id` (item name) + `item_type` | On-demand deep how-to detail cached after first Claude call |
 | `oauth_tokens` | `id` (`"google"`) | Google OAuth token for Photos API access |
 
 Create tables once in Supabase SQL Editor:
@@ -426,7 +429,7 @@ Photo analyses (`photo_analyses` table) are never affected — only the 9-call r
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env   # fill in GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
+cp .env.example .env   # fill in ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 python -m uvicorn main:app --port 8000 --reload
 ```
 

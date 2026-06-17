@@ -12,3 +12,5 @@ pandas
 supabase
 python-dotenv
 watchdog
+pytest
+httpx
