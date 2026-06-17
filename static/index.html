@@ -4779,26 +4779,38 @@ async function dmApplyOption(rowId, optionKey) {
   }
 }
 
-async function dmCycleTier(rowId) {
+function dmEditTier(rowId) {
+  const cell = document.querySelector(`[data-tier-row="${CSS.escape(rowId)}"]`);
+  if (!cell) return;
   const row = dmRowById(rowId);
-  if (!row) return;
-  const current = normalizeTier(row.minimum_tier) || 'must_do';
-  const idx = DM_TIER_CYCLE.indexOf(current);
-  const next = DM_TIER_CYCLE[(idx + 1) % DM_TIER_CYCLE.length];
+  const current = normalizeTier(row?.minimum_tier) || 'must_do';
+  const opts = DM_TIER_CYCLE.map(t =>
+    `<option value="${t}"${t === current ? ' selected' : ''}>${dmTierLabel(t)}</option>`
+  ).join('');
+  cell.innerHTML = `<select class="dm-zone-select"
+    onchange="dmSaveTier('${esc(rowId)}', this.value)"
+    onblur="dmRenderTierPlan(dmLrpData)">
+    ${opts}
+  </select>`;
+  cell.querySelector('select')?.focus();
+}
+
+async function dmSaveTier(rowId, tier) {
   try {
     const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ minimum_tier: next }),
+      body: JSON.stringify({ minimum_tier: tier }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const i = dmRows.findIndex(r => r.id === rowId);
-    if (i >= 0) dmRows[i] = { ...dmRows[i], minimum_tier: data.row?.minimum_tier ?? next };
+    if (i >= 0) dmRows[i] = { ...dmRows[i], minimum_tier: data.row?.minimum_tier ?? tier };
     await dmLoadTierPlan(dmLrpTier);
     dmScheduleRoiUpdate();
   } catch (err) {
     alert('Could not update tier: ' + (err.message || err));
+    dmRenderTierPlan(dmLrpData);
   }
 }
 
@@ -4963,11 +4975,8 @@ function dmRenderTierPlan(data) {
         <td>
           <span class="dm-component-name">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Decision set by you">✎</span>' : ''}</span>
         </td>
-        <td>
-          <button class="dm-tier-pill ${esc(tierKey)}" onclick="dmCycleTier('${esc(row.row_id)}')"
-            title="Click to change tier${tierOverridden ? ' · AI suggested ' + dmTierLabel(aiTierKey) : ''}">
-            ${esc(dmTierLabel(tierKey))}${tierOverridden ? ' ✎' : ''}
-          </button>
+        <td data-tier-row="${esc(row.row_id)}" onclick="dmEditTier('${esc(row.row_id)}')" style="cursor:pointer;" title="Click to change tier">
+          <span class="dm-tier-pill ${esc(tierKey)}">${esc(dmTierLabel(tierKey))}${tierOverridden ? ' ✎' : ''}</span>
         </td>
         <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
         <td style="white-space:nowrap;">${dmFormatCost(row.cost_low, row.cost_high)}</td>
