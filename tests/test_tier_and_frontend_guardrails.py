@@ -83,6 +83,16 @@ def test_frontend_cost_save_alert_uses_backend_detail():
     assert "detail = errorData.detail || detail" in body
 
 
+def test_frontend_forecasted_spend_column_is_editable():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "Estimated Range" in text
+    assert "Forecasted Spend" in text
+    assert "data-forecast-row" in text
+    assert "async function dmSaveForecastedSpend" in text
+    assert "JSON.stringify({ forecasted_spend: amount })" in text
+
+
 def test_frontend_add_item_requires_decision_and_uses_backend_detail():
     text = Path("static/index.html").read_text(encoding="utf-8")
     fn_start = text.index("async function dmSaveAddItem")
@@ -90,6 +100,7 @@ def test_frontend_add_item_requires_decision_and_uses_backend_detail():
     body = text[fn_start:fn_end]
 
     assert "if (!decision) { alert('Please choose a decision.'); return; }" in body
+    assert "forecasted_spend: forecastedSpend" in body
     assert "const errorData = await res.json()" in body
     assert "detail = errorData.detail || detail" in body
 
@@ -108,3 +119,10 @@ def test_row_cost_columns_are_added_by_latest_matrix_migration():
     assert "alter table decision_matrix_rows" in sql
     assert "add column if not exists cost_low numeric" in sql
     assert "add column if not exists cost_high numeric" in sql
+
+
+def test_forecasted_spend_column_is_added_by_latest_matrix_migration():
+    sql = Path("migrations/decision_matrix_v8_forecasted_spend.sql").read_text(encoding="utf-8")
+
+    assert "alter table decision_matrix_rows" in sql
+    assert "add column if not exists forecasted_spend numeric" in sql

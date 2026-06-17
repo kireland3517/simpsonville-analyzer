@@ -2284,7 +2284,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                   <th>Component</th>
                   <th>Tier</th>
                   <th class="dm-lrp-decision-col">Your Decision</th>
-                  <th style="cursor:pointer;user-select:none;" onclick="dmToggleCostSort()" title="Sort by cost">Cost <span id="dm-cost-sort-icon">↕</span></th>
+                  <th style="cursor:pointer;user-select:none;" onclick="dmToggleCostSort()" title="Sort by estimated range">Estimated Range <span id="dm-cost-sort-icon">↕</span></th>
+                  <th>Forecasted Spend</th>
                   <th style="width:36px;"></th>
                 </tr>
               </thead>
@@ -2318,12 +2319,16 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;">
-              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Cost Low</label>
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Estimated Low</label>
               <input id="dm-add-cost-lo" type="number" min="0" placeholder="0" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:90px;">
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;">
-              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Cost High</label>
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Estimated High</label>
               <input id="dm-add-cost-hi" type="number" min="0" placeholder="0" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:90px;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Forecasted Spend</label>
+              <input id="dm-add-forecasted-spend" type="number" min="0" placeholder="0" style="font-size:13px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;width:110px;">
             </div>
             <div style="display:flex;gap:8px;">
               <button type="button" class="btn-primary" onclick="dmSaveAddItem()">Add</button>
@@ -4884,6 +4889,12 @@ function dmFormatCostForRow(row) {
   return dmFormatCost(lo, hi);
 }
 
+function dmFormatForecastedSpendForRow(row) {
+  const amount = Number(row.forecasted_spend) || 0;
+  if (!amount) return '<span style="color:var(--gray-400);">â€”</span>';
+  return dmFormatCost(amount, amount);
+}
+
 function dmLabel(value) {
   return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -5075,7 +5086,45 @@ async function dmSaveCost(rowId) {
     dmRenderTierPlan(dmLrpData);
     dmScheduleRoiUpdate();
   } catch (err) {
-    alert('Could not update cost: ' + (err.message || err));
+    alert('Could not update estimated range: ' + (err.message || err));
+    dmRenderTierPlan(dmLrpData);
+  }
+}
+
+function dmEditForecastedSpend(rowId) {
+  const cell = document.querySelector(`[data-forecast-row="${CSS.escape(rowId)}"]`);
+  if (!cell) return;
+  const fullRow = dmRowById(rowId);
+  const amount = Math.round(Number(fullRow?.forecasted_spend) || 0);
+  cell.innerHTML = `<div class="dm-cost-inputs">
+    <input id="dm-forecasted-spend-${esc(rowId)}" type="number" value="${amount}" min="0" placeholder="0">
+    <button onclick="dmSaveForecastedSpend('${esc(rowId)}')">Save</button>
+    <button onclick="dmRenderTierPlan(dmLrpData)">âœ•</button>
+  </div>`;
+  cell.querySelector('input')?.focus();
+}
+
+async function dmSaveForecastedSpend(rowId) {
+  const amount = Number($(`dm-forecasted-spend-${rowId}`)?.value) || 0;
+  try {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ forecasted_spend: amount }),
+    });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errorData = await res.json();
+        detail = errorData.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    const row = dmRowById(rowId);
+    if (row) row.forecasted_spend = amount;
+    dmRenderTierPlan(dmLrpData);
+  } catch (err) {
+    alert('Could not update forecasted spend: ' + (err.message || err));
     dmRenderTierPlan(dmLrpData);
   }
 }
@@ -5172,13 +5221,14 @@ async function dmSaveAddItem() {
   const decision = $('dm-add-decision')?.value || null;
   const costLo = Number($('dm-add-cost-lo')?.value) || 0;
   const costHi = Number($('dm-add-cost-hi')?.value) || costLo;
+  const forecastedSpend = Number($('dm-add-forecasted-spend')?.value) || 0;
   if (!component) { alert('Please enter a component/item name.'); return; }
   if (!decision) { alert('Please choose a decision.'); return; }
   try {
     const res = await dmFetchWithRetry('/decision-matrix/rows/custom', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ zone, component, minimum_tier: tier, selected_option_key: decision, cost_low: costLo, cost_high: costHi }),
+      body: JSON.stringify({ zone, component, minimum_tier: tier, selected_option_key: decision, cost_low: costLo, cost_high: costHi, forecasted_spend: forecastedSpend }),
     });
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
@@ -5192,6 +5242,7 @@ async function dmSaveAddItem() {
     $('dm-add-component').value = '';
     $('dm-add-cost-lo').value = '';
     $('dm-add-cost-hi').value = '';
+    $('dm-add-forecasted-spend').value = '';
     await loadDecisionMatrix(true);
     dmScheduleRoiUpdate();
   } catch (err) {
@@ -5306,6 +5357,7 @@ function dmRenderTierPlan(data) {
       option_key: r.selected_option_key || opt?.option_key || '',
       cost_low: Number(r.cost_low ?? opt?.cost_low) || 0,
       cost_high: Number(r.cost_high ?? opt?.cost_high) || 0,
+      forecasted_spend: Number(r.forecasted_spend) || 0,
       rationale: opt?.rationale || {},
     };
   };
@@ -5382,7 +5434,7 @@ function dmRenderTierPlan(data) {
 
   if (!rows.length) {
     const msg = `No items in ${dmLrpTier === 'all' ? 'the matrix yet' : dmTierLabel(dmLrpTier) + ' scope'}.`;
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--gray-500);">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray-500);">${msg}</td></tr>`;
     return;
   }
 
@@ -5413,8 +5465,11 @@ function dmRenderTierPlan(data) {
           <select class="dm-tier-select ${esc(tierKey)}" onchange="dmSaveTier('${esc(row.row_id)}', this.value)">${tierOpts}</select>
         </td>
         <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
-        <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" class="dm-cost-cell" title="Click to edit cost">
+        <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" class="dm-cost-cell" title="Click to edit estimated range">
           <span class="dm-cost-label">${dmFormatCostForRow(row)}</span><span class="dm-cost-edit-hint">✎</span>
+        </td>
+        <td data-forecast-row="${esc(row.row_id)}" onclick="dmEditForecastedSpend('${esc(row.row_id)}')" class="dm-cost-cell" title="Click to edit forecasted spend">
+          <span class="dm-cost-label">${dmFormatForecastedSpendForRow(row)}</span><span class="dm-cost-edit-hint">âœŽ</span>
         </td>
         <td class="dm-row-menu-wrap">
           <button class="dm-expand-btn" onclick="dmToggleRowMenu(event,'${esc(row.row_id)}')" title="Options">···</button>
