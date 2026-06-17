@@ -5410,7 +5410,7 @@ async function loadDecisionMatrix(force) {
   }
   dmShowState('dm-loading');
   try {
-    const res = await fetch(`/decision-matrix/load?tier=${encodeURIComponent(dmLrpTier)}`);
+    const res = await fetch(`/decision-matrix/load?tier=nice_to_do`);
     if (res.status === 404) { dmShowState('dm-empty'); return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
