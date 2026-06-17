@@ -93,6 +93,16 @@ def test_frontend_forecasted_spend_column_is_editable():
     assert "JSON.stringify({ forecasted_spend: amount })" in text
 
 
+def test_frontend_budget_summary_has_estimated_and_forecast_lines():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "Estimated Range" in text
+    assert "Forecasted Spend" in text
+    assert "dm-forecast-total-must" in text
+    assert "calcTierForecastedSpend" in text
+    assert "setEl('dm-forecast-total-all'" in text
+
+
 def test_decision_matrix_empty_placeholders_use_html_entities():
     text = Path("static/index.html").read_text(encoding="utf-8")
     cost_start = text.index("function dmFormatCostForRow")
@@ -113,6 +123,18 @@ def test_decision_matrix_edit_hints_use_html_entities():
 
     assert "&#9998;" in body
     assert "âœŽ" not in body
+
+
+def test_decision_matrix_edit_cancel_buttons_use_text():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    cost_start = text.index("function dmEditCost")
+    cost_end = text.index("async function dmSaveCost", cost_start)
+    forecast_start = text.index("function dmEditForecastedSpend")
+    forecast_end = text.index("async function dmSaveForecastedSpend", forecast_start)
+    body = text[cost_start:cost_end] + text[forecast_start:forecast_end]
+
+    assert ">Cancel</button>" in body
+    assert "âœ•" not in body
 
 
 def test_frontend_add_item_requires_decision_and_uses_backend_detail():

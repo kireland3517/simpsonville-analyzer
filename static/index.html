@@ -2251,16 +2251,28 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             </div>
           </div>
 
-          <div id="dm-total-bar" hidden style="margin-bottom:10px;padding:10px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:12px;">
-            <span style="font-weight:700;color:var(--gray-700);">Budget Summary</span>
-            <span id="dm-total-must" style="color:var(--red-700);"></span>
-            <span style="color:var(--gray-300);">|</span>
-            <span id="dm-total-should" style="color:#713f12;"></span>
-            <span style="color:var(--gray-300);">|</span>
-            <span id="dm-total-nice" style="color:#1e3a8a;"></span>
-            <span style="color:var(--gray-300);">|</span>
-            <span id="dm-total-all" style="font-weight:700;color:var(--gray-900);"></span>
-            <span id="dm-unresolved-badge" style="margin-left:auto;"></span>
+          <div id="dm-total-bar" hidden style="margin-bottom:10px;padding:10px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;font-size:12px;">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+              <span style="font-weight:700;color:var(--gray-700);min-width:120px;">Estimated Range</span>
+              <span id="dm-total-must" style="color:var(--red-700);"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-total-should" style="color:#713f12;"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-total-nice" style="color:#1e3a8a;"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-total-all" style="font-weight:700;color:var(--gray-900);"></span>
+              <span id="dm-unresolved-badge" style="margin-left:auto;"></span>
+            </div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+              <span style="font-weight:700;color:var(--gray-700);min-width:120px;">Forecasted Spend</span>
+              <span id="dm-forecast-total-must" style="color:var(--red-700);"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-forecast-total-should" style="color:#713f12;"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-forecast-total-nice" style="color:#1e3a8a;"></span>
+              <span style="color:var(--gray-300);">|</span>
+              <span id="dm-forecast-total-all" style="font-weight:700;color:var(--gray-900);"></span>
+            </div>
           </div>
 
           <div class="dm-tier-bar">
@@ -5058,7 +5070,7 @@ function dmEditCost(rowId) {
     <span style="color:var(--gray-400);font-size:11px;">–</span>
     <input id="dm-cost-hi-${esc(rowId)}" type="number" value="${hi}" min="0" placeholder="High">
     <button onclick="dmSaveCost('${esc(rowId)}')">Save</button>
-    <button onclick="dmRenderTierPlan(dmLrpData)">✕</button>
+    <button onclick="dmRenderTierPlan(dmLrpData)">Cancel</button>
   </div>`;
   cell.querySelector('input')?.focus();
 }
@@ -5099,7 +5111,7 @@ function dmEditForecastedSpend(rowId) {
   cell.innerHTML = `<div class="dm-cost-inputs">
     <input id="dm-forecasted-spend-${esc(rowId)}" type="number" value="${amount}" min="0" placeholder="0">
     <button onclick="dmSaveForecastedSpend('${esc(rowId)}')">Save</button>
-    <button onclick="dmRenderTierPlan(dmLrpData)">âœ•</button>
+    <button onclick="dmRenderTierPlan(dmLrpData)">Cancel</button>
   </div>`;
   cell.querySelector('input')?.focus();
 }
@@ -5409,10 +5421,18 @@ function dmRenderTierPlan(data) {
       return [tRows.reduce((s,r)=>{ const o=getOpt(r); return s+(Number(r.cost_low??o?.cost_low)||0); },0),
               tRows.reduce((s,r)=>{ const o=getOpt(r); return s+(Number(r.cost_high??o?.cost_high)||0); },0)];
     };
+    const calcTierForecastedSpend = (tier) => {
+      const tRows = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') === tier && !DM_NO_COST_KEYS.has(r.selected_option_key||'') && !DM_TBD_COST_KEYS.has(r.selected_option_key||''));
+      return tRows.reduce((s,r)=>s+(Number(r.forecasted_spend)||0),0);
+    };
     const [mlo,mhi] = calcTierCost('must_do');
     const [slo,shi] = calcTierCost('should_do');
     const [nlo,nhi] = calcTierCost('nice_to_do');
     const tlo = mlo+slo+nlo, thi = mhi+shi+nhi;
+    const mf = calcTierForecastedSpend('must_do');
+    const sf = calcTierForecastedSpend('should_do');
+    const nf = calcTierForecastedSpend('nice_to_do');
+    const tf = mf+sf+nf;
     const totalBar = $('dm-total-bar');
     if (totalBar) totalBar.hidden = false;
     const setEl = (id, text) => { const el=$(id); if(el) el.textContent=text; };
@@ -5420,6 +5440,10 @@ function dmRenderTierPlan(data) {
     setEl('dm-total-should', `Should Do: ${dmFormatCost(slo,shi)}`);
     setEl('dm-total-nice',   `Nice To Do: ${dmFormatCost(nlo,nhi)}`);
     setEl('dm-total-all',    `Total: ${dmFormatCost(tlo,thi)}`);
+    setEl('dm-forecast-total-must',   `Must Do: ${dmFormatCost(mf,mf)}`);
+    setEl('dm-forecast-total-should', `Should Do: ${dmFormatCost(sf,sf)}`);
+    setEl('dm-forecast-total-nice',   `Nice To Do: ${dmFormatCost(nf,nf)}`);
+    setEl('dm-forecast-total-all',    `Total: ${dmFormatCost(tf,tf)}`);
     // Unresolved count — from dmRows, excluding not_doing
     const unresolved = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') !== 'not_doing' && !r.selected_option_key);
     const badge = $('dm-unresolved-badge');
