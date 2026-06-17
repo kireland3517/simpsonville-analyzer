@@ -69,13 +69,10 @@ def main() -> int:
                 ("garage door", ("garage", "door")),
                 ("smoke remediation", ("smoke",)),
                 ("ceiling water damage", ("water",)),
+                ("popcorn ceiling", ("popcorn",)),
             ):
                 if not _find(all_lines, *needles):
                     errors.append(f"must_do missing {label}: {_names(all_lines[:8])}…")
-
-        if tier == "should_do":
-            if not _find(all_lines, "popcorn"):
-                errors.append(f"should_do missing popcorn")
 
         if tier in ("must_do", "should_do"):
             if _find_component(all_lines, "countertops"):

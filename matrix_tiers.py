@@ -95,7 +95,7 @@ def assign_readiness_tiers(row: dict[str, Any]) -> tuple[str, str]:
         return "must_do", "must_do"
 
     if "popcorn ceiling" in comp:
-        return "should_do", "should_do"
+        return "must_do", "must_do"
 
     if comp == "deck" or "deck condition" in comp:
         if _deck_safety_issue(blob) or insp == "high":

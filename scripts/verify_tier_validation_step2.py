@@ -59,7 +59,7 @@ def main() -> int:
         ("garage door", "must_do", None),
         ("indoor air quality", "must_do", None),
         ("ceiling water damage", "must_do", None),
-        ("popcorn ceiling", "should_do", None),
+        ("popcorn ceiling", "must_do", None),
         ("countertops", None, {"nice_to_do", "should_do"}),
         ("deck condition", None, {"must_do", "should_do"}),
         ("crawlspace", None, {"must_do", "should_do"}),
@@ -121,7 +121,7 @@ def main() -> int:
         ("must_do includes Garage door", has_comp(must, "Garage door")),
         ("must_do includes Indoor air quality", has_comp(must, "Indoor air quality")),
         ("must_do includes Ceiling water damage", has_comp(must, "Ceiling water damage")),
-        ("should_do includes Popcorn ceiling", has_comp(should, "Popcorn ceiling")),
+        ("must_do includes Popcorn ceiling", has_comp(must, "Popcorn ceiling")),
         ("should_do includes Garage door (cumulative)", has_comp(should, "Garage door")),
         ("nice_to_do includes Countertops", has_comp(nice, "Countertops")),
     ]
