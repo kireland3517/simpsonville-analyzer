@@ -1793,6 +1793,20 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-detail-inner { padding: 10px 14px 14px 24px; display: flex; flex-direction: column; gap: 6px; }
 .dm-detail-section { font-size: 12px; color: var(--gray-600); line-height: 1.5; }
 .dm-detail-section strong { color: var(--gray-800); }
+.nav-divider {
+  height: 1px; background: rgba(255,255,255,0.08); margin: 8px 20px;
+}
+.nav-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.25); padding: 8px 20px 4px;
+}
+.nav-item.secondary {
+  font-size: 12.5px; color: rgba(255,255,255,0.45);
+}
+.nav-item.secondary:hover { color: rgba(255,255,255,0.75); }
+.nav-item.secondary.active { color: #fff; }
+.nav-item.secondary svg { opacity: 0.5; }
+.nav-item.secondary.active svg { opacity: 1; }
 </style>
 </head>
 <body>
@@ -1813,23 +1827,21 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         ROI Report
       </div>
-      <div class="nav-item" data-tab="walkthrough">
+      <div class="nav-divider"></div>
+      <div class="nav-section-label">Reference</div>
+      <div class="nav-item secondary" data-tab="walkthrough">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Walkthrough
       </div>
-      <div class="nav-item" data-tab="floorplan">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M2 7h5M7 2v5M7 7h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Floor Plan
-      </div>
-      <div class="nav-item" data-tab="property">
+      <div class="nav-item secondary" data-tab="property">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 7v7h4v-4h4v4h4V7L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Property Data
       </div>
-      <div class="nav-item" data-tab="materials">
+      <div class="nav-item secondary" data-tab="materials">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Materials List
       </div>
-      <div class="nav-item" data-tab="notes">
+      <div class="nav-item secondary" data-tab="notes">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         Notes
       </div>
