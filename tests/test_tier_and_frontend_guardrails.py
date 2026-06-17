@@ -170,6 +170,33 @@ def test_frontend_add_item_supports_other_zone_by_default():
     assert "dmZoneClass('other')" in add_body
 
 
+def test_frontend_has_must_do_plan_print_flow():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "onclick=\"printMustDoPlan()\"" in text
+    assert "Print Must Do Plan" in text
+    assert 'id="dm-print-root"' in text
+    assert "function buildMustDoPlanPrintHtml()" in text
+    assert "async function printMustDoPlan()" in text
+    assert "is-printing-dm-plan" in text
+
+
+def test_must_do_print_filters_to_must_do_and_includes_summaries():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    rows_start = text.index("function dmMustDoPrintRows()")
+    rows_end = text.index("function buildMustDoPlanPrintHtml()", rows_start)
+    rows_body = text[rows_start:rows_end]
+    print_start = rows_end
+    print_end = text.index("async function printMustDoPlan()", print_start)
+    print_body = text[print_start:print_end]
+
+    assert "normalizeTier(row.minimum_tier) || 'must_do') === 'must_do'" in rows_body
+    assert "Estimated Range" in print_body
+    assert "Forecasted Spend" in print_body
+    assert "forecastedSpend = rows.reduce" in print_body
+    assert "dmPrintCostRange(row)" in print_body
+
+
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
     sql = Path("migrations/decision_matrix_v5_not_doing_tier.sql").read_text(encoding="utf-8")
 

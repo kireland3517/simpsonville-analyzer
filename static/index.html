@@ -772,8 +772,9 @@ body.wt-advanced-on .wt-dev-panel { display: flex; }
 .wt-impact-excerpt { font-size: 12px; color: var(--gray-400); font-style: italic; margin-top: 4px; }
 .wt-impact-corro { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
 
-/* Walkthrough dedicated print artifact (screen-hidden) */
+/* Dedicated print artifacts (screen-hidden) */
 #wt-print-root { display: none; }
+#dm-print-root { display: none; }
 
 .deep-detail-section:last-child { margin-bottom: 0; }
 .deep-detail-label {
@@ -1303,17 +1304,20 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     background: #fff !important;
   }
 
-  /* Print one tab at a time (ROI or Walkthrough) */
+  /* Print one tab at a time (ROI, Walkthrough, or Decision Matrix plan) */
   .tab-pane { display: none !important; padding: 0 !important; }
   body.is-printing-roi #tab-roi { display: block !important; padding: 0 !important; }
   body.is-printing-walkthrough #tab-walkthrough { display: none !important; }
   body.is-printing-walkthrough #wt-print-root { display: block !important; padding: 0 !important; width: 100% !important; }
+  body.is-printing-dm-plan #dm-print-root { display: block !important; padding: 0 !important; width: 100% !important; }
   body.is-printing-walkthrough .content-area { padding: 0 !important; }
+  body.is-printing-dm-plan .content-area { padding: 0 !important; }
   /* Browser Print shortcut fallback (no expand-all prep) */
   body:not(.is-printing) #tab-roi.active { display: block !important; padding: 0 !important; }
   body:not(.is-printing) #tab-walkthrough.active { display: block !important; padding: 0 !important; }
 
-  body.is-printing-walkthrough { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.is-printing-walkthrough,
+  body.is-printing-dm-plan { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   body.is-printing-roi #tab-roi::before {
     content: '130 Kingfisher Dr - Pre-Listing Analysis Report';
@@ -1470,6 +1474,29 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .wt-print-rules { display: flex; flex-direction: column; }
   .wt-print-rule { border-bottom: 1px solid #bbb; height: 18px; width: 100%; }
   .wt-print-empty { font-size: 10pt; color: #666; margin: 16px 0; }
+
+  body.is-printing-dm-plan .dm-print-doc {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: #111827;
+    width: 100%;
+  }
+  .dm-print-header { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #111827; }
+  .dm-print-header h1 { font-size: 16pt; margin: 0; font-weight: 800; }
+  .dm-print-subtitle { margin: 3px 0 0; color: #4b5563; font-size: 9pt; }
+  .dm-print-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; break-inside: avoid; }
+  .dm-print-card { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; }
+  .dm-print-card-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; font-weight: 700; }
+  .dm-print-card-value { font-size: 13pt; font-weight: 800; margin-top: 3px; }
+  .dm-print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .dm-print-table th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #4b5563; border-bottom: 2px solid #111827; padding: 6px 5px; }
+  .dm-print-table td { vertical-align: top; border-bottom: 1px solid #e5e7eb; padding: 6px 5px; }
+  .dm-print-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .dm-print-zone { font-weight: 700; white-space: nowrap; }
+  .dm-print-component { font-weight: 700; }
+  .dm-print-note { color: #4b5563; font-size: 8pt; margin-top: 3px; }
+  .dm-print-empty { color: #6b7280; margin: 16px 0; font-size: 10pt; }
 
   /* Force every report section visible for print */
   body.is-printing-roi #tab-roi .section,
@@ -2247,7 +2274,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="dm-roi-status" id="dm-roi-status"></span>
-              <button type="button" class="btn-secondary" onclick="window.print()">Print</button>
+              <button type="button" class="btn-secondary" onclick="printMustDoPlan()">Print Must Do Plan</button>
             </div>
           </div>
 
@@ -2592,6 +2619,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       </div><!-- /tab-notes -->
 
       <div id="wt-print-root" aria-hidden="true"></div>
+      <div id="dm-print-root" aria-hidden="true"></div>
 
     </div><!-- /content-area -->
   </div><!-- /main-wrapper -->
@@ -4222,6 +4250,117 @@ async function printReport() {
       btn.disabled = false;
       btn.innerHTML = origLabels[i];
     });
+    window.removeEventListener('afterprint', finishPrint);
+  };
+
+  window.addEventListener('afterprint', finishPrint);
+  window.print();
+}
+
+function dmPrintDecisionLabel(row) {
+  const key = row.selected_option_key || row.recommended_action || '';
+  const match = DM_DECISIONS.find(d => d.key === key);
+  return match ? match.label : dmLabel(key || 'Unset');
+}
+
+function dmPrintCostRange(row) {
+  const opts = row.options || [];
+  const opt = opts.find(o => o.option_key === row.selected_option_key) || opts.find(o => o.is_recommended) || opts[0];
+  const optionKey = row.selected_option_key || opt?.option_key || '';
+  if (DM_NO_COST_KEYS.has(optionKey)) return '—';
+  if (DM_TBD_COST_KEYS.has(optionKey) && !Number(row.cost_high) && !Number(row.cost_low)) return 'TBD';
+  const lo = Number(row.cost_low ?? opt?.cost_low) || 0;
+  const hi = Number(row.cost_high ?? opt?.cost_high) || 0;
+  return lo || hi ? dmFormatCost(lo, hi) : '—';
+}
+
+function dmMustDoPrintRows() {
+  const zoneOrder = Object.fromEntries(DM_ZONES.map((zone, index) => [zone, index]));
+  return dmRows
+    .filter(row => (normalizeTier(row.minimum_tier) || 'must_do') === 'must_do')
+    .sort((a, b) => {
+      const ai = zoneOrder[(a.zone || '').toLowerCase()] ?? 999;
+      const bi = zoneOrder[(b.zone || '').toLowerCase()] ?? 999;
+      if (ai !== bi) return ai - bi;
+      return String(a.component || '').localeCompare(String(b.component || ''));
+    });
+}
+
+function buildMustDoPlanPrintHtml() {
+  const rows = dmMustDoPrintRows();
+  const countable = rows.filter(row => !DM_NO_COST_KEYS.has(row.selected_option_key || '') && !DM_TBD_COST_KEYS.has(row.selected_option_key || ''));
+  const estimatedLow = countable.reduce((sum, row) => sum + (Number(row.cost_low) || 0), 0);
+  const estimatedHigh = countable.reduce((sum, row) => sum + (Number(row.cost_high) || 0), 0);
+  const forecastedSpend = rows.reduce((sum, row) => sum + (Number(row.forecasted_spend) || 0), 0);
+  const dateStr = new Date().toLocaleDateString();
+  const body = rows.length
+    ? `<table class="dm-print-table">
+        <thead>
+          <tr>
+            <th>Zone</th>
+            <th>Component / Item</th>
+            <th>Your Decision</th>
+            <th>Estimated Range</th>
+            <th>Forecasted Spend</th>
+            <th>Rationale / Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => {
+            const reason = row.options?.find(o => o.option_key === row.selected_option_key)?.rationale?.reason
+              || row.options?.find(o => o.is_recommended)?.rationale?.reason
+              || '';
+            const note = row.walkthrough_notes || row.current_state || '';
+            return `<tr>
+              <td class="dm-print-zone">${esc(dmLabel(row.zone || 'other'))}</td>
+              <td><div class="dm-print-component">${esc(row.component || '')}</div></td>
+              <td>${esc(dmPrintDecisionLabel(row))}</td>
+              <td>${esc(dmPrintCostRange(row))}</td>
+              <td>${esc(dmFormatCost(Number(row.forecasted_spend) || 0, Number(row.forecasted_spend) || 0))}</td>
+              <td>
+                ${reason ? `<div>${esc(reason)}</div>` : ''}
+                ${note ? `<div class="dm-print-note">${esc(note)}</div>` : ''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`
+    : '<p class="dm-print-empty">No Must Do line items are currently in the decision matrix.</p>';
+
+  return `<div class="dm-print-doc">
+    <header class="dm-print-header">
+      <h1>Must Do Plan</h1>
+      <p class="dm-print-subtitle">Decision Matrix printout · ${esc(dateStr)}</p>
+    </header>
+    <section class="dm-print-summary">
+      <div class="dm-print-card"><div class="dm-print-card-label">Items</div><div class="dm-print-card-value">${rows.length}</div></div>
+      <div class="dm-print-card"><div class="dm-print-card-label">Estimated Range</div><div class="dm-print-card-value">${esc(dmFormatCost(estimatedLow, estimatedHigh))}</div></div>
+      <div class="dm-print-card"><div class="dm-print-card-label">Forecasted Spend</div><div class="dm-print-card-value">${esc(dmFormatCost(forecastedSpend, forecastedSpend))}</div></div>
+    </section>
+    ${body}
+  </div>`;
+}
+
+async function printMustDoPlan() {
+  if (!dmRows.length) {
+    alert('Load the Decision Matrix before printing.');
+    return;
+  }
+  const root = $('dm-print-root');
+  if (!root) return;
+  root.innerHTML = buildMustDoPlanPrintHtml();
+
+  window.printPrepMode = true;
+  window.isPrinting = true;
+  document.body.classList.add('is-printing', 'is-printing-dm-plan');
+
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const finishPrint = () => {
+    window.isPrinting = false;
+    window.printPrepMode = false;
+    document.body.classList.remove('is-printing', 'is-printing-dm-plan');
+    root.innerHTML = '';
     window.removeEventListener('afterprint', finishPrint);
   };
 
