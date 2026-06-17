@@ -4850,6 +4850,17 @@ function dmRowById(rowId) {
   return dmRows.find(r => r.id === rowId);
 }
 
+async function dmFetchWithRetry(url, opts, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, opts);
+    if (res.status === 503 && i < retries - 1) {
+      await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+      continue;
+    }
+    return res;
+  }
+}
+
 function dmLrpNeedsDecision(lrpRow) {
   const full = dmRowById(lrpRow.row_id);
   if (!full) return lrpRow.decision_status === 'decision_required';
@@ -4933,7 +4944,7 @@ async function dmApplyOption(rowId, optionKey) {
 
 async function dmSaveDecision(rowId, optionKey) {
   try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ selected_option_key: optionKey }),
@@ -4969,7 +4980,7 @@ function dmEditTier(rowId) {
 
 async function dmSaveTier(rowId, tier) {
   try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ minimum_tier: tier }),
@@ -5004,7 +5015,7 @@ function dmEditZone(rowId) {
 
 async function dmSaveZone(rowId, zone) {
   try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ zone }),
@@ -5038,7 +5049,7 @@ async function dmSaveCost(rowId) {
   const lo = Number($(`dm-cost-lo-${rowId}`)?.value) || 0;
   const hi = Number($(`dm-cost-hi-${rowId}`)?.value) || lo;
   try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ cost_low: lo, cost_high: hi }),
@@ -5145,7 +5156,7 @@ async function dmSaveAddItem() {
   const costHi = Number($('dm-add-cost-hi')?.value) || costLo;
   if (!component) { alert('Please enter a component/item name.'); return; }
   try {
-    const res = await fetch('/decision-matrix/rows/custom', {
+    const res = await dmFetchWithRetry('/decision-matrix/rows/custom', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ zone, component, minimum_tier: tier, selected_option_key: decision, cost_low: costLo, cost_high: costHi }),
@@ -5197,7 +5208,7 @@ async function dmEditComponentName(rowId) {
   const name = prompt('Edit component name:', current);
   if (!name || name.trim() === current) return;
   try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ component: name.trim() }),
