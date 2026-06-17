@@ -5031,7 +5031,10 @@ async function loadDecisionMatrix(force) {
   }
   dmShowState('dm-loading');
   try {
-    const rowsRes = await fetch('/decision-matrix/rows');
+    const [rowsRes, tierRes] = await Promise.all([
+      fetch('/decision-matrix/rows'),
+      fetch(`/decision-matrix/tiers/${encodeURIComponent(dmLrpTier)}`),
+    ]);
     if (rowsRes.status === 404) { dmShowState('dm-empty'); return; }
     if (!rowsRes.ok) {
       const err = await rowsRes.json().catch(() => ({}));
@@ -5040,8 +5043,15 @@ async function loadDecisionMatrix(force) {
     const rowsData = await rowsRes.json();
     dmRows = rowsData.rows || [];
     if (!dmRows.length) { dmShowState('dm-empty'); return; }
+    if (tierRes.ok) {
+      dmLrpData = await tierRes.json();
+    }
     dmShowState('dm-content');
-    dmLoadTierPlan(dmLrpTier);
+    if (dmLrpData) {
+      dmRenderTierPlan(dmLrpData);
+    } else {
+      dmLoadTierPlan(dmLrpTier);
+    }
   } catch (err) {
     $('dm-error-msg').textContent = err.message || 'Unknown error';
     dmShowState('dm-error');
