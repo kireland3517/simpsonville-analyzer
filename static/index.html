@@ -5072,7 +5072,7 @@ function dmScheduleRoiUpdate() {
   clearTimeout(dmRoiTimer);
   dmRoiTimer = setTimeout(async () => {
     try {
-      const roiTier = (dmLrpTier === 'all' || !dmLrpTier) ? 'nice_to_do' : dmLrpTier;
+      const roiTier = (dmLrpTier === 'all' || dmLrpTier === 'not_doing' || !dmLrpTier) ? 'nice_to_do' : dmLrpTier;
       const res = await fetch('/report/from-tier', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
