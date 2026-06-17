@@ -5072,10 +5072,11 @@ function dmScheduleRoiUpdate() {
   clearTimeout(dmRoiTimer);
   dmRoiTimer = setTimeout(async () => {
     try {
+      const roiTier = (dmLrpTier === 'all' || !dmLrpTier) ? 'nice_to_do' : dmLrpTier;
       const res = await fetch('/report/from-tier', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ tier: dmLrpTier, buyer_profile: BUYER_PROFILE, property_id: '130_kingfisher' }),
+        body: JSON.stringify({ tier: roiTier, buyer_profile: BUYER_PROFILE, property_id: '130_kingfisher' }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const report = await res.json();
