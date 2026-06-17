@@ -1727,8 +1727,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
 .dm-lrp-options { display: flex; flex-wrap: wrap; gap: 4px; max-width: 360px; }
 .dm-lrp-opt-btn {
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  padding: 5px 9px; border-radius: 99px; border: 1px solid var(--gray-200);
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 3px 7px; border-radius: 99px; border: 1px solid var(--gray-200);
   background: #fff; color: var(--gray-600); cursor: pointer; white-space: nowrap;
   transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
@@ -1739,8 +1739,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 }
 .dm-lrp-opt-btn.recommended:not(.active) { border-color: #86efac; color: var(--gray-700); }
 .dm-lrp-opt-btn:disabled { opacity: 0.55; cursor: wait; }
-.dm-lrp-row-needs-decision td { background: #fffbeb !important; }
-.dm-lrp-row-needs-decision:hover td { background: #fef3c7 !important; }
 .dm-lrp-decision-col { min-width: 200px; }
 .dm-workspace-details {
   margin-top: 8px; border: 1px solid var(--gray-200); border-radius: 10px;
@@ -1778,13 +1776,27 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   letter-spacing: 0.05em; padding: 4px 10px; border-radius: 99px; border: none;
   cursor: pointer; white-space: nowrap; transition: opacity 0.12s, box-shadow 0.12s;
 }
-.dm-tier-pill:hover { opacity: 0.8; box-shadow: 0 0 0 2px rgba(0,0,0,0.15); }
 .dm-tier-pill.must_do { background: var(--red-100); color: var(--red-700); }
 .dm-tier-pill.should_do { background: var(--yellow-100); color: var(--amber-600); }
 .dm-tier-pill.nice_to_do { background: #dbeafe; color: #1d4ed8; }
-.dm-zone-label { cursor: pointer; border-bottom: 1px dashed var(--gray-300); }
-.dm-zone-label:hover { color: var(--accent); border-color: var(--accent); }
-.dm-zone-select { font-size: 12px; padding: 4px 6px; border: 1px solid var(--accent); border-radius: 6px; color: var(--gray-900); }
+/* Tier select styled as a pill — always in DOM so opens on first click */
+.dm-tier-select {
+  appearance: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 3px 8px; border-radius: 99px; cursor: pointer;
+  border: 1.5px solid transparent; white-space: nowrap;
+}
+.dm-tier-select:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-mid); }
+.dm-tier-select.must_do { background: var(--red-100); color: var(--red-700); border-color: #fca5a5; }
+.dm-tier-select.should_do { background: var(--yellow-100); color: #92400e; border-color: #fcd34d; }
+.dm-tier-select.nice_to_do { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+/* Zone — plain minimal select */
+.dm-zone-select {
+  font-size: 12px; padding: 3px 6px; border-radius: 6px;
+  border: 1px solid var(--gray-200); background: #fff; cursor: pointer;
+  color: var(--gray-600); max-width: 130px;
+}
+.dm-zone-select:hover { border-color: var(--gray-400); }
+.dm-zone-select:focus { outline: none; border-color: var(--accent); }
 .dm-roi-status { font-size: 11px; font-weight: 600; }
 .dm-roi-status.updating { color: var(--amber-600); }
 .dm-roi-status.done { color: var(--green-600); }
@@ -1793,18 +1805,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-detail-inner { padding: 10px 14px 14px 24px; display: flex; flex-direction: column; gap: 6px; }
 .dm-detail-section { font-size: 12px; color: var(--gray-600); line-height: 1.5; }
 .dm-detail-section strong { color: var(--gray-800); }
-.dm-cost-label { cursor: pointer; border-bottom: 1px dashed var(--gray-300); white-space: nowrap; }
+.dm-cost-label { cursor: pointer; border-bottom: 1px dashed var(--gray-300); white-space: nowrap; font-size: 12px; }
 .dm-cost-label:hover { color: var(--accent); border-color: var(--accent); }
-.dm-inline-select {
-  font-size: 12px; padding: 4px 6px; border-radius: 6px;
-  border: 1px solid var(--gray-200); background: #fff; cursor: pointer;
-  color: var(--gray-700); appearance: auto; max-width: 140px;
-}
-.dm-inline-select:hover { border-color: var(--gray-400); }
-.dm-inline-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-mid); }
-.dm-tier-select.must_do { border-left: 3px solid var(--red-500); color: var(--red-700); }
-.dm-tier-select.should_do { border-left: 3px solid #f59e0b; color: #92400e; }
-.dm-tier-select.nice_to_do { border-left: 3px solid #3b82f6; color: #1d4ed8; }
+.dm-cost-inputs { display: flex; gap: 4px; align-items: center; }
+.dm-cost-inputs input { width: 68px; font-size: 12px; padding: 3px 6px; border: 1px solid var(--accent); border-radius: 6px; }
+.dm-cost-inputs button { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--gray-200); background: #fff; cursor: pointer; color: var(--gray-700); }
+.dm-cost-inputs button:hover { border-color: var(--accent); color: var(--accent); }
 .nav-divider {
   height: 1px; background: rgba(255,255,255,0.08); margin: 8px 20px;
 }
@@ -5033,7 +5039,7 @@ function dmRenderTierPlan(data) {
     ).join('');
 
     const mainRow = `
-      <tr class="data-row${needsDecision ? ' dm-lrp-row-needs-decision' : ''}">
+      <tr class="data-row">
         <td>
           <select class="dm-inline-select" onchange="dmSaveZone('${esc(row.row_id)}', this.value)">${zoneOpts}</select>
         </td>
