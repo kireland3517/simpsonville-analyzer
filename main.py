@@ -1433,6 +1433,41 @@ def patch_decision_matrix_row(
     return {"row": updated}
 
 
+class DecisionMatrixRowMeta(BaseModel):
+    zone: str | None = None
+    minimum_tier: str | None = None
+
+
+@app.patch("/decision-matrix/rows/{row_id}/meta")
+def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
+    """Update zone or minimum tier override for a decision matrix row."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    update: dict = {}
+    if body.zone is not None:
+        update["zone"] = body.zone.strip()
+    if body.minimum_tier is not None:
+        valid = {"must_do", "should_do", "nice_to_do"}
+        if body.minimum_tier not in valid:
+            raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
+        update["minimum_tier"] = body.minimum_tier
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    try:
+        sb.table("decision_matrix_rows").update(update).eq("id", row_id).execute()
+        result = (
+            sb.table("decision_matrix_rows")
+            .select("*")
+            .eq("id", row_id)
+            .maybe_single()
+            .execute()
+        )
+        return {"row": result.data}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 @app.post("/decision-matrix/rebuild")
 def rebuild_decision_matrix(
     property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
