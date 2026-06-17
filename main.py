@@ -1520,8 +1520,10 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
     cost_update: dict = {}
     if body.cost_low is not None:
         cost_update["cost_low"] = body.cost_low
+        update["cost_low"] = body.cost_low  # save on row directly
     if body.cost_high is not None:
         cost_update["cost_high"] = body.cost_high
+        update["cost_high"] = body.cost_high  # save on row directly
 
     if not update and not cost_update:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -1529,7 +1531,7 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         if update:
             sb.table("decision_matrix_rows").update(update).eq("id", row_id).execute()
         if cost_update:
-            # Update cost on the currently selected option for this row
+            # Also try to update matching option record if one exists
             row_result = (
                 sb.table("decision_matrix_rows")
                 .select("selected_option_key")

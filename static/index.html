@@ -5021,9 +5021,9 @@ async function dmSaveZone(rowId, zone) {
 function dmEditCost(rowId) {
   const cell = document.querySelector(`[data-cost-row="${CSS.escape(rowId)}"]`);
   if (!cell) return;
-  const lrpRow = (dmLrpData?.selected_rows || []).find(r => r.row_id === rowId);
-  const lo = Math.round(Number(lrpRow?.cost_low) || 0);
-  const hi = Math.round(Number(lrpRow?.cost_high) || 0);
+  const fullRow = dmRowById(rowId);
+  const lo = Math.round(Number(fullRow?.cost_low) || 0);
+  const hi = Math.round(Number(fullRow?.cost_high) || 0);
   cell.innerHTML = `<div class="dm-cost-inputs">
     <input id="dm-cost-lo-${esc(rowId)}" type="number" value="${lo}" min="0" placeholder="Low">
     <span style="color:var(--gray-400);font-size:11px;">–</span>
@@ -5044,7 +5044,10 @@ async function dmSaveCost(rowId) {
       body: JSON.stringify({ cost_low: lo, cost_high: hi }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await dmLoadTierPlan(dmLrpTier);
+    // Update local cache immediately so cost doesn't flicker back
+    const row = dmRowById(rowId);
+    if (row) { row.cost_low = lo; row.cost_high = hi; }
+    dmRenderTierPlan(dmLrpData);
     dmScheduleRoiUpdate();
   } catch (err) {
     alert('Could not update cost: ' + (err.message || err));
