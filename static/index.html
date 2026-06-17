@@ -2265,7 +2265,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 
           <div class="dm-tier-bar">
             <span class="dm-filter-label">Scope</span>
-            <button type="button" class="dm-lrp-tab must_do active" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
+            <button type="button" class="dm-lrp-tab active" data-tier="all" onclick="dmSetLrpTier('all')">All</button>
+            <button type="button" class="dm-lrp-tab must_do" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
             <button type="button" class="dm-lrp-tab" data-tier="should_do" onclick="dmSetLrpTier('should_do')">Should Do</button>
             <button type="button" class="dm-lrp-tab" data-tier="nice_to_do" onclick="dmSetLrpTier('nice_to_do')">Nice To Do</button>
             <button type="button" class="dm-lrp-tab" data-tier="not_doing" onclick="dmSetLrpTier('not_doing')" style="color:var(--gray-400);">Not Doing</button>
@@ -4838,7 +4839,7 @@ const DM_ZONE_COLOR = {
 function dmZoneClass(zone) { return DM_ZONE_COLOR[(zone||'').toLowerCase()] || 'zone-other'; }
 
 let dmRows = [];
-let dmLrpTier = 'must_do';
+let dmLrpTier = 'all';
 let dmLrpData = null;
 let dmLrpFilter = 'all';
 let dmApplyingRowId = null;
@@ -5249,16 +5250,32 @@ function dmRenderTierPlan(data) {
   const costEl = $('dm-cost-summary');
   if (!tbody || !data) return;
 
-  // Exact-tier filter: show only rows matching the selected scope tab
-  // "Not Doing" comes from dmRows directly (excluded from tier_plan)
+  // Build rows from dmRows (source of truth) so nothing is lost to backend tier exclusion
+  const optForRow = (r) => {
+    const opts = r.options || [];
+    const sel = opts.find(o => o.option_key === r.selected_option_key) || opts.find(o => o.is_recommended) || opts[0];
+    return sel;
+  };
+  const toDisplayRow = (r) => {
+    const opt = optForRow(r);
+    return {
+      row_id: r.id,
+      component: r.component,
+      zone: r.zone,
+      minimum_tier: normalizeTier(r.minimum_tier) || 'must_do',
+      option_key: r.selected_option_key || opt?.option_key || '',
+      cost_low: Number(r.cost_low ?? opt?.cost_low) || 0,
+      cost_high: Number(r.cost_high ?? opt?.cost_high) || 0,
+      rationale: opt?.rationale || {},
+    };
+  };
   let rows;
-  if (dmLrpTier === 'not_doing') {
-    rows = dmRows
-      .filter(r => (r.minimum_tier || '') === 'not_doing')
-      .map(r => ({ row_id: r.id, component: r.component, zone: r.zone, minimum_tier: 'not_doing', option_key: r.selected_option_key, cost_low: 0, cost_high: 0 }));
+  if (dmLrpTier === 'all') {
+    rows = dmRows.map(toDisplayRow);
   } else {
-    const allRows = data.selected_rows || [];
-    rows = allRows.filter(r => (r.minimum_tier || '') === dmLrpTier);
+    rows = dmRows
+      .filter(r => (normalizeTier(r.minimum_tier) || 'must_do') === dmLrpTier)
+      .map(toDisplayRow);
   }
 
   // Sort — cost takes priority when active, otherwise zone
@@ -5280,22 +5297,25 @@ function dmRenderTierPlan(data) {
   if (hintEl) hintEl.hidden = true;
   if (filterEl) filterEl.innerHTML = '';
 
-  const costLo = rows.reduce((s, r) => s + (Number(r.cost_low) || 0), 0);
-  const costHi = rows.reduce((s, r) => s + (Number(r.cost_high) || 0), 0);
+  const countable = rows.filter(r => !DM_NO_COST_KEYS.has(r.option_key||'') && !DM_TBD_COST_KEYS.has(r.option_key||'') && r.minimum_tier !== 'not_doing');
+  const costLo = countable.reduce((s, r) => s + (Number(r.cost_low) || 0), 0);
+  const costHi = countable.reduce((s, r) => s + (Number(r.cost_high) || 0), 0);
   if (costEl) {
     if (dmLrpTier === 'not_doing') {
       costEl.textContent = `${rows.length} items · excluded from cost`;
     } else {
-      costEl.textContent = `${rows.length} items · ${dmFormatCost(costLo, costLo)}–${dmFormatCost(costHi, costHi)}`;
+      const costStr = costLo === 0 && costHi === 0 ? '' : ` · ${dmFormatCost(costLo, costLo)}–${dmFormatCost(costHi, costHi)}`;
+      costEl.textContent = `${rows.length} items${costStr}`;
     }
   }
 
-  // Budget summary bar across all tiers
-  if (dmLrpData?.selected_rows) {
-    const allSelected = dmLrpData.selected_rows;
+  // Budget summary bar — always sourced from dmRows so all tiers visible
+  if (dmRows.length) {
     const calcTierCost = (tier) => {
-      const tRows = allSelected.filter(r => (r.minimum_tier||'') === tier && !DM_NO_COST_KEYS.has(r.option_key||'') && !DM_TBD_COST_KEYS.has(r.option_key||''));
-      return [tRows.reduce((s,r)=>s+(Number(r.cost_low)||0),0), tRows.reduce((s,r)=>s+(Number(r.cost_high)||0),0)];
+      const tRows = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') === tier && !DM_NO_COST_KEYS.has(r.selected_option_key||'') && !DM_TBD_COST_KEYS.has(r.selected_option_key||''));
+      const getOpt = (r) => { const opts = r.options||[]; return opts.find(o=>o.option_key===r.selected_option_key)||opts.find(o=>o.is_recommended)||opts[0]; };
+      return [tRows.reduce((s,r)=>{ const o=getOpt(r); return s+(Number(r.cost_low??o?.cost_low)||0); },0),
+              tRows.reduce((s,r)=>{ const o=getOpt(r); return s+(Number(r.cost_high??o?.cost_high)||0); },0)];
     };
     const [mlo,mhi] = calcTierCost('must_do');
     const [slo,shi] = calcTierCost('should_do');
@@ -5308,8 +5328,8 @@ function dmRenderTierPlan(data) {
     setEl('dm-total-should', `Should Do: ${dmFormatCost(slo,shi)}`);
     setEl('dm-total-nice',   `Nice To Do: ${dmFormatCost(nlo,nhi)}`);
     setEl('dm-total-all',    `Total: ${dmFormatCost(tlo,thi)}`);
-    // Unresolved count
-    const unresolved = allSelected.filter(r => !r.option_key || r.option_key === '');
+    // Unresolved count — from dmRows, excluding not_doing
+    const unresolved = dmRows.filter(r => (normalizeTier(r.minimum_tier)||'must_do') !== 'not_doing' && !r.selected_option_key);
     const badge = $('dm-unresolved-badge');
     if (badge) {
       if (unresolved.length > 0) {
@@ -5321,9 +5341,7 @@ function dmRenderTierPlan(data) {
   }
 
   if (!rows.length) {
-    const msg = dmLrpFilter === 'needs_decision'
-      ? 'All decisions set in this scope. Switch to "All" to review.'
-      : `No items in ${dmTierLabel(dmLrpTier)} scope.`;
+    const msg = `No items in ${dmLrpTier === 'all' ? 'the matrix yet' : dmTierLabel(dmLrpTier) + ' scope'}.`;
     tbody.innerHTML = `<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--gray-500);">${msg}</td></tr>`;
     return;
   }
