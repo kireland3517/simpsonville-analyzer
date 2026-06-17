@@ -1436,6 +1436,8 @@ def patch_decision_matrix_row(
 class DecisionMatrixRowMeta(BaseModel):
     zone: str | None = None
     minimum_tier: str | None = None
+    cost_low: float | None = None
+    cost_high: float | None = None
 
 
 @app.patch("/decision-matrix/rows/{row_id}/meta")
@@ -1452,10 +1454,31 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         if body.minimum_tier not in valid:
             raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
         update["minimum_tier"] = body.minimum_tier
-    if not update:
+    cost_update: dict = {}
+    if body.cost_low is not None:
+        cost_update["cost_low"] = body.cost_low
+    if body.cost_high is not None:
+        cost_update["cost_high"] = body.cost_high
+
+    if not update and not cost_update:
         raise HTTPException(status_code=400, detail="Nothing to update")
     try:
-        sb.table("decision_matrix_rows").update(update).eq("id", row_id).execute()
+        if update:
+            sb.table("decision_matrix_rows").update(update).eq("id", row_id).execute()
+        if cost_update:
+            # Update cost on the currently selected option for this row
+            row_result = (
+                sb.table("decision_matrix_rows")
+                .select("selected_option_key")
+                .eq("id", row_id)
+                .maybe_single()
+                .execute()
+            )
+            selected_key = (row_result.data or {}).get("selected_option_key")
+            if selected_key:
+                sb.table("decision_matrix_options").update(cost_update).eq("row_id", row_id).eq("option_key", selected_key).execute()
+            else:
+                sb.table("decision_matrix_options").update(cost_update).eq("row_id", row_id).execute()
         result = (
             sb.table("decision_matrix_rows")
             .select("*")

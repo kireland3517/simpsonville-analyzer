@@ -1793,6 +1793,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-detail-inner { padding: 10px 14px 14px 24px; display: flex; flex-direction: column; gap: 6px; }
 .dm-detail-section { font-size: 12px; color: var(--gray-600); line-height: 1.5; }
 .dm-detail-section strong { color: var(--gray-800); }
+.dm-cost-label { cursor: pointer; border-bottom: 1px dashed var(--gray-300); white-space: nowrap; }
+.dm-cost-label:hover { color: var(--accent); border-color: var(--accent); }
+.dm-cost-inputs { display: flex; gap: 4px; align-items: center; }
+.dm-cost-inputs input { width: 72px; font-size: 12px; padding: 3px 6px; border: 1px solid var(--accent); border-radius: 6px; }
+.dm-cost-inputs button { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--gray-200); background: #fff; cursor: pointer; color: var(--gray-700); }
+.dm-cost-inputs button:hover { border-color: var(--accent); color: var(--accent); }
 .nav-divider {
   height: 1px; background: rgba(255,255,255,0.08); margin: 8px 20px;
 }
@@ -4700,7 +4706,6 @@ let dmRows = [];
 let dmLrpTier = 'should_do';
 let dmLrpData = null;
 let dmLrpFilter = 'all';
-let dmLrpFilterInitialized = false;
 let dmApplyingRowId = null;
 let dmLrpExpanded = new Set();
 let dmRoiTimer = null;
@@ -4863,6 +4868,40 @@ async function dmSaveZone(rowId, zone) {
   }
 }
 
+function dmEditCost(rowId) {
+  const cell = document.querySelector(`[data-cost-row="${CSS.escape(rowId)}"]`);
+  if (!cell) return;
+  const lrpRow = (dmLrpData?.selected_rows || []).find(r => r.row_id === rowId);
+  const lo = Math.round(Number(lrpRow?.cost_low) || 0);
+  const hi = Math.round(Number(lrpRow?.cost_high) || 0);
+  cell.innerHTML = `<div class="dm-cost-inputs">
+    <input id="dm-cost-lo-${esc(rowId)}" type="number" value="${lo}" min="0" placeholder="Low">
+    <span style="color:var(--gray-400);font-size:11px;">–</span>
+    <input id="dm-cost-hi-${esc(rowId)}" type="number" value="${hi}" min="0" placeholder="High">
+    <button onclick="dmSaveCost('${esc(rowId)}')">Save</button>
+    <button onclick="dmRenderTierPlan(dmLrpData)">✕</button>
+  </div>`;
+  cell.querySelector('input')?.focus();
+}
+
+async function dmSaveCost(rowId) {
+  const lo = Number($(`dm-cost-lo-${rowId}`)?.value) || 0;
+  const hi = Number($(`dm-cost-hi-${rowId}`)?.value) || lo;
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cost_low: lo, cost_high: hi }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await dmLoadTierPlan(dmLrpTier);
+    dmScheduleRoiUpdate();
+  } catch (err) {
+    alert('Could not update cost: ' + (err.message || err));
+    dmRenderTierPlan(dmLrpData);
+  }
+}
+
 function dmScheduleRoiUpdate() {
   const statusEl = $('dm-roi-status');
   if (statusEl) { statusEl.textContent = 'ROI updating…'; statusEl.className = 'dm-roi-status updating'; }
@@ -4939,10 +4978,6 @@ function dmRenderTierPlan(data) {
   const allRows = data.selected_rows || [];
   const needsCount = allRows.filter(dmLrpNeedsDecision).length;
 
-  if (!dmLrpFilterInitialized && needsCount > 0) {
-    dmLrpFilter = 'needs_decision';
-    dmLrpFilterInitialized = true;
-  }
 
   if (filterEl) {
     filterEl.innerHTML = `
@@ -4996,7 +5031,9 @@ function dmRenderTierPlan(data) {
           <span class="dm-tier-pill ${esc(tierKey)}">${esc(dmTierLabel(tierKey))}${tierOverridden ? ' ✎' : ''}</span>
         </td>
         <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
-        <td style="white-space:nowrap;">${dmFormatCost(row.cost_low, row.cost_high)}</td>
+        <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" style="cursor:pointer;" title="Click to enter your own quote">
+          <span class="dm-cost-label">${dmFormatCost(row.cost_low, row.cost_high)}</span>
+        </td>
         <td>
           <button class="dm-expand-btn" onclick="dmToggleLrpExpand('${esc(row.row_id)}')" title="Show details">${expanded ? '−' : '···'}</button>
         </td>
