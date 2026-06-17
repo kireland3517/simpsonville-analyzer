@@ -1591,7 +1591,6 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
         raise HTTPException(status_code=404, detail="No decision matrix for this property")
     row_data = {
         "matrix_id": matrix["id"],
-        "property_id": body.property_id,
         "zone": body.zone.strip(),
         "component": body.component.strip(),
         "minimum_tier": body.minimum_tier,
@@ -1599,20 +1598,25 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
         "selected_option_key": body.selected_option_key,
         "recommended_action": body.selected_option_key,
         "seller_override": bool(body.selected_option_key),
-        "is_custom": True,
     }
-    result = sb.table("decision_matrix_rows").insert(row_data).execute()
+    try:
+        result = sb.table("decision_matrix_rows").insert(row_data).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Row insert failed: {exc}")
     row = (result.data or [{}])[0]
     row_id = row.get("id")
     if row_id and (body.cost_low or body.cost_high):
-        sb.table("decision_matrix_options").insert({
-            "row_id": row_id,
-            "matrix_id": matrix["id"],
-            "option_key": body.selected_option_key or "custom",
-            "cost_low": body.cost_low,
-            "cost_high": body.cost_high,
-            "is_recommended": True,
-        }).execute()
+        try:
+            sb.table("decision_matrix_options").insert({
+                "row_id": row_id,
+                "matrix_id": matrix["id"],
+                "option_key": body.selected_option_key or "custom",
+                "cost_low": body.cost_low,
+                "cost_high": body.cost_high,
+                "is_recommended": True,
+            }).execute()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Option insert failed: {exc}")
     _matrix_cache_clear()
     return {"row": row}
 
