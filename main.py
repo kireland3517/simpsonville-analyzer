@@ -1486,6 +1486,7 @@ def patch_decision_matrix_row(
 
 class DecisionMatrixRowMeta(BaseModel):
     zone: str | None = None
+    component: str | None = None
     minimum_tier: str | None = None
     cost_low: float | None = None
     cost_high: float | None = None
@@ -1509,6 +1510,8 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
     if body.selected_option_key is not None:
         update["selected_option_key"] = body.selected_option_key
         update["seller_override"] = True
+    if body.component is not None:
+        update["component"] = body.component.strip()
     cost_update: dict = {}
     if body.cost_low is not None:
         cost_update["cost_low"] = body.cost_low
@@ -1545,6 +1548,18 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         return {"row": result.data}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.delete("/decision-matrix/rows/{row_id}")
+def delete_decision_matrix_row(row_id: str):
+    """Delete a decision matrix row (and its options)."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    sb.table("decision_matrix_options").delete().eq("row_id", row_id).execute()
+    sb.table("decision_matrix_rows").delete().eq("id", row_id).execute()
+    _matrix_cache_clear()
+    return {"deleted": row_id}
 
 
 class DecisionMatrixCustomRow(BaseModel):

@@ -1635,10 +1635,24 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-expand-btn {
   background: none; border: 1px solid var(--gray-200); border-radius: 6px;
   width: 28px; height: 28px; cursor: pointer; color: var(--gray-600);
-  font-size: 14px; line-height: 1; flex-shrink: 0;
+  font-size: 14px; line-height: 1; flex-shrink: 0; position: relative;
 }
 .dm-expand-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
-.dm-expand-btn[aria-expanded="true"] { background: var(--accent-mid); border-color: var(--accent); color: var(--accent); }
+/* Row action menu */
+.dm-row-menu-wrap { position: relative; }
+.dm-row-menu {
+  position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 100;
+  background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 140px; overflow: hidden;
+}
+.dm-row-menu button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 14px; font-size: 13px; font-weight: 500; color: var(--gray-700);
+  background: none; border: none; cursor: pointer; text-align: left;
+}
+.dm-row-menu button:hover { background: var(--gray-50); }
+.dm-row-menu button.danger { color: var(--red-600); }
+.dm-row-menu button.danger:hover { background: var(--red-50); }
 .dm-options-panel td { background: var(--gray-50) !important; padding: 0 !important; border-bottom: 1px solid var(--gray-200); }
 .dm-options-inner { padding: 12px 16px 16px 48px; }
 .dm-options-title { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
@@ -5082,10 +5096,64 @@ async function dmSaveAddItem() {
   }
 }
 
-function dmToggleLrpExpand(rowId) {
-  if (dmLrpExpanded.has(rowId)) dmLrpExpanded.delete(rowId);
-  else dmLrpExpanded.add(rowId);
-  dmRenderTierPlan(dmLrpData);
+let dmOpenMenuId = null;
+function dmToggleRowMenu(evt, rowId) {
+  evt.stopPropagation();
+  // Close any existing menu
+  document.querySelectorAll('.dm-row-menu').forEach(m => m.remove());
+  if (dmOpenMenuId === rowId) { dmOpenMenuId = null; return; }
+  dmOpenMenuId = rowId;
+  const btn = evt.currentTarget;
+  const menu = document.createElement('div');
+  menu.className = 'dm-row-menu';
+  menu.innerHTML = `
+    <button onclick="dmEditComponentName('${esc(rowId)}')">✏️ Edit name</button>
+    <button class="danger" onclick="dmDeleteRow('${esc(rowId)}')">🗑 Delete</button>
+  `;
+  btn.parentElement.appendChild(menu);
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', function close() {
+    menu.remove(); dmOpenMenuId = null;
+    document.removeEventListener('click', close);
+  }), 0);
+}
+
+async function dmEditComponentName(rowId) {
+  document.querySelectorAll('.dm-row-menu').forEach(m => m.remove());
+  const row = dmRowById(rowId);
+  const current = row?.component || '';
+  const name = prompt('Edit component name:', current);
+  if (!name || name.trim() === current) return;
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}/meta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ component: name.trim() }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (row) row.component = name.trim();
+    dmRenderTierPlan(dmLrpData);
+  } catch (err) {
+    alert('Could not rename: ' + (err.message || err));
+  }
+}
+
+async function dmDeleteRow(rowId) {
+  document.querySelectorAll('.dm-row-menu').forEach(m => m.remove());
+  const row = dmRowById(rowId);
+  if (!confirm(`Delete "${row?.component || 'this item'}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    dmRows = dmRows.filter(r => r.id !== rowId);
+    if (dmLrpData) {
+      dmLrpData.selected_rows = (dmLrpData.selected_rows || []).filter(r => r.row_id !== rowId);
+    }
+    dmRenderTierPlan(dmLrpData);
+    dmScheduleRoiUpdate();
+  } catch (err) {
+    alert('Could not delete: ' + (err.message || err));
+  }
 }
 
 async function dmLoadTierPlan(tier) {
@@ -5184,8 +5252,8 @@ function dmRenderTierPlan(data) {
         <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" style="cursor:pointer;" title="Click to enter your own cost">
           <span class="dm-cost-label">${dmFormatCost(row.cost_low, row.cost_high)}</span>
         </td>
-        <td>
-          <button class="dm-expand-btn" onclick="dmToggleLrpExpand('${esc(row.row_id)}')" title="Show details">${expanded ? '−' : '···'}</button>
+        <td class="dm-row-menu-wrap">
+          <button class="dm-expand-btn" onclick="dmToggleRowMenu(event,'${esc(row.row_id)}')" title="Options">···</button>
         </td>
       </tr>
     `;
