@@ -61,3 +61,21 @@ def test_frontend_does_not_map_all_or_not_doing_to_nice_to_do_report_post():
     assert "return;" in body
     assert "? 'nice_to_do' : dmLrpTier" not in body
     assert "tier: dmLrpTier" in body
+
+
+def test_frontend_tier_save_alert_uses_backend_detail():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    fn_start = text.index("async function dmSaveTier")
+    fn_end = text.index("function dmEditZone", fn_start)
+    body = text[fn_start:fn_end]
+
+    assert "const errorData = await res.json()" in body
+    assert "detail = errorData.detail || detail" in body
+
+
+def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
+    sql = Path("migrations/decision_matrix_v5_not_doing_tier.sql").read_text(encoding="utf-8")
+
+    assert "decision_matrix_rows_minimum_tier_check" in sql
+    assert "decision_matrix_rows_recommended_tier_check" in sql
+    assert "'not_doing'" in sql

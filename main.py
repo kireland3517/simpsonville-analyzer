@@ -1591,7 +1591,13 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         _matrix_cache_clear()
         return {"row": result.data}
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        message = str(exc)
+        if "decision_matrix_rows_minimum_tier_check" in message or "decision_matrix_rows_recommended_tier_check" in message:
+            raise HTTPException(
+                status_code=409,
+                detail="Supabase tier constraint does not allow not_doing yet; run migrations/decision_matrix_v5_not_doing_tier.sql",
+            )
+        raise HTTPException(status_code=503, detail=message)
 
 
 @app.delete("/decision-matrix/rows/{row_id}")

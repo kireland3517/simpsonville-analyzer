@@ -4985,7 +4985,14 @@ async function dmSaveTier(rowId, tier) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ minimum_tier: tier }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errorData = await res.json();
+        detail = errorData.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
     const data = await res.json();
     const i = dmRows.findIndex(r => r.id === rowId);
     if (i >= 0) dmRows[i] = { ...dmRows[i], minimum_tier: data.row?.minimum_tier ?? tier };

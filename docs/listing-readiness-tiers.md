@@ -41,7 +41,7 @@ Every `decision_matrix_rows` record should eventually include:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `minimum_tier` | `must_do \| should_do \| nice_to_do` | Lowest tier at which this component's **recommended option** must appear in a plan |
+| `minimum_tier` | `must_do \| should_do \| nice_to_do \| not_doing` | Lowest tier at which this component's **recommended option** must appear in a plan, or seller-managed exclusion |
 | `recommended_tier` | same enum | Tier where the system's recommended option belongs for a typical listing prep strategy |
 
 ### Derivation rules (deterministic — no LLM)
@@ -57,7 +57,7 @@ Every `decision_matrix_rows` record should eventually include:
 | `decision_status = monitor` | `nice_to_do` or excluded until inspected |
 | `decision_status = informational` | excluded from tier plans (no spend) |
 
-`recommended_tier` may equal or exceed `minimum_tier` when the recommended option is more aggressive than the floor (e.g. countertops: minimum `nice_to_do`, recommended `should_do` if refresh is system pick).
+`recommended_tier` may equal or exceed `minimum_tier` when the recommended option is more aggressive than the floor (e.g. countertops: minimum `nice_to_do`, recommended `should_do` if refresh is system pick). `not_doing` is a seller decision bucket and is excluded from report-generation tiers.
 
 ### Example assignments (130 Kingfisher)
 
@@ -90,10 +90,10 @@ select_for_tier(matrix_rows, tier: str, buyer_profile: str) -> TierSelection
 
 ### Selection rules
 
-1. **Cumulative tiers:** `must_do` ⊂ `should_do` ⊂ `nice_to_do`  
+1. **Cumulative tiers:** `must_do` ⊂ `should_do` ⊂ `nice_to_do`; `not_doing` is non-cumulative and excluded from report generation.
    Viewing `should_do` includes all `must_do` rows; viewing `nice_to_do` includes all tiers.
 
-2. **Inclusion:** Row included when `row.minimum_tier <= selected_tier` (ordinal compare).
+2. **Inclusion:** Row included when `row.minimum_tier <= selected_tier` (ordinal compare), except `not_doing` rows.
 
 3. **Option choice:** Use `recommended_action` / seller override unless tier policy allows downgrade (e.g. `nice_to_do` view may show `leave_as_is` where viable).
 
