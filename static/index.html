@@ -5173,13 +5173,21 @@ async function dmSaveAddItem() {
   const costLo = Number($('dm-add-cost-lo')?.value) || 0;
   const costHi = Number($('dm-add-cost-hi')?.value) || costLo;
   if (!component) { alert('Please enter a component/item name.'); return; }
+  if (!decision) { alert('Please choose a decision.'); return; }
   try {
     const res = await dmFetchWithRetry('/decision-matrix/rows/custom', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ zone, component, minimum_tier: tier, selected_option_key: decision, cost_low: costLo, cost_high: costHi }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errorData = await res.json();
+        detail = errorData.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
     $('dm-add-item-form').hidden = true;
     $('dm-add-component').value = '';
     $('dm-add-cost-lo').value = '';

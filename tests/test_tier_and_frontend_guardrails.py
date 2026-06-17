@@ -83,6 +83,17 @@ def test_frontend_cost_save_alert_uses_backend_detail():
     assert "detail = errorData.detail || detail" in body
 
 
+def test_frontend_add_item_requires_decision_and_uses_backend_detail():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    fn_start = text.index("async function dmSaveAddItem")
+    fn_end = text.index("function dmToggleLrpExpand", fn_start)
+    body = text[fn_start:fn_end]
+
+    assert "if (!decision) { alert('Please choose a decision.'); return; }" in body
+    assert "const errorData = await res.json()" in body
+    assert "detail = errorData.detail || detail" in body
+
+
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
     sql = Path("migrations/decision_matrix_v5_not_doing_tier.sql").read_text(encoding="utf-8")
 

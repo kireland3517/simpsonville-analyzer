@@ -54,6 +54,7 @@ import io
 import os
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -1636,18 +1637,34 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
     valid_tiers = {"must_do", "should_do", "nice_to_do", "not_doing"}
     if body.minimum_tier not in valid_tiers:
         raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
+    valid_actions = {"leave_as_is", "clean", "repair", "refresh", "replace", "further_inspect"}
+    selected_option_key = body.selected_option_key or "repair"
+    if selected_option_key not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid decision: {selected_option_key!r}")
     matrix = load_current_matrix(sb, body.property_id)
     if not matrix:
         raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    decision_status = "required_action" if body.minimum_tier == "must_do" else "decision_required"
     row_data = {
         "matrix_id": matrix["id"],
+        "component_id": f"custom:{uuid.uuid4().hex}",
+        "walkthrough_item_id": None,
         "zone": body.zone.strip(),
         "component": body.component.strip(),
+        "confidence_tier": "seller_added",
+        "evidence_sources": [{"source": "seller", "text": "Manual decision matrix line item"}],
+        "walkthrough_notes": "Manual decision matrix line item",
+        "photo_evidence": [],
+        "current_state": f"Seller-added item: {body.component.strip()}",
+        "buyer_impact": "medium",
+        "inspection_risk": "medium",
+        "marketability_risk": "medium",
+        "decision_status": decision_status,
         "minimum_tier": body.minimum_tier,
         "recommended_tier": body.minimum_tier,
-        "selected_option_key": body.selected_option_key,
-        "recommended_action": body.selected_option_key,
-        "seller_override": bool(body.selected_option_key),
+        "selected_option_key": selected_option_key,
+        "recommended_action": selected_option_key,
+        "seller_override": True,
     }
     try:
         result = sb.table("decision_matrix_rows").insert(row_data).execute()
@@ -1655,15 +1672,20 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
         raise HTTPException(status_code=500, detail=f"Row insert failed: {exc}")
     row = (result.data or [{}])[0]
     row_id = row.get("id")
-    if row_id and (body.cost_low or body.cost_high):
+    if row_id:
         try:
             sb.table("decision_matrix_options").insert({
                 "row_id": row_id,
-                "matrix_id": matrix["id"],
-                "option_key": body.selected_option_key or "custom",
+                "option_key": selected_option_key,
                 "cost_low": body.cost_low,
                 "cost_high": body.cost_high,
+                "buyer_impact": "medium",
+                "inspection_risk_impact": "reduces",
+                "marketability_impact": "medium",
+                "roi_quality": "manual",
+                "feasibility": "recommended",
                 "is_recommended": True,
+                "rationale": {"source": "seller_custom_row"},
             }).execute()
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Option insert failed: {exc}")
