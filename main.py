@@ -53,6 +53,7 @@ import csv
 import io
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -156,6 +157,25 @@ app.add_middleware(
 )
 
 STATIC_INDEX = Path("static/index.html")
+
+# ── Matrix cache ──────────────────────────────────────────────────────────────
+# Stores the last loaded matrix payload so page reloads don't hit Supabase.
+# Invalidated whenever any row is mutated (PATCH / rebuild).
+_matrix_cache: dict = {}   # {"data": ..., "ts": float}
+_MATRIX_CACHE_TTL = 300    # 5 minutes safety expiry
+
+def _matrix_cache_get() -> dict | None:
+    entry = _matrix_cache.get("data")
+    if entry and time.time() - _matrix_cache.get("ts", 0) < _MATRIX_CACHE_TTL:
+        return entry
+    return None
+
+def _matrix_cache_set(data: dict) -> None:
+    _matrix_cache["data"] = data
+    _matrix_cache["ts"] = time.time()
+
+def _matrix_cache_clear() -> None:
+    _matrix_cache.clear()
 
 
 # ─── Supabase helper ──────────────────────────────────────────────────────────
@@ -1363,18 +1383,26 @@ def get_decision_matrix_load(
     tier: str = Query(default="should_do"),
     property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
 ):
-    """Combined endpoint: returns all rows + tier plan in one request."""
-    sb = _sb()
-    if not sb:
-        raise HTTPException(status_code=503, detail="Supabase not configured")
-    matrix = load_current_matrix(sb, property_id)
-    if not matrix:
-        raise HTTPException(status_code=404, detail="No decision matrix for this property")
-    rows = load_matrix_rows_with_options(sb, matrix["id"])
-    tier_plan = select_tier_from_rows(rows, tier, matrix_id=matrix["id"], property_id=property_id)
+    """Combined endpoint: returns all rows + tier plan in one request, cached in memory."""
+    cached = _matrix_cache_get()
+    if cached and cached.get("property_id") == property_id:
+        rows = cached["rows"]
+        matrix_id = cached["matrix_id"]
+    else:
+        sb = _sb()
+        if not sb:
+            raise HTTPException(status_code=503, detail="Supabase not configured")
+        matrix = load_current_matrix(sb, property_id)
+        if not matrix:
+            raise HTTPException(status_code=404, detail="No decision matrix for this property")
+        matrix_id = matrix["id"]
+        rows = load_matrix_rows_with_options(sb, matrix_id)
+        _matrix_cache_set({"property_id": property_id, "matrix_id": matrix_id, "rows": rows})
+
+    tier_plan = select_tier_from_rows(rows, tier, matrix_id=matrix_id, property_id=property_id)
     return {
         "property_id": property_id,
-        "matrix_id": matrix["id"],
+        "matrix_id": matrix_id,
         "rows": rows,
         "tier_plan": tier_plan,
     }
@@ -1452,6 +1480,7 @@ def patch_decision_matrix_row(
         raise HTTPException(status_code=400, detail=str(exc))
     if not updated:
         raise HTTPException(status_code=404, detail="Row not found or update failed")
+    _matrix_cache_clear()
     return {"row": updated}
 
 
@@ -1508,6 +1537,7 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
             .maybe_single()
             .execute()
         )
+        _matrix_cache_clear()
         return {"row": result.data}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -1521,7 +1551,9 @@ def rebuild_decision_matrix(
     if not sb:
         raise HTTPException(status_code=503, detail="Supabase not configured")
     try:
-        return build_decision_matrix(property_id=property_id, sb=sb)
+        result = build_decision_matrix(property_id=property_id, sb=sb)
+        _matrix_cache_clear()
+        return result
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Decision matrix build failed: {exc}")
 
