@@ -149,6 +149,21 @@ def test_frontend_add_item_requires_decision_and_uses_backend_detail():
     assert "detail = errorData.detail || detail" in body
 
 
+def test_frontend_add_item_supports_other_zone_by_default():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    zones_start = text.index("const DM_ZONES = [")
+    zones_end = text.index("];", zones_start)
+    zones_body = text[zones_start:zones_end]
+    add_start = text.index("function dmShowAddItem")
+    add_end = text.index("async function dmSaveAddItem", add_start)
+    add_body = text[add_start:add_end]
+
+    assert "'other', 'unmatched'" in zones_body
+    assert "'other': 'zone-other'" in text
+    assert "zoneEl.value = 'other'" in add_body
+    assert "dmZoneClass('other')" in add_body
+
+
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
     sql = Path("migrations/decision_matrix_v5_not_doing_tier.sql").read_text(encoding="utf-8")
 

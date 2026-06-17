@@ -4824,7 +4824,7 @@ const DM_ZONES = [
   'laundry room', 'hallways', 'interior doors', 'windows', 'garage',
   'whole house',
   'exterior', 'structural / moisture', 'hvac', 'electrical', 'plumbing',
-  'unmatched',
+  'other', 'unmatched',
 ];
 let dmSortZoneAsc = true;
 let dmSortCostDir = 0; // 0=off, 1=desc, -1=asc
@@ -4851,6 +4851,7 @@ const DM_ZONE_COLOR = {
   'exterior': 'zone-exterior',
   'hvac': 'zone-systems', 'electrical': 'zone-systems', 'plumbing': 'zone-systems', 'structural / moisture': 'zone-systems',
   'whole house': 'zone-whole',
+  'other': 'zone-other',
   'unmatched': 'zone-other',
 };
 function dmZoneClass(zone) { return DM_ZONE_COLOR[(zone||'').toLowerCase()] || 'zone-other'; }
@@ -5211,8 +5212,8 @@ function dmShowAddItem() {
     zoneEl.innerHTML = DM_ZONES.map(z =>
       `<option value="${z}">${z.replace(/\b\w/g, c => c.toUpperCase())}</option>`
     ).join('');
-    zoneEl.value = DM_ZONES[0];
-    zoneEl.className = 'dm-zone-select ' + dmZoneClass(DM_ZONES[0]);
+    zoneEl.value = 'other';
+    zoneEl.className = 'dm-zone-select ' + dmZoneClass('other');
   }
   // Populate decision options
   const decEl = $('dm-add-decision');
