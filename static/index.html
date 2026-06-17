@@ -1620,7 +1620,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-row-highlight td { background: #fffbeb !important; }
 .dm-row-highlight:hover td { background: #fef3c7 !important; }
 .dm-row-highlight .dm-component-name { font-weight: 700; color: var(--gray-900); }
-.dm-component-name { font-weight: 500; color: var(--gray-800); }
+.dm-component-name { font-weight: 500; color: var(--gray-800); white-space: normal; word-break: break-word; }
+#dm-lrp-table td:nth-child(2) { min-width: 220px; }
 .dm-note {
   font-size: 12px;
   color: var(--gray-500);
@@ -4550,6 +4551,8 @@ async function init() {
   loadInspectionFlags();
   loadReport();
   loadDecisionMatrix();
+  // Keep Railway server awake — ping every 4 minutes
+  setInterval(() => fetch('/health').catch(() => {}), 4 * 60 * 1000);
 }
 
 // Load materials tab on first click (lazy — avoids 404 noise if inventory not run yet)

@@ -366,6 +366,11 @@ class TierReportRequest(BaseModel):
 
 # ─── Auth endpoints ───────────────────────────────────────────────────────────
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/")
 def serve_index():
     if STATIC_INDEX.exists():
