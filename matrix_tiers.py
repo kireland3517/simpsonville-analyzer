@@ -23,6 +23,12 @@ _MUST_DO_SIGNALS = (
     "deal killer", "gfci", "unsecured", "dangling",
 )
 
+# Checked before cosmetic component defaults — narrow electrical/safety only.
+_SAFETY_OVERRIDE_SIGNALS = (
+    "safety hazard", "exposed wire", "electrical wire", "electrical hazard",
+    "open wiring", "dangling wire", "unsecured wire", "loose wire",
+)
+
 _NICE_TO_DO_COMPONENTS = (
     "hardware", "light fixture", "interior lighting", "cabinet hardware",
     "door hardware", "faucet", "vanity", "trim paint", "switch plate",
@@ -85,6 +91,9 @@ def assign_readiness_tiers(row: dict[str, Any]) -> tuple[str, str]:
     if _component_match(comp, "ceiling water", "water damage"):
         return "must_do", "must_do"
 
+    if any(s in blob for s in _SAFETY_OVERRIDE_SIGNALS):
+        return "must_do", "must_do"
+
     if "popcorn ceiling" in comp:
         return "should_do", "should_do"
 
@@ -110,7 +119,6 @@ def assign_readiness_tiers(row: dict[str, Any]) -> tuple[str, str]:
     if "driveway" in comp and "pressure wash" not in comp:
         return "should_do", "should_do"
 
-    # ── General must_do signals ────────────────────────────────────────
     if any(s in blob for s in _MUST_DO_SIGNALS):
         return "must_do", "must_do"
 
