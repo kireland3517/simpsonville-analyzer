@@ -4821,7 +4821,7 @@ function dmEditTier(rowId) {
   const opts = DM_TIER_CYCLE.map(t =>
     `<option value="${t}"${t === current ? ' selected' : ''}>${dmTierLabel(t)}</option>`
   ).join('');
-  cell.innerHTML = `<select class="dm-zone-select"
+  cell.innerHTML = `<select class="dm-tier-select ${current}"
     onchange="dmSaveTier('${esc(rowId)}', this.value)"
     onblur="dmRenderTierPlan(dmLrpData)">
     ${opts}
@@ -5041,13 +5041,13 @@ function dmRenderTierPlan(data) {
     const mainRow = `
       <tr class="data-row">
         <td>
-          <select class="dm-inline-select" onchange="dmSaveZone('${esc(row.row_id)}', this.value)">${zoneOpts}</select>
+          <select class="dm-zone-select" onchange="dmSaveZone('${esc(row.row_id)}', this.value)">${zoneOpts}</select>
         </td>
         <td>
           <span class="dm-component-name">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}</span>
         </td>
         <td>
-          <select class="dm-inline-select dm-tier-select ${esc(tierKey)}" onchange="dmSaveTier('${esc(row.row_id)}', this.value)">${tierOpts}</select>
+          <select class="dm-tier-select ${esc(tierKey)}" onchange="dmSaveTier('${esc(row.row_id)}', this.value)">${tierOpts}</select>
         </td>
         <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
         <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" style="cursor:pointer;" title="Click to enter your own cost">
