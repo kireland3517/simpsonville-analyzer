@@ -5192,7 +5192,7 @@ async function dmSaveAddItem() {
     $('dm-add-component').value = '';
     $('dm-add-cost-lo').value = '';
     $('dm-add-cost-hi').value = '';
-    await dmLoadDecisionMatrix();
+    await loadDecisionMatrix(true);
     dmScheduleRoiUpdate();
   } catch (err) {
     alert('Could not add item: ' + (err.message || err));
