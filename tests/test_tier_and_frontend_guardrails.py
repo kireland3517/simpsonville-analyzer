@@ -105,6 +105,16 @@ def test_decision_matrix_empty_placeholders_use_html_entities():
     assert "â€”" not in body
 
 
+def test_decision_matrix_edit_hints_use_html_entities():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    row_start = text.index("tbody.innerHTML = rows.map")
+    row_end = text.index("if (!expanded) return mainRow", row_start)
+    body = text[row_start:row_end]
+
+    assert "&#9998;" in body
+    assert "âœŽ" not in body
+
+
 def test_frontend_add_item_requires_decision_and_uses_backend_detail():
     text = Path("static/index.html").read_text(encoding="utf-8")
     fn_start = text.index("async function dmSaveAddItem")

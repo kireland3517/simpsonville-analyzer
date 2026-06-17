@@ -5466,10 +5466,10 @@ function dmRenderTierPlan(data) {
         </td>
         <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
         <td data-cost-row="${esc(row.row_id)}" onclick="dmEditCost('${esc(row.row_id)}')" class="dm-cost-cell" title="Click to edit estimated range">
-          <span class="dm-cost-label">${dmFormatCostForRow(row)}</span><span class="dm-cost-edit-hint">✎</span>
+          <span class="dm-cost-label">${dmFormatCostForRow(row)}</span><span class="dm-cost-edit-hint">&#9998;</span>
         </td>
         <td data-forecast-row="${esc(row.row_id)}" onclick="dmEditForecastedSpend('${esc(row.row_id)}')" class="dm-cost-cell" title="Click to edit forecasted spend">
-          <span class="dm-cost-label">${dmFormatForecastedSpendForRow(row)}</span><span class="dm-cost-edit-hint">âœŽ</span>
+          <span class="dm-cost-label">${dmFormatForecastedSpendForRow(row)}</span><span class="dm-cost-edit-hint">&#9998;</span>
         </td>
         <td class="dm-row-menu-wrap">
           <button class="dm-expand-btn" onclick="dmToggleRowMenu(event,'${esc(row.row_id)}')" title="Options">···</button>
