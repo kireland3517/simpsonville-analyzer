@@ -93,6 +93,18 @@ def test_frontend_forecasted_spend_column_is_editable():
     assert "JSON.stringify({ forecasted_spend: amount })" in text
 
 
+def test_decision_matrix_empty_placeholders_use_html_entities():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    cost_start = text.index("function dmFormatCostForRow")
+    cost_end = text.index("function dmFormatForecastedSpendForRow", cost_start)
+    forecast_start = cost_end
+    forecast_end = text.index("function dmLabel", forecast_start)
+    body = text[cost_start:forecast_end]
+
+    assert "&mdash;" in body
+    assert "â€”" not in body
+
+
 def test_frontend_add_item_requires_decision_and_uses_backend_detail():
     text = Path("static/index.html").read_text(encoding="utf-8")
     fn_start = text.index("async function dmSaveAddItem")

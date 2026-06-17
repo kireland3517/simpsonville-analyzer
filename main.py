@@ -376,7 +376,7 @@ def health_check():
 @app.get("/")
 def serve_index():
     if STATIC_INDEX.exists():
-        return FileResponse(STATIC_INDEX)
+        return FileResponse(STATIC_INDEX, media_type="text/html; charset=utf-8")
     return PlainTextResponse("UI not built yet")
 
 
