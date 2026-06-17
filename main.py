@@ -1637,7 +1637,7 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
     valid_tiers = {"must_do", "should_do", "nice_to_do", "not_doing"}
     if body.minimum_tier not in valid_tiers:
         raise HTTPException(status_code=400, detail=f"Invalid tier: {body.minimum_tier!r}")
-    valid_actions = {"leave_as_is", "clean", "repair", "refresh", "replace", "further_inspect"}
+    valid_actions = {"leave_as_is", "clean", "repair", "refresh", "replace", "further_inspect", "paint", "needs_assessment", "not_doing"}
     selected_option_key = body.selected_option_key or "repair"
     if selected_option_key not in valid_actions:
         raise HTTPException(status_code=400, detail=f"Invalid decision: {selected_option_key!r}")
