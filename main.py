@@ -1358,6 +1358,28 @@ def get_decision_matrix_health(
     }
 
 
+@app.get("/decision-matrix/load")
+def get_decision_matrix_load(
+    tier: str = Query(default="should_do"),
+    property_id: str = Query(default=WALKTHROUGH_PROPERTY_ID),
+):
+    """Combined endpoint: returns all rows + tier plan in one request."""
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    matrix = load_current_matrix(sb, property_id)
+    if not matrix:
+        raise HTTPException(status_code=404, detail="No decision matrix for this property")
+    rows = load_matrix_rows_with_options(sb, matrix["id"])
+    tier_plan = select_tier_from_rows(rows, tier, matrix_id=matrix["id"], property_id=property_id)
+    return {
+        "property_id": property_id,
+        "matrix_id": matrix["id"],
+        "rows": rows,
+        "tier_plan": tier_plan,
+    }
+
+
 @app.get("/decision-matrix/tiers/{tier}")
 def get_decision_matrix_tier(
     tier: str,

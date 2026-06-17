@@ -5068,27 +5068,18 @@ async function loadDecisionMatrix(force) {
   }
   dmShowState('dm-loading');
   try {
-    const [rowsRes, tierRes] = await Promise.all([
-      fetch('/decision-matrix/rows'),
-      fetch(`/decision-matrix/tiers/${encodeURIComponent(dmLrpTier)}`),
-    ]);
-    if (rowsRes.status === 404) { dmShowState('dm-empty'); return; }
-    if (!rowsRes.ok) {
-      const err = await rowsRes.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${rowsRes.status}`);
+    const res = await fetch(`/decision-matrix/load?tier=${encodeURIComponent(dmLrpTier)}`);
+    if (res.status === 404) { dmShowState('dm-empty'); return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
     }
-    const rowsData = await rowsRes.json();
-    dmRows = rowsData.rows || [];
+    const data = await res.json();
+    dmRows = data.rows || [];
     if (!dmRows.length) { dmShowState('dm-empty'); return; }
-    if (tierRes.ok) {
-      dmLrpData = await tierRes.json();
-    }
+    dmLrpData = data.tier_plan || null;
     dmShowState('dm-content');
-    if (dmLrpData) {
-      dmRenderTierPlan(dmLrpData);
-    } else {
-      dmLoadTierPlan(dmLrpTier);
-    }
+    dmRenderTierPlan(dmLrpData);
   } catch (err) {
     $('dm-error-msg').textContent = err.message || 'Unknown error';
     dmShowState('dm-error');
