@@ -13,7 +13,7 @@ def has_comp(data: dict, component: str) -> bool:
     return any(r["component"] == component for r in data.get("selected_rows", []))
 
 
-for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+for tier in ("must_do", "should_do", "nice_to_do"):
     d = get_tier(tier)
     print(
         f"{tier}: {d['selected_count']} rows, "
@@ -24,7 +24,6 @@ for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
 must = get_tier("must_do")
 should = get_tier("should_do")
 nice = get_tier("nice_to_do")
-asp = get_tier("aspirational")
 
 checks = [
     ("must garage", has_comp(must, "Garage door")),
@@ -40,7 +39,7 @@ for label, ok in checks:
 for r in must["selected_rows"]:
     assert r["minimum_tier"] == "must_do", r
 print("must_do minimum_tier check: OK")
-print(f"aspirational total: {asp['selected_count']}")
+print(f"nice_to_do total: {nice['selected_count']}")
 
 with urllib.request.urlopen(f"{BASE}/report?id=budget_15k_general") as r:
     rep = json.loads(r.read())

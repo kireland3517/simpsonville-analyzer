@@ -105,7 +105,7 @@ from decision_matrix import (
     load_matrix_rows,
     load_matrix_rows_with_options,
 )
-from matrix_tiers import compute_tier_counts
+from matrix_tiers import compute_tier_counts, normalize_tier
 from tier_selector import select_for_tier, select_tier_from_rows
 from evidence import build_evidence_package, default_property_facts, format_evidence_prompt
 from report_composer import (
@@ -260,7 +260,7 @@ def _generate_report_from_tier(
     sb,
 ) -> dict:
     """Generate ROI report from cumulative listing-readiness tier selection."""
-    tier = tier.strip().lower()
+    tier = normalize_tier(tier.strip().lower()) or ""
     if tier not in TIER_TO_DETAIL_LEVEL:
         raise HTTPException(
             status_code=400,

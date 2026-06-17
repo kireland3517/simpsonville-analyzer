@@ -1605,7 +1605,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-tier-badge.must_do { background: var(--red-100); color: var(--red-700); }
 .dm-tier-badge.should_do { background: var(--yellow-100); color: var(--amber-600); }
 .dm-tier-badge.nice_to_do { background: #dbeafe; color: #1d4ed8; }
-.dm-tier-badge.aspirational { background: var(--gray-100); color: var(--gray-600); }
 .dm-tier-cell { white-space: nowrap; font-size: 11px; }
 .dm-tier-arrow { color: var(--gray-400); margin: 0 2px; font-size: 10px; }
 .dm-tier-summary-cards {
@@ -1618,7 +1617,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-tier-summary-cards .summary-card.must_do { border-left-color: var(--red-500); }
 .dm-tier-summary-cards .summary-card.should_do { border-left-color: #f59e0b; }
 .dm-tier-summary-cards .summary-card.nice_to_do { border-left-color: #3b82f6; }
-.dm-tier-summary-cards .summary-card.aspirational { border-left-color: var(--gray-400); }
 .dm-row-highlight td { background: #fffbeb !important; }
 .dm-row-highlight:hover td { background: #fef3c7 !important; }
 .dm-row-highlight .dm-component-name { font-weight: 700; color: var(--gray-900); }
@@ -1721,6 +1719,45 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-generate-btn:disabled { opacity: 0.6; cursor: wait; }
 .dm-lrp-generate-btn.must_do:hover:not(:disabled) { border-color: var(--red-500); color: var(--red-700); }
 .dm-lrp-rationale { font-size: 11px; color: var(--gray-500); max-width: 280px; line-height: 1.4; }
+.dm-lrp-decision-hint {
+  font-size: 12px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.5;
+  padding: 8px 12px; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+}
+.dm-lrp-decision-hint strong { color: var(--gray-900); }
+.dm-lrp-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+.dm-lrp-options { display: flex; flex-wrap: wrap; gap: 4px; max-width: 360px; }
+.dm-lrp-opt-btn {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 5px 9px; border-radius: 99px; border: 1px solid var(--gray-200);
+  background: #fff; color: var(--gray-600); cursor: pointer; white-space: nowrap;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.dm-lrp-opt-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-mid); }
+.dm-lrp-opt-btn.active {
+  background: var(--accent-mid); border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.dm-lrp-opt-btn.recommended:not(.active) { border-color: #86efac; color: var(--gray-700); }
+.dm-lrp-opt-btn:disabled { opacity: 0.55; cursor: wait; }
+.dm-lrp-row-needs-decision td { background: #fffbeb !important; }
+.dm-lrp-row-needs-decision:hover td { background: #fef3c7 !important; }
+.dm-lrp-decision-col { min-width: 200px; }
+.dm-workspace-details {
+  margin-top: 8px; border: 1px solid var(--gray-200); border-radius: 10px;
+  background: #fff; overflow: hidden;
+}
+.dm-workspace-details > summary {
+  cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600;
+  color: var(--gray-700); list-style: none; user-select: none;
+}
+.dm-workspace-details > summary::-webkit-details-marker { display: none; }
+.dm-workspace-details > summary::before {
+  content: '▸'; display: inline-block; margin-right: 8px; color: var(--gray-400);
+  transition: transform 0.15s;
+}
+.dm-workspace-details[open] > summary::before { transform: rotate(90deg); }
+.dm-workspace-details > summary:hover { background: var(--gray-50); }
+.dm-workspace-details-body { padding: 0 16px 16px; border-top: 1px solid var(--gray-100); }
 @media (max-width: 1200px) {
   .dm-summary-cards { grid-template-columns: repeat(3, 1fr); }
 }
@@ -1742,7 +1779,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     <nav class="sidebar-nav">
       <div class="nav-item" data-tab="decision-matrix">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
-        Decision Matrix
+        Listing Readiness
       </div>
       <div class="nav-item active" data-tab="roi">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1806,7 +1843,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <div class="detail-tab" data-tier="must_do">Must Do</div>
       <div class="detail-tab active" data-tier="should_do">Should Do</div>
       <div class="detail-tab" data-tier="nice_to_do">Nice To Do</div>
-      <div class="detail-tab" data-tier="aspirational">Aspirational</div>
     </div>
 
     <div class="content-area">
@@ -2107,8 +2143,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
         <div id="dm-content" hidden>
           <div class="dm-page-header">
             <div>
-              <h2 class="dm-page-title">Decision Workspace</h2>
-              <p class="dm-page-sub">Per-component decisions with option comparison — reports are projections of selections here.</p>
+              <h2 class="dm-page-title">Listing Readiness</h2>
+              <p class="dm-page-sub">Choose what to do for each item in your plan. Generated reports reflect these decisions.</p>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
               <div class="dm-view-toggle">
@@ -2125,13 +2161,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <div class="dm-lrp-header">
               <div>
                 <div class="dm-lrp-title">Listing Readiness Plan</div>
-                <p class="dm-lrp-sub">Cumulative tier selection from the matrix — Must Do includes only must-do rows; higher tiers add should-do, nice-to-do, and aspirational items.</p>
+                <p class="dm-lrp-sub">Pick a tier scope, then <strong>click an option</strong> on each row to set your decision. Must Do is the minimum; higher tiers add more items.</p>
               </div>
               <div class="dm-lrp-tabs" id="dm-lrp-tabs">
                 <button type="button" class="dm-lrp-tab must_do" data-tier="must_do" onclick="dmSetLrpTier('must_do')">Must Do</button>
                 <button type="button" class="dm-lrp-tab" data-tier="should_do" onclick="dmSetLrpTier('should_do')">Should Do</button>
                 <button type="button" class="dm-lrp-tab" data-tier="nice_to_do" onclick="dmSetLrpTier('nice_to_do')">Nice To Do</button>
-                <button type="button" class="dm-lrp-tab" data-tier="aspirational" onclick="dmSetLrpTier('aspirational')">Aspirational</button>
               </div>
             </div>
             <div class="dm-lrp-summary" id="dm-lrp-summary"></div>
@@ -2141,8 +2176,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <button type="button" class="dm-lrp-generate-btn must_do" data-tier="must_do" onclick="dmGenerateTierReport('must_do')">Must Do</button>
               <button type="button" class="dm-lrp-generate-btn" data-tier="should_do" onclick="dmGenerateTierReport('should_do')">Should Do</button>
               <button type="button" class="dm-lrp-generate-btn" data-tier="nice_to_do" onclick="dmGenerateTierReport('nice_to_do')">Nice To Do</button>
-              <button type="button" class="dm-lrp-generate-btn" data-tier="aspirational" onclick="dmGenerateTierReport('aspirational')">Aspirational</button>
             </div>
+            <div class="dm-lrp-decision-hint" id="dm-lrp-decision-hint" hidden></div>
+            <div class="dm-lrp-filter" id="dm-lrp-filter"></div>
             <div class="table-wrap">
               <table class="data-table" id="dm-lrp-table">
                 <thead>
@@ -2151,7 +2187,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                     <th>Component</th>
                     <th>Min tier</th>
                     <th>Status</th>
-                    <th>Option</th>
+                    <th class="dm-lrp-decision-col">Your decision</th>
                     <th>Cost</th>
                     <th>Rationale</th>
                   </tr>
@@ -2161,32 +2197,37 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             </div>
           </div>
 
-          <div class="dm-filter-bar" id="dm-filter-bar"></div>
-          <div class="dm-filter-bar" id="dm-tier-filter-bar"></div>
-          <div id="dm-table-view">
-          <div class="table-wrap">
-            <table class="data-table" id="dm-table">
-              <thead>
-                <tr>
-                  <th style="width:36px;"></th>
-                  <th>Zone</th>
-                  <th>Component</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                  <th>Readiness</th>
-                  <th>Source</th>
-                  <th>Photos</th>
-                  <th>Walkthrough note</th>
-                </tr>
-              </thead>
-              <tbody id="dm-tbody"></tbody>
-            </table>
-          </div>
-          </div>
-          <div id="dm-cards-view" hidden>
-            <div class="dm-workspace" id="dm-workspace"></div>
-          </div>
-          <p class="dm-page-sub" id="dm-showing-count" style="margin-top:-12px;margin-bottom:24px;"></p>
+          <details class="dm-workspace-details" id="dm-workspace-details">
+            <summary id="dm-workspace-summary">All components — evidence, photos, and filters</summary>
+            <div class="dm-workspace-details-body">
+              <div class="dm-filter-bar" id="dm-filter-bar"></div>
+              <div class="dm-filter-bar" id="dm-tier-filter-bar"></div>
+              <div id="dm-table-view">
+              <div class="table-wrap">
+                <table class="data-table" id="dm-table">
+                  <thead>
+                    <tr>
+                      <th style="width:36px;"></th>
+                      <th>Zone</th>
+                      <th>Component</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                      <th>Readiness</th>
+                      <th>Source</th>
+                      <th>Photos</th>
+                      <th>Walkthrough note</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dm-tbody"></tbody>
+                </table>
+              </div>
+              </div>
+              <div id="dm-cards-view" hidden>
+                <div class="dm-workspace" id="dm-workspace"></div>
+              </div>
+              <p class="dm-page-sub" id="dm-showing-count" style="margin-top:8px;margin-bottom:0;"></p>
+            </div>
+          </details>
         </div>
       </div><!-- /tab-decision-matrix -->
 
@@ -2660,11 +2701,15 @@ async function loadReport() {
   }
 }
 
+function normalizeTier(tier) {
+  return tier === 'aspirational' ? 'nice_to_do' : tier;
+}
+
 function syncRoiTierTab(tier) {
   if (!tier) return;
-  currentTier = tier;
+  currentTier = normalizeTier(tier);
   document.querySelectorAll('.detail-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tier === tier);
+    t.classList.toggle('active', t.dataset.tier === currentTier);
   });
 }
 
@@ -2684,6 +2729,7 @@ function labelFor(level) {
 }
 
 function tierLabelFor(tier) {
+  tier = normalizeTier(tier);
   return DM_LRP_TIER_LABELS[tier] || (tier ? tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—');
 }
 
@@ -3209,16 +3255,15 @@ function populateReport(report) {
   reportData.generated_at = report.generated_at || null;
   reportData.walkthrough_impact = report.walkthrough_impact || null;
 
-  reportData.tier = report.tier || report.listing_readiness_tier || currentTier;
-  const tierKey = report.tier || report.listing_readiness_tier || currentTier;
+  reportData.tier = normalizeTier(report.tier || report.listing_readiness_tier || currentTier);
+  const tierKey = reportData.tier;
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
   const tierArvNotes = {
     must_do: 'Must Do — safety, inspection, and listing blockers only',
     should_do: 'Should Do — competitive prep with strong buyer impact',
-    nice_to_do: 'Nice To Do — full presentation polish',
-    aspirational: 'Aspirational — maximum competitiveness projection',
+    nice_to_do: 'Nice To Do — optional polish and maximum competitiveness',
   };
   $('card-arv-sub').textContent = 'After-repair value ceiling';
   $('card-arv-note').textContent = tierArvNotes[tierKey]
@@ -4647,7 +4692,7 @@ async function saveFpRoom() {
   }
 }
 
-/* ── Decision Matrix (read-only) ─────────────────────────────────── */
+/* ── Decision Matrix ─────────────────────────────────────────────── */
 const DM_STATUS_ORDER = {
   required_action: 0,
   decision_required: 1,
@@ -4676,9 +4721,8 @@ const DM_TIER_FILTERS = [
   { key: 'must_do', label: 'Must Do' },
   { key: 'should_do', label: 'Should Do' },
   { key: 'nice_to_do', label: 'Nice To Do' },
-  { key: 'aspirational', label: 'Aspirational' },
 ];
-const DM_TIER_ORDER = { must_do: 0, should_do: 1, nice_to_do: 2, aspirational: 3 };
+const DM_TIER_ORDER = { must_do: 0, should_do: 1, nice_to_do: 2 };
 
 let dmRows = [];
 let dmMatrixMeta = null;
@@ -4691,9 +4735,78 @@ let dmView = 'table';
 let dmHealth = null;
 let dmLrpTier = 'should_do';
 let dmLrpData = null;
+let dmLrpFilter = 'all';
+let dmLrpFilterInitialized = false;
+let dmApplyingRowId = null;
+
+function dmRowById(rowId) {
+  return dmRows.find(r => r.id === rowId);
+}
+
+function dmLrpNeedsDecision(lrpRow) {
+  const full = dmRowById(lrpRow.row_id);
+  if (!full) return lrpRow.decision_status === 'decision_required';
+  return full.decision_status === 'decision_required' && !full.seller_override;
+}
+
+function dmRenderLrpOptionCell(lrpRow) {
+  const full = dmRowById(lrpRow.row_id);
+  const options = full?.options || [];
+  const selected = lrpRow.option_key;
+  const rowId = lrpRow.row_id;
+  const busy = dmApplyingRowId === rowId;
+
+  if (!options.length) {
+    return `<span class="dm-badge action">${esc(dmLabel(lrpRow.option_key))}</span>`;
+  }
+
+  return `<div class="dm-lrp-options" role="group" aria-label="Choose action for ${esc(lrpRow.component || 'component')}">
+    ${options.map(opt => {
+      const active = opt.option_key === selected;
+      const rec = opt.is_recommended && !(full?.seller_override);
+      const costHint = dmFormatCost(opt.cost_low, opt.cost_high);
+      const title = rec ? `${costHint} · System recommended` : costHint;
+      return `<button type="button"
+        class="dm-lrp-opt-btn${active ? ' active' : ''}${rec ? ' recommended' : ''}"
+        ${busy ? 'disabled' : ''}
+        onclick="dmApplyOption('${esc(rowId)}', '${esc(opt.option_key)}')"
+        title="${esc(title)}"
+        aria-pressed="${active}">
+        ${esc(dmLabel(opt.option_key))}${rec ? ' ★' : ''}
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+async function dmApplyOption(rowId, optionKey) {
+  if (dmApplyingRowId) return;
+  dmApplyingRowId = rowId;
+  dmRenderTierPlan(dmLrpData);
+  try {
+    const res = await fetch(`/decision-matrix/rows/${rowId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ selected_option_key: optionKey }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const idx = dmRows.findIndex(r => r.id === rowId);
+    if (idx >= 0 && data.row) dmRows[idx] = data.row;
+    dmRenderAll();
+    await dmLoadTierPlan(dmLrpTier);
+  } catch (err) {
+    alert('Could not save decision: ' + (err.message || err));
+    dmRenderTierPlan(dmLrpData);
+  } finally {
+    dmApplyingRowId = null;
+  }
+}
 
 async function dmGenerateTierReport(tier) {
-  tier = tier || dmLrpTier;
+  tier = normalizeTier(tier || dmLrpTier);
   const origText = {};
   document.querySelectorAll('.dm-lrp-generate-btn').forEach(btn => {
     origText[btn.dataset.tier] = btn.textContent;
@@ -4739,12 +4852,11 @@ const DM_LRP_TIER_LABELS = {
   must_do: 'Must Do',
   should_do: 'Should Do',
   nice_to_do: 'Nice To Do',
-  aspirational: 'Aspirational',
 };
 
 function dmTierLabel(tier) {
   if (!tier) return '—';
-  return tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return DM_LRP_TIER_LABELS[normalizeTier(tier)] || tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function dmRenderTierBadge(tier, prefix) {
@@ -4762,7 +4874,7 @@ function dmRenderReadinessCell(row) {
 }
 
 function dmTierCountsLocal(rows) {
-  const byMin = { must_do: 0, should_do: 0, nice_to_do: 0, aspirational: 0 };
+  const byMin = { must_do: 0, should_do: 0, nice_to_do: 0 };
   rows.forEach(r => {
     if (byMin[r.minimum_tier] !== undefined) byMin[r.minimum_tier] += 1;
   });
@@ -4833,23 +4945,7 @@ function dmRenderOptionsPanel(row) {
 async function dmApplyOverride(rowId) {
   const sel = $(`dm-override-${rowId}`);
   if (!sel) return;
-  try {
-    const res = await fetch(`/decision-matrix/rows/${rowId}`, {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ selected_option_key: sel.value }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    const idx = dmRows.findIndex(r => r.id === rowId);
-    if (idx >= 0 && data.row) dmRows[idx] = data.row;
-    dmRenderAll();
-  } catch (err) {
-    alert('Override failed: ' + (err.message || err));
-  }
+  await dmApplyOption(rowId, sel.value);
 }
 
 function dmRenderCards(rows) {
@@ -4917,11 +5013,32 @@ function dmSetLrpTier(tier) {
   dmLoadTierPlan(tier);
 }
 
+function dmSetLrpFilter(key) {
+  dmLrpFilter = key;
+  dmRenderTierPlan(dmLrpData);
+}
+
+function dmRenderLrpFilter(rows) {
+  const el = $('dm-lrp-filter');
+  if (!el) return;
+  const needsCount = rows.filter(dmLrpNeedsDecision).length;
+  el.innerHTML = `
+    <span class="dm-filter-label">Show</span>
+    <button type="button" class="dm-filter-pill${dmLrpFilter === 'all' ? ' active' : ''}" onclick="dmSetLrpFilter('all')">
+      All in plan<span class="dm-filter-count">${rows.length}</span>
+    </button>
+    <button type="button" class="dm-filter-pill${dmLrpFilter === 'needs_decision' ? ' active' : ''}" onclick="dmSetLrpFilter('needs_decision')">
+      Needs your decision<span class="dm-filter-count">${needsCount}</span>
+    </button>
+  `;
+}
+
 function dmRenderTierPlan(data) {
   const summaryEl = $('dm-lrp-summary');
   const chipsEl = $('dm-lrp-tier-chips');
   const tbody = $('dm-lrp-tbody');
-  if (!summaryEl || !tbody) return;
+  const hintEl = $('dm-lrp-decision-hint');
+  if (!summaryEl || !tbody || !data) return;
 
   const tierLabel = DM_LRP_TIER_LABELS[data.tier] || data.tier;
   summaryEl.innerHTML = [
@@ -4945,22 +5062,48 @@ function dmRenderTierPlan(data) {
     }).filter(Boolean).join(' ');
   }
 
-  const rows = data.selected_rows || [];
+  const allRows = data.selected_rows || [];
+  const needsCount = allRows.filter(dmLrpNeedsDecision).length;
+  if (!dmLrpFilterInitialized && needsCount > 0) {
+    dmLrpFilter = 'needs_decision';
+    dmLrpFilterInitialized = true;
+  }
+  dmRenderLrpFilter(allRows);
+  if (hintEl) {
+    if (needsCount > 0) {
+      hintEl.hidden = false;
+      hintEl.innerHTML = `<strong>${needsCount} item${needsCount === 1 ? '' : 's'}</strong> still need your decision in this tier — click an option in the <strong>Your decision</strong> column.`;
+    } else {
+      hintEl.hidden = true;
+      hintEl.innerHTML = '';
+    }
+  }
+
+  let rows = allRows;
+  if (dmLrpFilter === 'needs_decision') {
+    rows = rows.filter(dmLrpNeedsDecision);
+  }
+
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray-500);">No rows in ${esc(tierLabel)} plan.</td></tr>`;
+    const msg = dmLrpFilter === 'needs_decision'
+      ? 'No pending decisions in this tier — switch to All in plan or try a higher tier.'
+      : `No rows in ${esc(tierLabel)} plan.`;
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray-500);">${msg}</td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.map(row => {
     const rat = row.rationale || {};
     const reason = rat.reason || '';
+    const needsDecision = dmLrpNeedsDecision(row);
+    const overrideMark = row.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : '';
     return `
-      <tr class="data-row${DM_HIGHLIGHT_COMPONENTS.has(row.component) ? ' dm-row-highlight' : ''}">
+      <tr class="data-row${DM_HIGHLIGHT_COMPONENTS.has(row.component) ? ' dm-row-highlight' : ''}${needsDecision ? ' dm-lrp-row-needs-decision' : ''}">
         <td class="dm-zone">${esc(row.zone || '')}</td>
-        <td><span class="dm-component-name">${esc(row.component || '')}</span></td>
+        <td><span class="dm-component-name">${esc(row.component || '')}${overrideMark}</span></td>
         <td>${dmRenderTierBadge(row.minimum_tier, 'Min')}</td>
         <td><span class="dm-badge ${esc(row.decision_status)}">${esc(dmLabel(row.decision_status))}</span></td>
-        <td><span class="dm-badge action">${esc(dmLabel(row.option_key))}</span></td>
+        <td class="dm-lrp-decision-col">${dmRenderLrpOptionCell(row)}</td>
         <td>${dmFormatCost(row.cost_low, row.cost_high)}</td>
         <td><div class="dm-lrp-rationale" title="${esc(reason)}">${reason ? esc(reason) : '—'}</div></td>
       </tr>
@@ -4968,7 +5111,7 @@ function dmRenderTierPlan(data) {
   }).join('');
 }
 
-const TIER_ORDER_UI = ['must_do', 'should_do', 'nice_to_do', 'aspirational'];
+const TIER_ORDER_UI = ['must_do', 'should_do', 'nice_to_do'];
 
 function dmLabel(value) {
   return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -5005,7 +5148,8 @@ function dmFilterRows(rows, filter, tierFilter) {
     }
   }
   if (tierFilter && tierFilter !== 'all') {
-    out = out.filter(r => r.minimum_tier === tierFilter || r.recommended_tier === tierFilter);
+    const want = normalizeTier(tierFilter);
+    out = out.filter(r => normalizeTier(r.minimum_tier) === want || normalizeTier(r.recommended_tier) === want);
   }
   return out;
 }
@@ -5036,12 +5180,16 @@ function dmShowState(state) {
 function dmRenderTierSummary(counts) {
   const el = $('dm-tier-summary-cards');
   if (!el) return;
-  const byMin = counts || { must_do: 0, should_do: 0, nice_to_do: 0, aspirational: 0 };
+  const raw = counts || { must_do: 0, should_do: 0, nice_to_do: 0 };
+  const byMin = {
+    must_do: raw.must_do || 0,
+    should_do: raw.should_do || 0,
+    nice_to_do: (raw.nice_to_do || 0) + (raw.aspirational || 0),
+  };
   const cards = [
     { key: 'must_do', label: 'Must Do (min)', cls: 'must_do' },
     { key: 'should_do', label: 'Should Do (min)', cls: 'should_do' },
     { key: 'nice_to_do', label: 'Nice To Do (min)', cls: 'nice_to_do' },
-    { key: 'aspirational', label: 'Aspirational (min)', cls: 'aspirational' },
   ];
   el.innerHTML = cards.map(c => `
     <div class="summary-card ${c.cls}">
@@ -5150,6 +5298,10 @@ function dmRenderAll() {
   dmRenderTierSummary(tierByMin);
   dmRenderFilters(counts);
   dmRenderTierFilters(dmRows);
+  const summaryEl = $('dm-workspace-summary');
+  if (summaryEl) {
+    summaryEl.textContent = `All components (${dmRows.length}) — evidence, photos, and filters`;
+  }
   const visible = dmSortRows(dmFilterRows(dmRows, dmFilter, dmTierFilter));
   if (dmView === 'cards') {
     dmRenderCards(visible);

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from scenario_selector import REPAIR_OPTION_KEYS, select_scenario_cumulative
-from matrix_tiers import TIER_ORDER
+from matrix_tiers import TIER_ORDER, normalize_tier
 
 _OPTION_LABELS = {
     "leave_as_is": "Leave as-is",
@@ -25,15 +25,13 @@ _DEDUP_PRIORITY = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 TIER_TO_DETAIL_LEVEL = {
     "must_do": "spend_nothing",
     "should_do": "budget_5k",
-    "nice_to_do": "budget_15k",
-    "aspirational": "maximize",
+    "nice_to_do": "maximize",
 }
 
 TIER_LABELS = {
     "must_do": "Must Do",
     "should_do": "Should Do",
     "nice_to_do": "Nice To Do",
-    "aspirational": "Aspirational",
 }
 
 _TIER_SORT = {t: i for i, t in enumerate(TIER_ORDER)}
@@ -356,8 +354,8 @@ def compose_report_from_tier(
     """Generate ROI report JSON from listing-readiness tier selection."""
     from roi import generate_roi_report
 
-    tier = tier_selection["tier"]
-    detail_level = TIER_TO_DETAIL_LEVEL.get(tier, "budget_15k")
+    tier = normalize_tier(tier_selection["tier"]) or tier_selection["tier"]
+    detail_level = TIER_TO_DETAIL_LEVEL.get(tier, "maximize")
     line_items = compose_line_items_from_tier(rows, tier_selection)
 
     selected_ids = {r.get("row_id") for r in tier_selection.get("selected_rows") or []}

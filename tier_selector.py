@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from matrix_tiers import READINESS_TIERS, TIER_ORDER
+from matrix_tiers import READINESS_TIERS, TIER_ORDER, normalize_tier
 
 STATUS_PRIORITY = {
     "required_action": 0,
@@ -28,6 +28,8 @@ def _tier_index(tier: str | None) -> int:
 
 def tier_includes_row(minimum_tier: str | None, selected_tier: str) -> bool:
     """True when row minimum_tier is at or above urgency for the selected tier view."""
+    minimum_tier = normalize_tier(minimum_tier)
+    selected_tier = normalize_tier(selected_tier) or selected_tier
     if not minimum_tier or minimum_tier not in READINESS_TIERS:
         return False
     return _tier_index(minimum_tier) <= _tier_index(selected_tier)
@@ -48,7 +50,7 @@ def _selected_option(row: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _row_sort_key(row: dict[str, Any]) -> tuple:
-    min_idx = _tier_index(row.get("minimum_tier"))
+    min_idx = _tier_index(normalize_tier(row.get("minimum_tier")))
     status = STATUS_PRIORITY.get(row.get("decision_status") or "", 9)
     insp = INSP_PRIORITY.get(row.get("inspection_risk") or "low", 9)
     opt = _selected_option(row)
@@ -57,7 +59,7 @@ def _row_sort_key(row: dict[str, Any]) -> tuple:
 
 
 def _exclusion_reason(row: dict[str, Any], selected_tier: str) -> str:
-    min_t = row.get("minimum_tier")
+    min_t = normalize_tier(row.get("minimum_tier"))
     if not min_t:
         return "missing_minimum_tier"
     if min_t not in READINESS_TIERS:
@@ -77,7 +79,7 @@ def select_tier_from_rows(
     property_id: str = "130_kingfisher",
 ) -> dict[str, Any]:
     """Select cumulative rows for a listing-readiness tier."""
-    tier = tier.strip().lower()
+    tier = normalize_tier(tier.strip().lower()) or ""
     if tier not in READINESS_TIERS:
         raise ValueError(f"Unknown tier: {tier!r}. Choose from: {sorted(READINESS_TIERS)}")
 
@@ -90,7 +92,8 @@ def select_tier_from_rows(
     sorted_rows = sorted(rows, key=_row_sort_key)
 
     for row in sorted_rows:
-        min_t = row.get("minimum_tier")
+        min_t = normalize_tier(row.get("minimum_tier"))
+        rec_t = normalize_tier(row.get("recommended_tier"))
         if not tier_includes_row(min_t, tier):
             rows_excluded.append({
                 "row_id": row.get("id"),
@@ -120,7 +123,7 @@ def select_tier_from_rows(
             "component": row.get("component"),
             "zone": row.get("zone"),
             "minimum_tier": min_t,
-            "recommended_tier": row.get("recommended_tier"),
+            "recommended_tier": rec_t,
             "decision_status": row.get("decision_status"),
             "recommended_action": row.get("recommended_action"),
             "option_key": action,

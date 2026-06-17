@@ -102,7 +102,7 @@ def main() -> int:
                 )
 
     print("\n=== TIER ENDPOINTS ===")
-    for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+    for tier in ("must_do", "should_do", "nice_to_do"):
         data = get(f"/decision-matrix/tiers/{tier}")
         print(
             f"  {tier}: selected={data['selected_count']} "

@@ -54,7 +54,7 @@ def main() -> int:
     rows = load_matrix_rows_with_options(sb, matrix["id"])
     errors: list[str] = []
 
-    for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+    for tier in ("must_do", "should_do", "nice_to_do"):
         sel = select_tier_from_rows(rows, tier, matrix_id=matrix["id"], property_id=property_id)
         items = compose_line_items_from_tier(rows, sel)
         all_lines = (items.get("upgrades") or []) + (items.get("repairs") or [])
@@ -78,7 +78,7 @@ def main() -> int:
             if _find_component(all_lines, "countertops"):
                 errors.append(f"{tier} should not include countertops")
 
-        if tier in ("nice_to_do", "aspirational"):
+        if tier == "nice_to_do":
             if not _find_component(all_lines, "countertops"):
                 errors.append(f"{tier} missing countertops")
 

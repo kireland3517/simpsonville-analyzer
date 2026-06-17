@@ -83,9 +83,9 @@ Major design decisions for the seller walkthrough and ROI experience. Sourced fr
 
 ---
 
-## 8. Budget scenarios replace static detail levels
+## 8. Budget scenarios replace static detail levels *(current — superseded by §9)*
 
-**Decision:** Replace Quick Wins / Balanced / Leave Nothing Behind with:
+**Decision:** Replace Quick Wins / Balanced / Leave Nothing Behind with budget scenarios (shipped).
 
 | Scenario | Seller question |
 |----------|-----------------|
@@ -97,6 +97,25 @@ Major design decisions for the seller walkthrough and ROI experience. Sourced fr
 **Rationale:** Static additive scopes answered *"What's wrong?"* not *"I have $5k — what should I spend it on?"*
 
 Each ROI item includes a **rationale** block: evidence citations, tier, and reason.
+
+---
+
+## 9. Listing-readiness tiers replace budget scenarios *(planned — not implemented)*
+
+**Decision:** Remove `spend_nothing`. Replace budget-cap scenarios with three **listing-readiness tiers**:
+
+| Tier | Seller question |
+|------|-----------------|
+| Must Do | What must be fixed for safety, inspection, odor, or listing readiness? |
+| Should Do | What improvements have strong buyer impact and return? |
+| Nice to Do | What optional polish helps presentation or competitiveness but isn't necessary? |
+
+**Rationale:** Sellers think in listing readiness, not arbitrary budget buckets. `spend_nothing` duplicated `must_do` intent. A fourth "aspirational" tier duplicated `nice_to_do` in practice and was collapsed. Tiers are cumulative (`must_do` ⊂ `should_do` ⊂ `nice_to_do`). Cost remains visible on options but does not gate inclusion.
+
+**Matrix rows** will carry `minimum_tier` and `recommended_tier` (e.g. garage door → `must_do`; countertops → `nice_to_do` min / `should_do` rec).
+
+**Spec:** [listing-readiness-tiers.md](listing-readiness-tiers.md)  
+**Phases:** 10–14 in [decision_matrix_completion plan](../.cursor/plans/decision_matrix_completion_b8e4f12a.plan.md)
 
 ---
 

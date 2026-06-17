@@ -85,7 +85,7 @@ def main() -> int:
     results: dict[str, dict] = {}
     errors: list[str] = []
 
-    for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+    for tier in ("must_do", "should_do", "nice_to_do"):
         print(f"\nPOST /report/from-tier tier={tier} ...", flush=True)
         try:
             report = post_tier(tier)

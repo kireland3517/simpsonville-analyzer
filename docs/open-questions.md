@@ -48,12 +48,15 @@ The UI state machine plan (`walkthrough_ui_state_fixes_40b16832.plan.md`) is **a
 
 ## ROI tab & budget scenarios
 
+> **Direction set:** Budget scenarios will be replaced by listing-readiness tiers. `spend_nothing` removed. See [listing-readiness-tiers.md](listing-readiness-tiers.md).
+
 | Question | Options | Notes |
 |----------|---------|-------|
 | Sparse walkthrough threshold | When to show "Add observations…" banner | Plan says "few notes" but no number (3? 10? % of rows?) |
 | Inferred-tier warning copy | Subtle pill vs modal on first Maximize regen | Trust layer for age-only recommendations |
 | Rationale default in UI | Collapsed vs expanded per item | Print: expanded by default; screen behavior TBD |
-| budget_5k cache slot | New key vs map from legacy `executive` | Code has `LEGACY_LEVEL_MAP`; confirm one-time regen strategy for cached reports |
+| Tier tab layout | Resolved — three cumulative tiers (aspirational merged into nice_to_do) | Shipped |
+| Popcorn `minimum_tier` | `should_do` vs `must_do` for aggressive prep strategy | Seller strategy may elevate tier |
 | Buyer profile in UI | Expose all 6 profiles vs general-only default | README documents 6 profiles; SPA may not surface all |
 
 ---

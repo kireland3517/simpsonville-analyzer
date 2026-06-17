@@ -12,7 +12,7 @@ The ROI Analyzer helps a homeowner prepare a house for sale by combining photo a
 | Layer | Surface | Question |
 |-------|---------|----------|
 | Evidence | Walkthrough tab | What's true about my house? |
-| Decision | ROI tab | I have $X — what should I spend it on? |
+| Decision | ROI tab + Decision Workspace | What must I do to list vs improve competitiveness? |
 
 ---
 
@@ -87,18 +87,20 @@ Primary web server. Serves `static/index.html`, exposes REST API, orchestrates r
 Single-page app with no build step. Tabs include Photos, Analysis, Walkthrough, ROI scenarios, Inventory, Print.
 
 - Debounced PATCH auto-save for walkthrough and inventory
-- Budget scenario tabs: Spend Nothing, $5k, $15k, Maximize
+- Budget scenario tabs (current): Spend Nothing, $5k, $15k, Maximize — **planned replacement:** listing-readiness tiers (see [listing-readiness-tiers.md](listing-readiness-tiers.md))
 - Async print with deep-detail prefetch
 
 ### ROI engine (`roi.py`)
 
 Uses Gemini text model (`claude_client.py` / `gemini_client.py`) to produce JSON reports.
 
-**Detail levels (budget scenarios):**
+**Detail levels (budget scenarios — current production):**
+
+> **Planned:** Replace with listing-readiness tiers (`must_do`, `should_do`, `nice_to_do`). Remove `spend_nothing`. See [listing-readiness-tiers.md](listing-readiness-tiers.md).
 
 | Key | Label | Intent |
 |-----|-------|--------|
-| `spend_nothing` | Spend Nothing | Transaction-risk only, ~$0–$2k |
+| `spend_nothing` | Spend Nothing | *(to be removed)* Transaction-risk only |
 | `budget_5k` | $5,000 Budget | Highest ROI within ~$5k |
 | `budget_15k` | $15,000 Budget | Balanced prep plan |
 | `maximize` | Maximize Sale Price | No budget cap |
@@ -244,5 +246,6 @@ python run_inventory.py   # Inventory generation
 ## Related docs
 
 - [ux-decisions.md](ux-decisions.md) — walkthrough UX choices
+- [listing-readiness-tiers.md](listing-readiness-tiers.md) — **planned** tier model (replaces budget scenarios)
 - [rejected-designs.md](rejected-designs.md) — approaches we did not ship
 - [open-questions.md](open-questions.md) — unresolved decisions

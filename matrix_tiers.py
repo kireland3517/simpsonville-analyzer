@@ -9,11 +9,21 @@ from typing import Any
 
 from evidence import _norm
 
-READINESS_TIERS = frozenset({"must_do", "should_do", "nice_to_do", "aspirational"})
+READINESS_TIERS = frozenset({"must_do", "should_do", "nice_to_do"})
 
-TIER_ORDER = ("must_do", "should_do", "nice_to_do", "aspirational")
+TIER_ORDER = ("must_do", "should_do", "nice_to_do")
+
+_LEGACY_TIER_ALIASES = {"aspirational": "nice_to_do"}
 
 _TIER_INDEX = {t: i for i, t in enumerate(TIER_ORDER)}
+
+
+def normalize_tier(tier: str | None) -> str | None:
+    """Map legacy tier keys to current vocabulary (aspirational → nice_to_do)."""
+    if not tier:
+        return tier
+    key = tier.strip().lower()
+    return _LEGACY_TIER_ALIASES.get(key, key)
 
 _MUST_DO_SIGNALS = (
     "safety hazard", "exposed wire", "electrical wire", "electrical hazard",
@@ -111,7 +121,7 @@ def assign_readiness_tiers(row: dict[str, Any]) -> tuple[str, str]:
         return "should_do", "should_do"
 
     if "fireplace" in comp:
-        return "nice_to_do", "aspirational"
+        return "nice_to_do", "nice_to_do"
 
     if "exterior lighting" in comp:
         return "nice_to_do", "nice_to_do"
@@ -166,12 +176,11 @@ def assign_readiness_tiers(row: dict[str, Any]) -> tuple[str, str]:
     if status == "monitor":
         return "nice_to_do", "should_do"
 
-    # ── aspirational ───────────────────────────────────────────────────
     if rec_action == "replace" and buyer != "high" and insp == "low":
-        return "nice_to_do", "aspirational"
+        return "nice_to_do", "nice_to_do"
 
     if status == "decision_required" and rec_action == "replace":
-        return "should_do", "aspirational"
+        return "should_do", "nice_to_do"
 
     # ── Default ────────────────────────────────────────────────────────
     return "nice_to_do", "should_do"
@@ -192,8 +201,8 @@ def compute_tier_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     missing_recommended = 0
 
     for row in rows:
-        min_t = row.get("minimum_tier")
-        rec_t = row.get("recommended_tier")
+        min_t = normalize_tier(row.get("minimum_tier"))
+        rec_t = normalize_tier(row.get("recommended_tier"))
         if min_t in by_minimum:
             by_minimum[min_t] += 1
         else:

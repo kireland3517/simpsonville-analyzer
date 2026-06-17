@@ -64,12 +64,12 @@ def main() -> int:
     print(f"Tier distribution (min): {tier_counts}")
 
     # Tier endpoints
-    for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+    for tier in ("must_do", "should_do", "nice_to_do"):
         data = get(f"/decision-matrix/tiers/{tier}")
         print(f"  {tier}: {data['selected_count']} rows, ${data['cost_low_total']}-${data['cost_high_total']}")
 
     # Cached tier reports
-    for tier in ("must_do", "should_do", "nice_to_do", "aspirational"):
+    for tier in ("must_do", "should_do", "nice_to_do"):
         rid = f"tier_{tier}_general"
         try:
             report = get(f"/report?id={urllib.parse.quote(rid)}")
