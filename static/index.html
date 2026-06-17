@@ -1801,12 +1801,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       </div>
     </header>
 
-    <!-- Detail level tabs -->
+    <!-- Listing readiness tier tabs (ROI report) -->
     <div class="detail-tabs" id="detail-tabs">
-      <div class="detail-tab" data-level="spend_nothing">Spend Nothing</div>
-      <div class="detail-tab" data-level="budget_5k">$5,000 Budget</div>
-      <div class="detail-tab active" data-level="budget_15k">$15,000 Budget</div>
-      <div class="detail-tab" data-level="maximize">Maximize Sale Price</div>
+      <div class="detail-tab" data-tier="must_do">Must Do</div>
+      <div class="detail-tab active" data-tier="should_do">Should Do</div>
+      <div class="detail-tab" data-tier="nice_to_do">Nice To Do</div>
+      <div class="detail-tab" data-tier="aspirational">Aspirational</div>
     </div>
 
     <div class="content-area">
@@ -2117,16 +2117,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               </div>
               <div class="dm-meta" id="dm-meta"></div>
             </div>
-          </div>
-          <div class="dm-scenario-bar">
-            <label for="dm-scenario-select" class="dm-filter-label">Scenario preview</label>
-            <select id="dm-scenario-select" onchange="dmLoadScenarioPreview()">
-              <option value="spend_nothing">Spend Nothing (~$2k)</option>
-              <option value="budget_5k">Budget $5k</option>
-              <option value="budget_15k" selected>Budget $15k</option>
-              <option value="maximize">Maximize</option>
-            </select>
-            <span class="dm-scenario-summary" id="dm-scenario-summary"></span>
           </div>
           <div class="dm-summary-cards" id="dm-summary-cards"></div>
           <div class="dm-tier-summary-cards" id="dm-tier-summary-cards"></div>
@@ -2479,7 +2469,7 @@ function appendRichText(parent, text) {
 const $    = id => document.getElementById(id);
 
 /* ── State ─────────────────────────────────────────────────────── */
-let currentLevel = 'budget_15k';
+let currentTier = 'should_do';
 const WT_DEV = new URLSearchParams(location.search).has('dev') || localStorage.getItem('wt_dev') === '1';
 if (WT_DEV) document.body.classList.add('wt-dev-on');
 let wtAdvanced = false;
@@ -2543,12 +2533,12 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-/* ── Detail level tabs ─────────────────────────────────────────── */
+/* ── Tier tabs (ROI report) ─────────────────────────────────────── */
 document.querySelectorAll('.detail-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentLevel = tab.dataset.level;
+    currentTier = tab.dataset.tier || 'should_do';
     loadReport();
   });
 });
@@ -2571,10 +2561,14 @@ async function regenerateReport() {
   btn.innerHTML = '<div class="spinner sm"></div> Regenerating…';
   showState('state-loading');
   try {
-    const res = await fetch('/report', {
+    const res = await fetch('/report/from-tier', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
+      body: JSON.stringify({
+        tier: currentTier,
+        buyer_profile: BUYER_PROFILE,
+        property_id: '130_kingfisher',
+      })
     });
     if (!isRoiTabActive()) return;
     if (!res.ok) {
@@ -2602,10 +2596,14 @@ async function generateReport() {
   btn.textContent = 'Generating…';
   showState('state-loading');
   try {
-    const res = await fetch('/report', {
+    const res = await fetch('/report/from-tier', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({detail_level: currentLevel, buyer_profile: BUYER_PROFILE})
+      body: JSON.stringify({
+        tier: currentTier,
+        buyer_profile: BUYER_PROFILE,
+        property_id: '130_kingfisher',
+      })
     });
     if (!isRoiTabActive()) return;
     if (!res.ok) {
@@ -2625,45 +2623,49 @@ async function generateReport() {
   }
 }
 
-/* ── Load report (fetch by id) ───────────────────────────────────── */
-const LEGACY_REPORT_LEVELS = {
-  spend_nothing: 'executive',
-  budget_15k: 'standard',
-  maximize: 'deep_dive',
-};
-
+/* ── Load report (fetch cached tier report) ─────────────────────── */
 async function loadReport() {
   if (!isRoiTabActive()) return;
   showState('state-loading');
-  const tryLevels = [currentLevel, LEGACY_REPORT_LEVELS[currentLevel]].filter(Boolean);
+  const reportId = `tier_${currentTier}_${BUYER_PROFILE}`;
   let report = null;
-  for (const level of tryLevels) {
+  try {
+    const res = await fetch(`/report?id=${encodeURIComponent(reportId)}`);
     if (!isRoiTabActive()) return;
-    const id = `${level}_${BUYER_PROFILE}`;
-    try {
-      const res = await fetch(`/report?id=${encodeURIComponent(id)}`);
-      if (!isRoiTabActive()) return;
-      if (res.ok) { report = await res.json(); break; }
-      if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      if (!isRoiTabActive()) return;
-      if (!err.message?.startsWith('HTTP')) throw err;
+    if (res.ok) {
+      report = await res.json();
+    } else if (res.status !== 404) {
+      throw new Error(`HTTP ${res.status}`);
     }
+  } catch (err) {
+    if (!isRoiTabActive()) return;
+    $('error-msg').textContent = 'Could not connect to server. Make sure uvicorn main:app is running.';
+    showState('state-error');
+    return;
   }
   try {
     if (!isRoiTabActive()) return;
     if (!report) {
-      $('not-gen-title').textContent = labelFor(currentLevel);
-      $('not-gen-msg').textContent = 'This budget scenario has not been generated yet.';
+      $('not-gen-title').textContent = tierLabelFor(currentTier);
+      $('not-gen-msg').textContent = 'This listing readiness tier has not been generated yet.';
       showState('state-not-generated');
       return;
     }
+    if (report.tier) syncRoiTierTab(report.tier);
     populateReport(report);
     showState('tab-roi');
-  } catch(err) {
-    $('error-msg').textContent = 'Could not connect to server. Make sure uvicorn main:app is running.';
+  } catch (err) {
+    $('error-msg').textContent = 'Could not load report: ' + (err.message || err);
     showState('state-error');
   }
+}
+
+function syncRoiTierTab(tier) {
+  if (!tier) return;
+  currentTier = tier;
+  document.querySelectorAll('.detail-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tier === tier);
+  });
 }
 
 function normalizeLevel(level) {
@@ -3137,7 +3139,7 @@ function renderWalkthroughImpact(report) {
   if (collapse) collapse.open = true;
 
   const s = impact.summary || {};
-  const scenarioLabel = s.scenario_label || labelFor(s.scenario || currentLevel);
+  const scenarioLabel = s.scenario_label || tierLabelFor(s.tier || reportData.tier || currentTier);
   $('wt-impact-summary').textContent =
     `${s.included ?? impact.items.length} included · ${s.influenced ?? 0} influenced this report · ` +
     `${s.analyzed_not_selected ?? 0} analyzed, not selected at ${scenarioLabel}`;
@@ -3174,7 +3176,7 @@ function renderWalkthroughImpact(report) {
     } else if (item.analyzed && item.not_selected_reason) {
       statusHtml = `<div class="wt-impact-status"><strong>Analyzed ·</strong> ${esc(item.not_selected_reason)}</div>`;
     } else if (item.analyzed) {
-      statusHtml = `<div class="wt-impact-status"><strong>Analyzed ·</strong> Not selected at this budget level</div>`;
+      statusHtml = `<div class="wt-impact-status"><strong>Analyzed ·</strong> Not selected at this tier</div>`;
     } else {
       statusHtml = `<div class="wt-impact-status">Included · Not analyzed for this report</div>`;
     }
@@ -3207,22 +3209,22 @@ function populateReport(report) {
   reportData.generated_at = report.generated_at || null;
   reportData.walkthrough_impact = report.walkthrough_impact || null;
 
-  const level = normalizeLevel(report.detail_level || currentLevel);
-  const tierKey = report.tier || report.listing_readiness_tier;
+  reportData.tier = report.tier || report.listing_readiness_tier || currentTier;
+  const tierKey = report.tier || report.listing_readiness_tier || currentTier;
 
   // ARV card — always static, never recalculated
   $('card-arv').textContent = fmt$(ex.estimated_arv);
-  const arvNotes = {
-    spend_nothing: 'Scenario anchor — $295K achievable sale (must-fix only)',
-    budget_5k:     'Scenario anchor — $298K with focused $5K improvements',
-    budget_15k:    'Scenario anchor — $300K with $15K prep plan',
-    maximize:      'Scenario anchor — $305K top ceiling (307 Blue Heron + sqft)',
+  const tierArvNotes = {
+    must_do: 'Must Do — safety, inspection, and listing blockers only',
+    should_do: 'Should Do — competitive prep with strong buyer impact',
+    nice_to_do: 'Nice To Do — full presentation polish',
+    aspirational: 'Aspirational — maximum competitiveness projection',
   };
   $('card-arv-sub').textContent = 'After-repair value ceiling';
-  const tierArvNote = tierKey && report.projection_source === 'matrix_tier'
-    ? `${tierLabelFor(tierKey)} tier — matrix-driven listing readiness projection`
-    : null;
-  $('card-arv-note').textContent = tierArvNote || arvNotes[level] || 'Anchored to River Ridge sold comps';
+  $('card-arv-note').textContent = tierArvNotes[tierKey]
+    || (report.projection_source === 'matrix_tier'
+      ? `${tierLabelFor(tierKey)} tier — matrix-driven listing readiness projection`
+      : 'Anchored to River Ridge sold comps');
 
   // Reset unchecked sets on fresh data load (all start checked)
   unchecked.upgrades.clear();
@@ -3290,8 +3292,8 @@ function populateReport(report) {
 
   // Report meta
   const levelLabel = tierKey
-    ? `${tierLabelFor(tierKey)} · matrix tier`
-    : labelFor(report.detail_level || currentLevel);
+    ? `${tierLabelFor(tierKey)} · listing readiness`
+    : labelFor(report.detail_level);
   const allItems = [...upgrades, ...repairs];
   const traced = allItems.filter(i => i.matrix_row_id && (i.matrix_option_id || i.option_id)).length;
   $('report-meta').innerHTML = `
@@ -4687,7 +4689,6 @@ let dmLoadedOnce = false;
 let dmExpanded = new Set();
 let dmView = 'table';
 let dmHealth = null;
-let dmScenarioPreview = null;
 let dmLrpTier = 'should_do';
 let dmLrpData = null;
 
@@ -4718,6 +4719,8 @@ async function dmGenerateTierReport(tier) {
       throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
     const report = await res.json();
+    currentTier = tier;
+    syncRoiTierTab(tier);
     switchToMainTab('roi');
     showState('state-loading');
     populateReport(report);
@@ -4902,6 +4905,7 @@ async function dmLoadTierPlan(tier) {
     }
     dmLrpData = await res.json();
     dmRenderTierPlan(dmLrpData);
+    if (dmLoadedOnce) dmRenderAll();
   } catch (err) {
     if (tbody) {
       tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--red-600);">${esc(err.message || 'Failed to load tier plan')}</td></tr>`;
@@ -4965,22 +4969,6 @@ function dmRenderTierPlan(data) {
 }
 
 const TIER_ORDER_UI = ['must_do', 'should_do', 'nice_to_do', 'aspirational'];
-
-async function dmLoadScenarioPreview() {
-  const scenario = $('dm-scenario-select')?.value || 'budget_15k';
-  const summaryEl = $('dm-scenario-summary');
-  if (!summaryEl) return;
-  try {
-    const res = await fetch(`/decision-matrix/scenarios/${scenario}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    dmScenarioPreview = data.selection;
-    const sel = data.selection || {};
-    summaryEl.textContent = `${sel.selection_count || 0} items selected · ${dmFormatCost(sel.total_cost_low, sel.total_cost_high)} · ${(data.line_item_counts?.upgrades || 0)} upgrades, ${(data.line_item_counts?.repairs || 0)} repairs`;
-  } catch (_) {
-    summaryEl.textContent = '';
-  }
-}
 
 function dmLabel(value) {
   return (value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -5123,7 +5111,7 @@ function dmRenderTable(rows) {
     $('dm-showing-count').textContent = 'Showing 0 of ' + dmRows.length + ' rows';
     return;
   }
-  const selectedIds = new Set((dmScenarioPreview?.selected || []).map(s => s.row_id));
+  const selectedIds = new Set((dmLrpData?.selected_rows || []).map(s => s.row_id));
   tbody.innerHTML = rows.map(row => {
     const highlight = DM_HIGHLIGHT_COMPONENTS.has(row.component);
     const note = (row.walkthrough_notes || '').trim();
@@ -5233,7 +5221,6 @@ async function loadDecisionMatrix(force) {
     dmRenderMeta(dmMatrixMeta);
     dmShowState('dm-content');
     dmRenderAll();
-    dmLoadScenarioPreview();
     dmLoadTierPlan(dmLrpTier);
     dmLoadedOnce = true;
   } catch (err) {
