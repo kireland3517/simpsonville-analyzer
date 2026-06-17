@@ -5061,7 +5061,14 @@ async function dmSaveCost(rowId) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ cost_low: lo, cost_high: hi }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errorData = await res.json();
+        detail = errorData.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
     // Update local cache immediately so cost doesn't flicker back
     const row = dmRowById(rowId);
     if (row) { row.cost_low = lo; row.cost_high = hi; }

@@ -1597,6 +1597,11 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
                 status_code=409,
                 detail="Supabase tier constraint does not allow not_doing yet; run migrations/decision_matrix_v5_not_doing_tier.sql",
             )
+        if "cost_low" in message or "cost_high" in message:
+            raise HTTPException(
+                status_code=409,
+                detail="Supabase decision_matrix_rows is missing cost columns; run migrations/decision_matrix_v6_row_costs.sql",
+            )
         raise HTTPException(status_code=503, detail=message)
 
 

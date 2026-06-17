@@ -73,9 +73,27 @@ def test_frontend_tier_save_alert_uses_backend_detail():
     assert "detail = errorData.detail || detail" in body
 
 
+def test_frontend_cost_save_alert_uses_backend_detail():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+    fn_start = text.index("async function dmSaveCost")
+    fn_end = text.index("function dmScheduleRoiUpdate", fn_start)
+    body = text[fn_start:fn_end]
+
+    assert "const errorData = await res.json()" in body
+    assert "detail = errorData.detail || detail" in body
+
+
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
     sql = Path("migrations/decision_matrix_v5_not_doing_tier.sql").read_text(encoding="utf-8")
 
     assert "decision_matrix_rows_minimum_tier_check" in sql
     assert "decision_matrix_rows_recommended_tier_check" in sql
     assert "'not_doing'" in sql
+
+
+def test_row_cost_columns_are_added_by_latest_matrix_migration():
+    sql = Path("migrations/decision_matrix_v6_row_costs.sql").read_text(encoding="utf-8")
+
+    assert "alter table decision_matrix_rows" in sql
+    assert "add column if not exists cost_low numeric" in sql
+    assert "add column if not exists cost_high numeric" in sql
