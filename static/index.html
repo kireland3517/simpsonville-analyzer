@@ -1621,6 +1621,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-row-highlight:hover td { background: #fef3c7 !important; }
 .dm-row-highlight .dm-component-name { font-weight: 700; color: var(--gray-900); }
 .dm-component-name { font-weight: 500; color: var(--gray-800); white-space: normal; word-break: break-word; }
+.dm-component-expand:hover { color: var(--accent); }
 #dm-lrp-table td:nth-child(2) { min-width: 220px; }
 .dm-note {
   font-size: 12px;
@@ -5099,6 +5100,12 @@ async function dmSaveAddItem() {
   }
 }
 
+function dmToggleLrpExpand(rowId) {
+  if (dmLrpExpanded.has(rowId)) dmLrpExpanded.delete(rowId);
+  else dmLrpExpanded.add(rowId);
+  dmRenderTierPlan(dmLrpData);
+}
+
 let dmOpenMenuId = null;
 function dmToggleRowMenu(evt, rowId) {
   evt.stopPropagation();
@@ -5246,7 +5253,7 @@ function dmRenderTierPlan(data) {
           <select class="dm-zone-select ${dmZoneClass(row.zone||row.component_zone)}" onchange="dmSaveZone('${esc(row.row_id)}', this.value); this.className='dm-zone-select '+dmZoneClass(this.value)">${zoneOpts}</select>
         </td>
         <td>
-          <span class="dm-component-name">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}</span>
+          <span class="dm-component-name dm-component-expand" onclick="dmToggleLrpExpand('${esc(row.row_id)}')" title="Click to expand details" style="cursor:pointer;">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}${(row.rationale?.reason || full?.current_state || full?.walkthrough_notes) ? ' <span style="font-size:10px;color:var(--gray-400);margin-left:4px;">'+(expanded?'▲':'▼')+'</span>' : ''}</span>
         </td>
         <td>
           <select class="dm-tier-select ${esc(tierKey)}" onchange="dmSaveTier('${esc(row.row_id)}', this.value)">${tierOpts}</select>
