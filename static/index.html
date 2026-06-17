@@ -4441,6 +4441,7 @@ async function init() {
   loadDatedFeatures();
   loadInspectionFlags();
   loadReport();
+  loadDecisionMatrix();
 }
 
 // Load materials tab on first click (lazy — avoids 404 noise if inventory not run yet)
@@ -4673,9 +4674,13 @@ async function saveFpRoom() {
 /* ── Decision Matrix ─────────────────────────────────────────────── */
 /* ── Decision Matrix ────────────────────────────────────────── */
 const DM_ZONES = [
-  'kitchen', 'great room', 'primary bathroom', 'primary bedroom',
-  'entry foyer', 'sun room', 'garage', 'exterior', 'laundry',
-  'dining room', 'guest bathroom', 'whole house', 'hvac', 'electrical', 'unmatched',
+  'kitchen', 'great room', 'dining room', 'entry foyer', 'sun room',
+  'primary bedroom', 'bedroom 2', 'bedroom 3',
+  'primary bathroom', 'guest bathroom', 'full bath',
+  'laundry', 'laundry room', 'hallways', 'interior doors', 'windows',
+  'garage', 'exterior',
+  'hvac', 'electrical', 'plumbing', 'structural / moisture',
+  'whole house', 'unmatched',
 ];
 const DM_TIER_CYCLE = ['must_do', 'should_do', 'nice_to_do'];
 
