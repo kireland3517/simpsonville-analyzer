@@ -1792,11 +1792,21 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 /* Zone — plain minimal select */
 .dm-zone-select {
   font-size: 12px; padding: 3px 6px; border-radius: 6px;
-  border: 1px solid var(--gray-200); background: #fff; cursor: pointer;
-  color: var(--gray-600); max-width: 130px;
+  border: 1.5px solid var(--gray-200); cursor: pointer;
+  color: var(--gray-700); max-width: 140px; font-weight: 500;
 }
 .dm-zone-select:hover { border-color: var(--gray-400); }
 .dm-zone-select:focus { outline: none; border-color: var(--accent); }
+/* Zone color groups */
+.dm-zone-select.zone-kitchen    { background:#fef9c3; border-color:#fde047; color:#713f12; }
+.dm-zone-select.zone-living     { background:#f0fdf4; border-color:#86efac; color:#14532d; }
+.dm-zone-select.zone-bedroom    { background:#eff6ff; border-color:#93c5fd; color:#1e3a8a; }
+.dm-zone-select.zone-bathroom   { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
+.dm-zone-select.zone-utility    { background:#fff7ed; border-color:#fdba74; color:#7c2d12; }
+.dm-zone-select.zone-exterior   { background:#f0fdf4; border-color:#4ade80; color:#14532d; }
+.dm-zone-select.zone-systems    { background:#fef2f2; border-color:#fca5a5; color:#7f1d1d; }
+.dm-zone-select.zone-whole      { background:#f8fafc; border-color:#94a3b8; color:#1e293b; }
+.dm-zone-select.zone-other      { background:#fafafa; border-color:#d4d4d4; color:#525252; }
 .dm-roi-status { font-size: 11px; font-weight: 600; }
 .dm-roi-status.updating { color: var(--amber-600); }
 .dm-roi-status.done { color: var(--green-600); }
@@ -4713,6 +4723,18 @@ const DM_ZONES = [
   'whole house', 'unmatched',
 ];
 const DM_TIER_CYCLE = ['must_do', 'should_do', 'nice_to_do'];
+const DM_ZONE_COLOR = {
+  'kitchen': 'zone-kitchen',
+  'great room': 'zone-living', 'dining room': 'zone-living', 'entry foyer': 'zone-living', 'sun room': 'zone-living', 'hallways': 'zone-living',
+  'primary bedroom': 'zone-bedroom', 'bedroom 2': 'zone-bedroom', 'bedroom 3': 'zone-bedroom',
+  'primary bathroom': 'zone-bathroom', 'guest bathroom': 'zone-bathroom', 'full bath': 'zone-bathroom',
+  'laundry': 'zone-utility', 'laundry room': 'zone-utility', 'interior doors': 'zone-utility', 'windows': 'zone-utility', 'garage': 'zone-utility',
+  'exterior': 'zone-exterior',
+  'hvac': 'zone-systems', 'electrical': 'zone-systems', 'plumbing': 'zone-systems', 'structural / moisture': 'zone-systems',
+  'whole house': 'zone-whole',
+  'unmatched': 'zone-other',
+};
+function dmZoneClass(zone) { return DM_ZONE_COLOR[(zone||'').toLowerCase()] || 'zone-other'; }
 
 let dmRows = [];
 let dmLrpTier = 'should_do';
@@ -4856,8 +4878,8 @@ function dmEditZone(rowId) {
   const opts = DM_ZONES.map(z =>
     `<option value="${esc(z)}"${z === current ? ' selected' : ''}>${esc(z.replace(/\b\w/g, c => c.toUpperCase()))}</option>`
   ).join('');
-  cell.innerHTML = `<select class="dm-zone-select"
-    onchange="dmSaveZone('${esc(rowId)}', this.value)"
+  cell.innerHTML = `<select class="dm-zone-select ${dmZoneClass(current)}"
+    onchange="dmSaveZone('${esc(rowId)}', this.value); this.className='dm-zone-select '+dmZoneClass(this.value)"
     onblur="dmRenderTierPlan(dmLrpData)">
     ${opts}
   </select>`;
@@ -5041,7 +5063,7 @@ function dmRenderTierPlan(data) {
     const mainRow = `
       <tr class="data-row">
         <td>
-          <select class="dm-zone-select" onchange="dmSaveZone('${esc(row.row_id)}', this.value)">${zoneOpts}</select>
+          <select class="dm-zone-select ${dmZoneClass(row.zone||row.component_zone)}" onchange="dmSaveZone('${esc(row.row_id)}', this.value); this.className='dm-zone-select '+dmZoneClass(this.value)">${zoneOpts}</select>
         </td>
         <td>
           <span class="dm-component-name">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}</span>
