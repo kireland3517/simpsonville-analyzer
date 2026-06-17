@@ -2297,7 +2297,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <div style="display:flex;flex-direction:column;gap:4px;">
               <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Zone</label>
               <select id="dm-add-zone" class="dm-zone-select zone-other" onchange="this.className='dm-zone-select '+dmZoneClass(this.value)">
-                ${(()=>DM_ZONES.map(z=>`<option value="${z}">${z.replace(/\b\w/g,c=>c.toUpperCase())}</option>`).join(''))()}
               </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;">
@@ -2314,8 +2313,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;">
               <label style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;">Decision</label>
-              <select id="dm-add-decision" class="dm-decision-select">
-                ${(()=>DM_DECISIONS.map(d=>`<option value="${d.key}">${d.label}</option>`).join(''))()}
+              <select id="dm-add-decision" class="dm-decision-select unset">
               </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;">
@@ -5112,7 +5110,26 @@ function dmToggleCostSort() {
 
 function dmShowAddItem() {
   const form = $('dm-add-item-form');
-  if (form) { form.hidden = false; $('dm-add-component')?.focus(); }
+  if (!form) return;
+  // Populate zone options
+  const zoneEl = $('dm-add-zone');
+  if (zoneEl && !zoneEl.options.length) {
+    zoneEl.innerHTML = DM_ZONES.map(z =>
+      `<option value="${z}">${z.replace(/\b\w/g, c => c.toUpperCase())}</option>`
+    ).join('');
+    zoneEl.value = DM_ZONES[0];
+    zoneEl.className = 'dm-zone-select ' + dmZoneClass(DM_ZONES[0]);
+  }
+  // Populate decision options
+  const decEl = $('dm-add-decision');
+  if (decEl && !decEl.options.length) {
+    const seen = new Set();
+    decEl.innerHTML = '<option value="" disabled selected>Choose…</option>' +
+      DM_DECISIONS.filter(d => { if (seen.has(d.label)) return false; seen.add(d.label); return true; })
+        .map(d => `<option value="${d.key}">${d.label}</option>`).join('');
+  }
+  form.hidden = false;
+  $('dm-add-component')?.focus();
 }
 
 async function dmSaveAddItem() {
