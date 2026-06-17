@@ -1669,6 +1669,12 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
     try:
         result = sb.table("decision_matrix_rows").insert(row_data).execute()
     except Exception as exc:
+        msg = str(exc)
+        if "recommended_action_check" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="DB constraint doesn't allow this decision type yet — run migrations/decision_matrix_v7_extended_actions.sql in Supabase",
+            )
         raise HTTPException(status_code=500, detail=f"Row insert failed: {exc}")
     row = (result.data or [{}])[0]
     row_id = row.get("id")
