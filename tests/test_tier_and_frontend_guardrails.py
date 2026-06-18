@@ -177,23 +177,31 @@ def test_frontend_has_must_do_plan_print_flow():
     text = Path("static/index.html").read_text(encoding="utf-8")
 
     assert "onclick=\"printMustDoPlan()\"" in text
-    assert "Print Must Do Plan" in text
+    assert "aria-label=\"Print selected Decision Matrix scopes\"" in text
     assert 'id="dm-print-root"' in text
     assert "function buildMustDoPlanPrintHtml()" in text
     assert "async function printMustDoPlan()" in text
     assert "is-printing-dm-plan" in text
+    assert "data-dm-print-tier=\"all\"" in text
+    assert "data-dm-print-tier=\"must_do\" checked" in text
+    assert "data-dm-print-tier=\"should_do\"" in text
+    assert "data-dm-print-tier=\"nice_to_do\"" in text
+    assert "data-dm-print-tier=\"not_doing\"" in text
 
 
-def test_must_do_print_filters_to_must_do_and_includes_summaries():
+def test_print_flow_filters_to_selected_tiers_and_includes_summaries():
     text = Path("static/index.html").read_text(encoding="utf-8")
-    rows_start = text.index("function dmMustDoPrintRows()")
+    rows_start = text.index("function dmPrintRowsForTiers")
     rows_end = text.index("function buildMustDoPlanPrintHtml()", rows_start)
     rows_body = text[rows_start:rows_end]
     print_start = rows_end
     print_end = text.index("async function printMustDoPlan()", print_start)
     print_body = text[print_start:print_end]
 
-    assert "normalizeTier(row.minimum_tier) || 'must_do') === 'must_do'" in rows_body
+    assert "tierSet.has(normalizeTier(row.minimum_tier) || 'must_do')" in rows_body
+    assert "function dmSelectedPrintTiers()" in text
+    assert "if (checked.includes('all')) return ['must_do', 'should_do', 'nice_to_do', 'not_doing'];" in text
+    assert "dmPrintScopeTitle(tiers)" in print_body
     assert "Estimated Range" in print_body
     assert "Forecasted Spend" in print_body
     assert "<th>Condition</th>" in print_body

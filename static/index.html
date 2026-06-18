@@ -1751,6 +1751,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-generate-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .dm-lrp-generate-btn:disabled { opacity: 0.6; cursor: wait; }
 .dm-lrp-generate-btn.must_do:hover:not(:disabled) { border-color: var(--red-500); color: var(--red-700); }
+.dm-print-scope-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--gray-600); }
+.dm-print-scope-controls label { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer; }
+.dm-print-scope-controls input { width:13px; height:13px; accent-color:var(--accent); }
 .dm-lrp-decision-hint {
   font-size: 12px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.5;
   padding: 8px 12px; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
@@ -2258,9 +2261,16 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <h2 class="dm-page-title">Decision Matrix</h2>
               <p class="dm-page-sub">Set your decision for each item. The ROI report updates automatically when you make changes.</p>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
               <span class="dm-roi-status" id="dm-roi-status"></span>
-              <button type="button" class="btn-secondary" onclick="printMustDoPlan()">Print Must Do Plan</button>
+              <div class="dm-print-scope-controls" aria-label="Print scopes">
+                <label><input type="checkbox" data-dm-print-tier="all"> All</label>
+                <label><input type="checkbox" data-dm-print-tier="must_do" checked> Must Do</label>
+                <label><input type="checkbox" data-dm-print-tier="should_do"> Should Do</label>
+                <label><input type="checkbox" data-dm-print-tier="nice_to_do"> Nice To Do</label>
+                <label><input type="checkbox" data-dm-print-tier="not_doing"> Do Nothing</label>
+              </div>
+              <button type="button" class="btn-secondary" onclick="printMustDoPlan()" title="Print selected Decision Matrix scopes" aria-label="Print selected Decision Matrix scopes">🖨</button>
             </div>
           </div>
 
@@ -4240,11 +4250,27 @@ function dmPrintCostRange(row) {
   return lo || hi ? dmFormatCost(lo, hi) : '—';
 }
 
-function dmMustDoPrintRows() {
+function dmSelectedPrintTiers() {
+  const checked = Array.from(document.querySelectorAll('[data-dm-print-tier]:checked')).map(input => input.dataset.dmPrintTier);
+  if (checked.includes('all')) return ['must_do', 'should_do', 'nice_to_do', 'not_doing'];
+  return checked.filter(tier => ['must_do', 'should_do', 'nice_to_do', 'not_doing'].includes(tier));
+}
+
+function dmPrintScopeTitle(tiers) {
+  if (tiers.length === 4) return 'All Decision Matrix Items';
+  if (!tiers.length) return 'Decision Matrix Printout';
+  return tiers.map(tier => tier === 'not_doing' ? 'Do Nothing' : dmTierLabel(tier)).join(' + ') + ' Plan';
+}
+
+function dmPrintRowsForTiers(tiers) {
+  const tierSet = new Set(tiers);
   const zoneOrder = Object.fromEntries(DM_ZONES.map((zone, index) => [zone, index]));
   return dmRows
-    .filter(row => (normalizeTier(row.minimum_tier) || 'must_do') === 'must_do')
+    .filter(row => tierSet.has(normalizeTier(row.minimum_tier) || 'must_do'))
     .sort((a, b) => {
+      const at = DM_TIER_CYCLE.indexOf(normalizeTier(a.minimum_tier) || 'must_do');
+      const bt = DM_TIER_CYCLE.indexOf(normalizeTier(b.minimum_tier) || 'must_do');
+      if (at !== bt) return at - bt;
       const ai = zoneOrder[(a.zone || '').toLowerCase()] ?? 999;
       const bi = zoneOrder[(b.zone || '').toLowerCase()] ?? 999;
       if (ai !== bi) return ai - bi;
@@ -4253,7 +4279,8 @@ function dmMustDoPrintRows() {
 }
 
 function buildMustDoPlanPrintHtml() {
-  const rows = dmMustDoPrintRows();
+  const tiers = dmSelectedPrintTiers();
+  const rows = dmPrintRowsForTiers(tiers);
   const countable = rows.filter(row => !DM_NO_COST_KEYS.has(row.selected_option_key || '') && !DM_TBD_COST_KEYS.has(row.selected_option_key || ''));
   const estimatedLow = countable.reduce((sum, row) => sum + (Number(row.cost_low) || 0), 0);
   const estimatedHigh = countable.reduce((sum, row) => sum + (Number(row.cost_high) || 0), 0);
@@ -4286,11 +4313,11 @@ function buildMustDoPlanPrintHtml() {
           }).join('')}
         </tbody>
       </table>`
-    : '<p class="dm-print-empty">No Must Do line items are currently in the decision matrix.</p>';
+    : '<p class="dm-print-empty">No selected line items are currently in the decision matrix.</p>';
 
   return `<div class="dm-print-doc">
     <header class="dm-print-header">
-      <h1>Must Do Plan</h1>
+      <h1>${esc(dmPrintScopeTitle(tiers))}</h1>
       <p class="dm-print-subtitle">Decision Matrix printout · ${esc(dateStr)}</p>
     </header>
     <section class="dm-print-summary">
@@ -4305,6 +4332,10 @@ function buildMustDoPlanPrintHtml() {
 async function printMustDoPlan() {
   if (!dmRows.length) {
     alert('Load the Decision Matrix before printing.');
+    return;
+  }
+  if (!dmSelectedPrintTiers().length) {
+    alert('Choose at least one print scope.');
     return;
   }
   const root = $('dm-print-root');
