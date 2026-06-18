@@ -1751,9 +1751,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-generate-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .dm-lrp-generate-btn:disabled { opacity: 0.6; cursor: wait; }
 .dm-lrp-generate-btn.must_do:hover:not(:disabled) { border-color: var(--red-500); color: var(--red-700); }
-.dm-print-scope-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--gray-600); }
-.dm-print-scope-controls label { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer; }
-.dm-print-scope-controls input { width:13px; height:13px; accent-color:var(--accent); }
+.dm-print-scope-controls,
+.dm-print-column-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--gray-600); }
+.dm-print-scope-controls label,
+.dm-print-column-controls label { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer; }
+.dm-print-scope-controls input,
+.dm-print-column-controls input { width:13px; height:13px; accent-color:var(--accent); }
 .dm-lrp-decision-hint {
   font-size: 12px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.5;
   padding: 8px 12px; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
@@ -2270,7 +2273,15 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                 <label><input type="checkbox" data-dm-print-tier="nice_to_do"> Nice To Do</label>
                 <label><input type="checkbox" data-dm-print-tier="not_doing"> Do Nothing</label>
               </div>
-              <button type="button" class="btn-secondary" onclick="printMustDoPlan()" title="Print selected Decision Matrix scopes" aria-label="Print selected Decision Matrix scopes">🖨</button>
+              <div class="dm-print-column-controls" aria-label="Print columns">
+                <label><input type="checkbox" data-dm-print-column="zone" checked> Zone</label>
+                <label><input type="checkbox" data-dm-print-column="decision" checked> Decision</label>
+                <label><input type="checkbox" data-dm-print-column="estimated_range" checked> Estimated Range</label>
+                <label><input type="checkbox" data-dm-print-column="forecasted_spend" checked> Forecasted Spend</label>
+                <label><input type="checkbox" data-dm-print-column="condition" checked> Condition</label>
+                <label><input type="checkbox" data-dm-print-column="note" checked> Note</label>
+              </div>
+              <button type="button" class="btn-secondary" onclick="printMustDoPlan()" title="Print selected Decision Matrix scopes" aria-label="Print selected Decision Matrix scopes">&#128424;</button>
             </div>
           </div>
 
@@ -4262,6 +4273,39 @@ function dmPrintScopeTitle(tiers) {
   return tiers.map(tier => tier === 'not_doing' ? 'Do Nothing' : dmTierLabel(tier)).join(' + ') + ' Plan';
 }
 
+const DM_PRINT_COLUMN_STORAGE_KEY = 'dmPrintColumns';
+const DM_PRINT_COLUMN_DEFS = [
+  { key: 'zone', label: 'Zone', cell: row => `<td class="dm-print-zone">${esc(dmLabel(row.zone || 'other'))}</td>` },
+  { key: 'component', label: 'Component / Item', locked: true, cell: row => `<td><div class="dm-print-component">${esc(row.component || '')}</div></td>` },
+  { key: 'decision', label: 'Your Decision', cell: row => `<td>${esc(dmPrintDecisionLabel(row))}</td>` },
+  { key: 'estimated_range', label: 'Estimated Range', cell: row => `<td>${esc(dmPrintCostRange(row))}</td>` },
+  { key: 'forecasted_spend', label: 'Forecasted Spend', cell: row => `<td>${esc(dmFormatCost(Number(row.forecasted_spend) || 0, Number(row.forecasted_spend) || 0))}</td>` },
+  { key: 'condition', label: 'Condition', cell: row => `<td>${esc(row.current_state || '')}</td>` },
+  { key: 'note', label: 'Note', cell: row => `<td>${esc(row.walkthrough_notes || '')}</td>` },
+];
+
+function dmSelectedPrintColumns() {
+  const selected = Array.from(document.querySelectorAll('[data-dm-print-column]:checked')).map(input => input.dataset.dmPrintColumn);
+  const allowed = new Set(selected.concat('component'));
+  return DM_PRINT_COLUMN_DEFS.filter(column => column.locked || allowed.has(column.key));
+}
+
+function dmSavePrintColumnPrefs() {
+  const selected = Array.from(document.querySelectorAll('[data-dm-print-column]:checked')).map(input => input.dataset.dmPrintColumn);
+  localStorage.setItem(DM_PRINT_COLUMN_STORAGE_KEY, JSON.stringify(selected));
+}
+
+function dmLoadPrintColumnPrefs() {
+  let selected = null;
+  try {
+    selected = JSON.parse(localStorage.getItem(DM_PRINT_COLUMN_STORAGE_KEY) || 'null');
+  } catch (_) {}
+  if (!Array.isArray(selected)) return;
+  document.querySelectorAll('[data-dm-print-column]').forEach(input => {
+    input.checked = selected.includes(input.dataset.dmPrintColumn);
+  });
+}
+
 function dmPrintRowsForTiers(tiers) {
   const tierSet = new Set(tiers);
   const zoneOrder = Object.fromEntries(DM_ZONES.map((zone, index) => [zone, index]));
@@ -4286,31 +4330,16 @@ function buildMustDoPlanPrintHtml() {
   const estimatedHigh = countable.reduce((sum, row) => sum + (Number(row.cost_high) || 0), 0);
   const forecastedSpend = rows.reduce((sum, row) => sum + (Number(row.forecasted_spend) || 0), 0);
   const dateStr = new Date().toLocaleDateString();
+  const columns = dmSelectedPrintColumns();
   const body = rows.length
     ? `<table class="dm-print-table">
         <thead>
           <tr>
-            <th>Zone</th>
-            <th>Component / Item</th>
-            <th>Your Decision</th>
-            <th>Estimated Range</th>
-            <th>Forecasted Spend</th>
-            <th>Condition</th>
-            <th>Note</th>
+            ${columns.map(column => `<th>${esc(column.label)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
-          ${rows.map(row => {
-            return `<tr>
-              <td class="dm-print-zone">${esc(dmLabel(row.zone || 'other'))}</td>
-              <td><div class="dm-print-component">${esc(row.component || '')}</div></td>
-              <td>${esc(dmPrintDecisionLabel(row))}</td>
-              <td>${esc(dmPrintCostRange(row))}</td>
-              <td>${esc(dmFormatCost(Number(row.forecasted_spend) || 0, Number(row.forecasted_spend) || 0))}</td>
-              <td>${esc(row.current_state || '')}</td>
-              <td>${esc(row.walkthrough_notes || '')}</td>
-            </tr>`;
-          }).join('')}
+          ${rows.map(row => `<tr>${columns.map(column => column.cell(row)).join('')}</tr>`).join('')}
         </tbody>
       </table>`
     : '<p class="dm-print-empty">No selected line items are currently in the decision matrix.</p>';
@@ -4710,6 +4739,10 @@ function discardInventoryChanges() {
 
 /* ── Boot ────────────────────────────────────────────────────────── */
 async function init() {
+  dmLoadPrintColumnPrefs();
+  document.querySelectorAll('[data-dm-print-column]').forEach(input => {
+    input.addEventListener('change', dmSavePrintColumnPrefs);
+  });
   loadDatedFeatures();
   loadInspectionFlags();
   loadReport();

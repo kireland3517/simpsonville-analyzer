@@ -187,6 +187,13 @@ def test_frontend_has_must_do_plan_print_flow():
     assert "data-dm-print-tier=\"should_do\"" in text
     assert "data-dm-print-tier=\"nice_to_do\"" in text
     assert "data-dm-print-tier=\"not_doing\"" in text
+    assert "data-dm-print-column=\"zone\" checked" in text
+    assert "data-dm-print-column=\"decision\" checked" in text
+    assert "data-dm-print-column=\"estimated_range\" checked" in text
+    assert "data-dm-print-column=\"forecasted_spend\" checked" in text
+    assert "data-dm-print-column=\"condition\" checked" in text
+    assert "data-dm-print-column=\"note\" checked" in text
+    assert "&#128424;" in text
 
 
 def test_print_flow_filters_to_selected_tiers_and_includes_summaries():
@@ -202,15 +209,28 @@ def test_print_flow_filters_to_selected_tiers_and_includes_summaries():
     assert "function dmSelectedPrintTiers()" in text
     assert "if (checked.includes('all')) return ['must_do', 'should_do', 'nice_to_do', 'not_doing'];" in text
     assert "dmPrintScopeTitle(tiers)" in print_body
-    assert "Estimated Range" in print_body
-    assert "Forecasted Spend" in print_body
-    assert "<th>Condition</th>" in print_body
-    assert "<th>Note</th>" in print_body
+    assert "{ key: 'estimated_range', label: 'Estimated Range'" in text
+    assert "{ key: 'forecasted_spend', label: 'Forecasted Spend'" in text
+    assert "{ key: 'condition', label: 'Condition'" in text
+    assert "{ key: 'note', label: 'Note'" in text
     assert "forecastedSpend = rows.reduce" in print_body
-    assert "dmPrintCostRange(row)" in print_body
+    assert "columns.map(column => `<th>${esc(column.label)}</th>`).join('')" in print_body
+    assert "columns.map(column => column.cell(row)).join('')" in print_body
     assert "Rationale / Notes" not in print_body
-    assert "row.current_state" in print_body
-    assert "row.walkthrough_notes" in print_body
+
+
+def test_print_column_preferences_are_persisted():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "const DM_PRINT_COLUMN_STORAGE_KEY = 'dmPrintColumns'" in text
+    assert "function dmSelectedPrintColumns()" in text
+    assert "function dmSavePrintColumnPrefs()" in text
+    assert "function dmLoadPrintColumnPrefs()" in text
+    assert "localStorage.setItem(DM_PRINT_COLUMN_STORAGE_KEY" in text
+    assert "localStorage.getItem(DM_PRINT_COLUMN_STORAGE_KEY)" in text
+    assert "dmLoadPrintColumnPrefs();" in text
+    assert "input.addEventListener('change', dmSavePrintColumnPrefs)" in text
+    assert "{ key: 'component', label: 'Component / Item', locked: true" in text
 
 
 def test_frontend_does_not_render_rationale_blocks():
