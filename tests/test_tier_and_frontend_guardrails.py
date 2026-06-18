@@ -193,10 +193,33 @@ def test_must_do_print_filters_to_must_do_and_includes_summaries():
     assert "normalizeTier(row.minimum_tier) || 'must_do') === 'must_do'" in rows_body
     assert "Estimated Range" in print_body
     assert "Forecasted Spend" in print_body
+    assert "<th>Condition</th>" in print_body
+    assert "<th>Note</th>" in print_body
     assert "forecastedSpend = rows.reduce" in print_body
     assert "dmPrintCostRange(row)" in print_body
     assert "Rationale / Notes" not in print_body
-    assert "walkthrough_notes" not in print_body
+    assert "row.current_state" in print_body
+    assert "row.walkthrough_notes" in print_body
+
+
+def test_frontend_can_edit_condition_and_note_metadata():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "Edit condition" in text
+    assert "Edit note" in text
+    assert "async function dmEditCondition" in text
+    assert "async function dmEditNote" in text
+    assert "dmSaveTextMeta(rowId, 'current_state'" in text
+    assert "dmSaveTextMeta(rowId, 'walkthrough_notes'" in text
+
+
+def test_backend_accepts_condition_and_note_metadata():
+    text = Path("main.py").read_text(encoding="utf-8")
+
+    assert "current_state: str | None = None" in text
+    assert "walkthrough_notes: str | None = None" in text
+    assert 'update["current_state"] = body.current_state.strip()' in text
+    assert 'update["walkthrough_notes"] = body.walkthrough_notes.strip()' in text
 
 
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():

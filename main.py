@@ -1530,6 +1530,8 @@ def patch_decision_matrix_row(
 class DecisionMatrixRowMeta(BaseModel):
     zone: str | None = None
     component: str | None = None
+    current_state: str | None = None
+    walkthrough_notes: str | None = None
     minimum_tier: str | None = None
     cost_low: float | None = None
     cost_high: float | None = None
@@ -1556,6 +1558,10 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         update["seller_override"] = True
     if body.component is not None:
         update["component"] = body.component.strip()
+    if body.current_state is not None:
+        update["current_state"] = body.current_state.strip()
+    if body.walkthrough_notes is not None:
+        update["walkthrough_notes"] = body.walkthrough_notes.strip()
     cost_update: dict = {}
     if body.cost_low is not None:
         cost_update["cost_low"] = body.cost_low

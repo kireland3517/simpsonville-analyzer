@@ -4301,6 +4301,8 @@ function buildMustDoPlanPrintHtml() {
             <th>Your Decision</th>
             <th>Estimated Range</th>
             <th>Forecasted Spend</th>
+            <th>Condition</th>
+            <th>Note</th>
           </tr>
         </thead>
         <tbody>
@@ -4311,6 +4313,8 @@ function buildMustDoPlanPrintHtml() {
               <td>${esc(dmPrintDecisionLabel(row))}</td>
               <td>${esc(dmPrintCostRange(row))}</td>
               <td>${esc(dmFormatCost(Number(row.forecasted_spend) || 0, Number(row.forecasted_spend) || 0))}</td>
+              <td>${esc(row.current_state || '')}</td>
+              <td>${esc(row.walkthrough_notes || '')}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -5409,8 +5413,10 @@ function dmToggleRowMenu(evt, rowId) {
   const menu = document.createElement('div');
   menu.className = 'dm-row-menu';
   menu.innerHTML = `
-    <button onclick="dmEditComponentName('${esc(rowId)}')">✏️ Edit name</button>
-    <button class="danger" onclick="dmDeleteRow('${esc(rowId)}')">🗑 Delete</button>
+    <button onclick="dmEditComponentName('${esc(rowId)}')">Edit name</button>
+    <button onclick="dmEditCondition('${esc(rowId)}')">Edit condition</button>
+    <button onclick="dmEditNote('${esc(rowId)}')">Edit note</button>
+    <button class="danger" onclick="dmDeleteRow('${esc(rowId)}')">Delete</button>
   `;
   btn.parentElement.appendChild(menu);
   // Close on outside click
@@ -5438,6 +5444,40 @@ async function dmEditComponentName(rowId) {
   } catch (err) {
     alert('Could not rename: ' + (err.message || err));
   }
+}
+
+async function dmSaveTextMeta(rowId, field, value, errorLabel) {
+  try {
+    const res = await dmFetchWithRetry(`/decision-matrix/rows/${rowId}/meta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const row = dmRowById(rowId);
+    if (row) row[field] = value;
+    dmRenderTierPlan(dmLrpData);
+  } catch (err) {
+    alert(`Could not update ${errorLabel}: ` + (err.message || err));
+  }
+}
+
+async function dmEditCondition(rowId) {
+  document.querySelectorAll('.dm-row-menu').forEach(m => m.remove());
+  const row = dmRowById(rowId);
+  const current = row?.current_state || '';
+  const value = prompt('Edit condition:', current);
+  if (value === null || value.trim() === current.trim()) return;
+  await dmSaveTextMeta(rowId, 'current_state', value.trim(), 'condition');
+}
+
+async function dmEditNote(rowId) {
+  document.querySelectorAll('.dm-row-menu').forEach(m => m.remove());
+  const row = dmRowById(rowId);
+  const current = row?.walkthrough_notes || '';
+  const value = prompt('Edit note:', current);
+  if (value === null || value.trim() === current.trim()) return;
+  await dmSaveTextMeta(rowId, 'walkthrough_notes', value.trim(), 'note');
 }
 
 async function dmDeleteRow(rowId) {
@@ -5639,7 +5679,7 @@ function dmRenderTierPlan(data) {
     const state = (full?.current_state || '').trim();
     return mainRow + `
       <tr class="dm-detail-row">
-        <td colspan="6">
+        <td colspan="7">
           <div class="dm-detail-inner">
             ${state ? `<div class="dm-detail-section"><strong>Condition:</strong> ${esc(state)}</div>` : ''}
             ${reason ? `<div class="dm-detail-section"><strong>Rationale:</strong> ${esc(reason)}</div>` : ''}
