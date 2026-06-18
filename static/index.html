@@ -1495,7 +1495,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   .dm-print-table tr { break-inside: avoid; page-break-inside: avoid; }
   .dm-print-zone { font-weight: 700; white-space: nowrap; }
   .dm-print-component { font-weight: 700; }
-  .dm-print-note { color: #4b5563; font-size: 8pt; margin-top: 3px; }
   .dm-print-empty { color: #6b7280; margin: 16px 0; font-size: 10pt; }
 
   /* Force every report section visible for print */
@@ -4302,25 +4301,16 @@ function buildMustDoPlanPrintHtml() {
             <th>Your Decision</th>
             <th>Estimated Range</th>
             <th>Forecasted Spend</th>
-            <th>Rationale / Notes</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(row => {
-            const reason = row.options?.find(o => o.option_key === row.selected_option_key)?.rationale?.reason
-              || row.options?.find(o => o.is_recommended)?.rationale?.reason
-              || '';
-            const note = row.walkthrough_notes || row.current_state || '';
             return `<tr>
               <td class="dm-print-zone">${esc(dmLabel(row.zone || 'other'))}</td>
               <td><div class="dm-print-component">${esc(row.component || '')}</div></td>
               <td>${esc(dmPrintDecisionLabel(row))}</td>
               <td>${esc(dmPrintCostRange(row))}</td>
               <td>${esc(dmFormatCost(Number(row.forecasted_spend) || 0, Number(row.forecasted_spend) || 0))}</td>
-              <td>
-                ${reason ? `<div>${esc(reason)}</div>` : ''}
-                ${note ? `<div class="dm-print-note">${esc(note)}</div>` : ''}
-              </td>
             </tr>`;
           }).join('')}
         </tbody>

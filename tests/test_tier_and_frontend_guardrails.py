@@ -195,6 +195,8 @@ def test_must_do_print_filters_to_must_do_and_includes_summaries():
     assert "Forecasted Spend" in print_body
     assert "forecastedSpend = rows.reduce" in print_body
     assert "dmPrintCostRange(row)" in print_body
+    assert "Rationale / Notes" not in print_body
+    assert "walkthrough_notes" not in print_body
 
 
 def test_not_doing_is_allowed_by_latest_matrix_tier_migration():
