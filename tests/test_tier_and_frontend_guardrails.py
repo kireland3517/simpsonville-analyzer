@@ -216,6 +216,9 @@ def test_print_flow_filters_to_selected_tiers_and_includes_summaries():
     assert "forecastedSpend = rows.reduce" in print_body
     assert "columns.map(column => `<th>${esc(column.label)}</th>`).join('')" in print_body
     assert "columns.map(column => column.cell(row)).join('')" in print_body
+    assert "selectedColumnKeys.has('estimated_range')" in print_body
+    assert "selectedColumnKeys.has('forecasted_spend')" in print_body
+    assert "${summaryCards}" in print_body
     assert "Rationale / Notes" not in print_body
 
 

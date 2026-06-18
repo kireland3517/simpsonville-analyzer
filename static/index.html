@@ -4331,6 +4331,12 @@ function buildMustDoPlanPrintHtml() {
   const forecastedSpend = rows.reduce((sum, row) => sum + (Number(row.forecasted_spend) || 0), 0);
   const dateStr = new Date().toLocaleDateString();
   const columns = dmSelectedPrintColumns();
+  const selectedColumnKeys = new Set(columns.map(column => column.key));
+  const summaryCards = [
+    `<div class="dm-print-card"><div class="dm-print-card-label">Items</div><div class="dm-print-card-value">${rows.length}</div></div>`,
+    selectedColumnKeys.has('estimated_range') ? `<div class="dm-print-card"><div class="dm-print-card-label">Estimated Range</div><div class="dm-print-card-value">${esc(dmFormatCost(estimatedLow, estimatedHigh))}</div></div>` : '',
+    selectedColumnKeys.has('forecasted_spend') ? `<div class="dm-print-card"><div class="dm-print-card-label">Forecasted Spend</div><div class="dm-print-card-value">${esc(dmFormatCost(forecastedSpend, forecastedSpend))}</div></div>` : '',
+  ].join('');
   const body = rows.length
     ? `<table class="dm-print-table">
         <thead>
@@ -4350,9 +4356,7 @@ function buildMustDoPlanPrintHtml() {
       <p class="dm-print-subtitle">Decision Matrix printout · ${esc(dateStr)}</p>
     </header>
     <section class="dm-print-summary">
-      <div class="dm-print-card"><div class="dm-print-card-label">Items</div><div class="dm-print-card-value">${rows.length}</div></div>
-      <div class="dm-print-card"><div class="dm-print-card-label">Estimated Range</div><div class="dm-print-card-value">${esc(dmFormatCost(estimatedLow, estimatedHigh))}</div></div>
-      <div class="dm-print-card"><div class="dm-print-card-label">Forecasted Spend</div><div class="dm-print-card-value">${esc(dmFormatCost(forecastedSpend, forecastedSpend))}</div></div>
+      ${summaryCards}
     </section>
     ${body}
   </div>`;
