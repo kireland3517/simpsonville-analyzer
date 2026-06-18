@@ -53,6 +53,7 @@ def test_custom_decision_row_insert_includes_required_row_and_option_fields(monk
         cost_low=0,
         cost_high=0,
         forecasted_spend=1250,
+        actual_spend=900,
     ))
 
     row = sb.tables["decision_matrix_rows"].inserts[0]
@@ -64,6 +65,7 @@ def test_custom_decision_row_insert_includes_required_row_and_option_fields(monk
     assert row["decision_status"] == "required_action"
     assert row["recommended_action"] == "replace"
     assert row["forecasted_spend"] == 1250
+    assert row["actual_spend"] == 900
     assert option == {
         "row_id": "row-custom-1",
         "option_key": "replace",

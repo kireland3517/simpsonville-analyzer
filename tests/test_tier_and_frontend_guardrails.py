@@ -91,12 +91,16 @@ def test_frontend_forecasted_spend_column_is_editable():
 
     assert "Estimated Range" in text
     assert "Forecasted Spend" in text
+    assert "Actual Spend" in text
     assert "data-forecast-row" in text
+    assert "data-actual-row" in text
     assert "async function dmSaveForecastedSpend" in text
+    assert "async function dmSaveActualSpend" in text
     assert "JSON.stringify({ forecasted_spend: amount })" in text
+    assert "JSON.stringify({ actual_spend: amount })" in text
 
 
-def test_frontend_budget_summary_has_estimated_and_forecast_lines():
+def test_frontend_budget_summary_has_estimated_forecast_and_actual_lines():
     text = Path("static/index.html").read_text(encoding="utf-8")
     fn_start = text.index("const calcTierForecastedSpend")
     fn_end = text.index("const [mlo,mhi]", fn_start)
@@ -104,10 +108,15 @@ def test_frontend_budget_summary_has_estimated_and_forecast_lines():
 
     assert "Estimated Range" in text
     assert "Forecasted Spend" in text
+    assert "Actual Spend" in text
     assert "dm-forecast-total-must" in text
+    assert "dm-actual-total-must" in text
     assert "calcTierForecastedSpend" in text
+    assert "calcTierActualSpend" in text
     assert "setEl('dm-forecast-total-all'" in text
+    assert "setEl('dm-actual-total-all'" in text
     assert "Number(r.forecasted_spend)" in body
+    assert "Number(r.actual_spend)" in body
     assert "DM_TBD_COST_KEYS" not in body
     assert "DM_NO_COST_KEYS" not in body
 
@@ -154,6 +163,8 @@ def test_frontend_add_item_requires_decision_and_uses_backend_detail():
 
     assert "if (!decision) { alert('Please choose a decision.'); return; }" in body
     assert "forecasted_spend: forecastedSpend" in body
+    assert "actual_spend: actualSpend" in body
+    assert "dm-add-actual-spend" in text
     assert "const errorData = await res.json()" in body
     assert "detail = errorData.detail || detail" in body
 
@@ -191,6 +202,7 @@ def test_frontend_has_must_do_plan_print_flow():
     assert "data-dm-print-column=\"decision\" checked" in text
     assert "data-dm-print-column=\"estimated_range\" checked" in text
     assert "data-dm-print-column=\"forecasted_spend\" checked" in text
+    assert "data-dm-print-column=\"actual_spend\" checked" in text
     assert "data-dm-print-column=\"condition\" checked" in text
     assert "data-dm-print-column=\"note\" checked" in text
     assert "&#128424;" in text
@@ -211,13 +223,16 @@ def test_print_flow_filters_to_selected_tiers_and_includes_summaries():
     assert "dmPrintScopeTitle(tiers)" in print_body
     assert "{ key: 'estimated_range', label: 'Estimated Range'" in text
     assert "{ key: 'forecasted_spend', label: 'Forecasted Spend'" in text
+    assert "{ key: 'actual_spend', label: 'Actual Spend'" in text
     assert "{ key: 'condition', label: 'Condition'" in text
     assert "{ key: 'note', label: 'Note'" in text
     assert "forecastedSpend = rows.reduce" in print_body
+    assert "actualSpend = rows.reduce" in print_body
     assert "columns.map(column => `<th>${esc(column.label)}</th>`).join('')" in print_body
     assert "columns.map(column => column.cell(row)).join('')" in print_body
     assert "selectedColumnKeys.has('estimated_range')" in print_body
     assert "selectedColumnKeys.has('forecasted_spend')" in print_body
+    assert "selectedColumnKeys.has('actual_spend')" in print_body
     assert "${summaryCards}" in print_body
     assert "Rationale / Notes" not in print_body
 
@@ -293,3 +308,10 @@ def test_forecasted_spend_column_is_added_by_latest_matrix_migration():
 
     assert "alter table decision_matrix_rows" in sql
     assert "add column if not exists forecasted_spend numeric" in sql
+
+
+def test_actual_spend_column_is_added_by_latest_matrix_migration():
+    sql = Path("migrations/decision_matrix_v9_actual_spend.sql").read_text(encoding="utf-8")
+
+    assert "alter table decision_matrix_rows" in sql
+    assert "add column if not exists actual_spend numeric" in sql

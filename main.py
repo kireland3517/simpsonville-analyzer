@@ -1536,6 +1536,7 @@ class DecisionMatrixRowMeta(BaseModel):
     cost_low: float | None = None
     cost_high: float | None = None
     forecasted_spend: float | None = None
+    actual_spend: float | None = None
     selected_option_key: str | None = None
 
 
@@ -1571,6 +1572,8 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
         update["cost_high"] = body.cost_high  # save on row directly
     if body.forecasted_spend is not None:
         update["forecasted_spend"] = body.forecasted_spend
+    if body.actual_spend is not None:
+        update["actual_spend"] = body.actual_spend
 
     if not update and not cost_update:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -1617,6 +1620,11 @@ def patch_decision_matrix_row_meta(row_id: str, body: DecisionMatrixRowMeta):
                 status_code=409,
                 detail="Supabase decision_matrix_rows is missing forecasted_spend; run migrations/decision_matrix_v8_forecasted_spend.sql",
             )
+        if "actual_spend" in message:
+            raise HTTPException(
+                status_code=409,
+                detail="Supabase decision_matrix_rows is missing actual_spend; run migrations/decision_matrix_v9_actual_spend.sql",
+            )
         raise HTTPException(status_code=503, detail=message)
 
 
@@ -1640,6 +1648,7 @@ class DecisionMatrixCustomRow(BaseModel):
     cost_low: float = 0
     cost_high: float = 0
     forecasted_spend: float = 0
+    actual_spend: float = 0
     property_id: str = WALKTHROUGH_PROPERTY_ID
 
 
@@ -1681,6 +1690,7 @@ def add_custom_decision_row(body: DecisionMatrixCustomRow):
         "recommended_action": selected_option_key,
         "seller_override": True,
         "forecasted_spend": body.forecasted_spend,
+        "actual_spend": body.actual_spend,
     }
     try:
         result = sb.table("decision_matrix_rows").insert(row_data).execute()
