@@ -737,12 +737,6 @@ body.wt-advanced-on .wt-dev-panel { display: flex; }
 @media (prefers-reduced-motion: reduce) {
   .wt-progress-fill, .wt-room-card-summary::after, .wt-checklist > summary::before { transition: none; }
 }
-.rationale-block { margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid var(--gray-200); border-radius: 6px; }
-.rationale-title { font-size: 12px; font-weight: 700; color: var(--gray-700); margin-bottom: 8px; }
-.rationale-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); margin: 6px 0 4px; }
-.rationale-evidence { margin: 0; padding-left: 18px; font-size: 12px; color: var(--gray-600); }
-.rationale-reason { font-size: 13px; color: var(--gray-700); margin-top: 6px; }
-.rationale-meta { font-size: 12px; color: var(--gray-600); margin-top: 4px; }
 .tier-pill { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
   padding: 2px 8px; border-radius: 99px; margin-top: 4px; }
 .tier-confirmed { background: #dcfce7; color: #166534; }
@@ -1390,10 +1384,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   body.is-printing-roi #tab-roi .deep-detail-section {
     margin-bottom: 4px !important;
   }
-  body.is-printing-roi #tab-roi .rationale-block {
-    margin-top: 6px !important;
-    padding: 8px 10px !important;
-  }
   body.is-printing-roi #tab-roi .deep-detail-panel {
     padding: 0 !important;
   }
@@ -1413,7 +1403,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   /* Allow table rows and detail blocks to split across pages */
   body.is-printing-roi #tab-roi .data-table tbody tr,
   body.is-printing-roi #tab-roi .deep-detail-section,
-  body.is-printing-roi #tab-roi .rationale-block,
   body.is-printing-roi #tab-roi .wt-impact-row,
   body.is-printing-roi #tab-roi .summary-card,
   body.is-printing-roi #tab-roi .report-collapse,
@@ -1529,7 +1518,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
     visibility: visible !important;
   }
   .deep-detail-panel { display: block !important; visibility: visible !important; }
-  body.is-printing-roi #tab-roi .rationale-block { display: block !important; visibility: visible !important; }
   .wt-impact-link { color: inherit !important; text-decoration: none !important; cursor: default !important; }
   .wt-impact-stale { display: none !important; }
   .wt-del, .wt-save-bar, .wt-hint, .wt-comp-actions, .wt-room-actions, .wt-add-concern-panel,
@@ -1763,7 +1751,6 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .dm-lrp-generate-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .dm-lrp-generate-btn:disabled { opacity: 0.6; cursor: wait; }
 .dm-lrp-generate-btn.must_do:hover:not(:disabled) { border-color: var(--red-500); color: var(--red-700); }
-.dm-lrp-rationale { font-size: 11px; color: var(--gray-500); max-width: 280px; line-height: 1.4; }
 .dm-lrp-decision-hint {
   font-size: 12px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.5;
   padding: 8px 12px; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
@@ -2879,24 +2866,6 @@ function tierLabelFor(tier) {
   return DM_LRP_TIER_LABELS[tier] || (tier ? tier.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—');
 }
 
-function renderRationaleBlock(rationale) {
-  if (!rationale) return '';
-  const r = rationale;
-  const ev = (r.evidence || []).map(e =>
-    `<li><strong>${esc(e.source || '')}:</strong> ${esc(e.text || '')}</li>`
-  ).join('');
-  const tier = r.tier ? `<span class="tier-pill tier-${esc(r.tier)}">${esc(r.tier)}</span>` : '';
-  return `<div class="rationale-block">
-    <div class="rationale-title">Why this recommendation exists</div>
-    ${ev ? `<div class="rationale-label">Evidence</div><ul class="rationale-evidence">${ev}</ul>` : ''}
-    ${tier ? `<div class="rationale-label">Tier</div>${tier}` : ''}
-    ${r.reason ? `<div class="rationale-reason">${esc(r.reason)}</div>` : ''}
-    ${r.expected_impact ? `<div class="rationale-meta"><strong>Expected impact:</strong> ${esc(r.expected_impact)}</div>` : ''}
-    ${r.confidence ? `<div class="rationale-meta"><strong>Confidence:</strong> ${esc(r.confidence)}</div>` : ''}
-    ${r.market_impact ? `<div class="rationale-meta"><strong>Market impact:</strong> ${esc(r.market_impact)}</div>` : ''}
-  </div>`;
-}
-
 /* ── Priority helpers ─────────────────────────────────────────────── */
 const PRIORITY_ORDER = {critical:0, high:1, medium:2, low:3};
 const priorityVal = p => PRIORITY_ORDER[p?.toLowerCase()] ?? 99;
@@ -3053,7 +3022,6 @@ function renderUpgrades(data) {
     const panelId = `upgrade-deep-${i}`;
     detail.innerHTML = `<td colspan="8"><div class="detail-inner">
       <div class="detail-desc">${esc(u.description ?? '')}</div>
-      ${renderRationaleBlock(u.rationale)}
       <div class="detail-grid">
         <div>
           <div class="detail-group-label">DIY Notes</div>
@@ -3121,7 +3089,6 @@ function renderRepairs(data) {
     const panelId = `repair-deep-${i}`;
     detail.innerHTML = `<td colspan="7"><div class="detail-inner">
       <div class="detail-desc">${esc(r.description ?? '')}</div>
-      ${renderRationaleBlock(r.rationale)}
       <div class="detail-grid">
         <div>
           <div class="detail-group-label">DIY Notes</div>
@@ -5540,7 +5507,6 @@ function dmRenderTierPlan(data) {
       cost_low: Number(r.cost_low ?? opt?.cost_low) || 0,
       cost_high: Number(r.cost_high ?? opt?.cost_high) || 0,
       forecasted_spend: Number(r.forecasted_spend) || 0,
-      rationale: opt?.rationale || {},
     };
   };
   let rows;
@@ -5653,7 +5619,7 @@ function dmRenderTierPlan(data) {
           <select class="dm-zone-select ${dmZoneClass(row.zone||row.component_zone)}" onchange="dmSaveZone('${esc(row.row_id)}', this.value); this.className='dm-zone-select '+dmZoneClass(this.value)">${zoneOpts}</select>
         </td>
         <td>
-          <span class="dm-component-name dm-component-expand" onclick="dmToggleLrpExpand('${esc(row.row_id)}')" title="Click to expand details" style="cursor:pointer;">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}${(row.rationale?.reason || full?.current_state || full?.walkthrough_notes) ? ' <span style="font-size:10px;color:var(--gray-400);margin-left:4px;">'+(expanded?'▲':'▼')+'</span>' : ''}</span>
+          <span class="dm-component-name dm-component-expand" onclick="dmToggleLrpExpand('${esc(row.row_id)}')" title="Click to expand details" style="cursor:pointer;">${esc(row.component || '')}${full?.seller_override ? ' <span class="dm-seller-override" title="Your choice">✎</span>' : ''}${(full?.current_state || full?.walkthrough_notes) ? ' <span style="font-size:10px;color:var(--gray-400);margin-left:4px;">'+(expanded?'▲':'▼')+'</span>' : ''}</span>
         </td>
         <td>
           <select class="dm-tier-select ${esc(tierKey)}" onchange="dmSaveTier('${esc(row.row_id)}', this.value)">${tierOpts}</select>
@@ -5673,8 +5639,6 @@ function dmRenderTierPlan(data) {
 
     if (!expanded) return mainRow;
 
-    const rat = row.rationale || {};
-    const reason = rat.reason || '';
     const note = (full?.walkthrough_notes || '').trim();
     const state = (full?.current_state || '').trim();
     return mainRow + `
@@ -5682,7 +5646,6 @@ function dmRenderTierPlan(data) {
         <td colspan="7">
           <div class="dm-detail-inner">
             ${state ? `<div class="dm-detail-section"><strong>Condition:</strong> ${esc(state)}</div>` : ''}
-            ${reason ? `<div class="dm-detail-section"><strong>Rationale:</strong> ${esc(reason)}</div>` : ''}
             ${note ? `<div class="dm-detail-section"><strong>Your note:</strong> ${esc(note)}</div>` : ''}
           </div>
         </td>

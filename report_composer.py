@@ -178,24 +178,6 @@ def _priority_from_row(row: dict[str, Any], option_key: str) -> str:
     return "medium"
 
 
-def _rationale_from_row(row: dict[str, Any], option: dict[str, Any]) -> dict[str, Any]:
-    refs = []
-    for src in row.get("evidence_sources") or []:
-        refs.append({
-            "source": src.get("source"),
-            "text": (src.get("text") or "")[:200],
-        })
-    rat = option.get("rationale") or {}
-    return {
-        "evidence": refs[:4],
-        "tier": rat.get("tier") or row.get("confidence_tier") or "observed",
-        "reason": rat.get("reason") or f"Matrix decision: {option.get('option_key')}",
-        "expected_impact": f"Buyer impact {option.get('buyer_impact')}; inspection {option.get('inspection_risk_impact')}",
-        "confidence": "high" if row.get("confidence_tier") == "confirmed" else "medium",
-        "market_impact": option.get("marketability_impact") or row.get("marketability_risk") or "medium",
-    }
-
-
 def _line_item_from_selection(
     row: dict[str, Any],
     option: dict[str, Any],
@@ -224,7 +206,6 @@ def _line_item_from_selection(
             "component_id": row.get("component_id"),
             "evidence_sources": row.get("evidence_sources") or [],
         },
-        "rationale": _rationale_from_row(row, option),
     }
 
     if option_key in REPAIR_OPTION_KEYS:

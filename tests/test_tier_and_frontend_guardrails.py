@@ -49,6 +49,9 @@ def test_not_doing_rows_are_excluded_from_tier_selection_and_reports():
         for item in line_items[bucket]
     }
     assert "skip" not in emitted_ids
+    for bucket in ("upgrades", "repairs"):
+        for item in line_items[bucket]:
+            assert "rationale" not in item
 
 
 def test_frontend_does_not_map_all_or_not_doing_to_nice_to_do_report_post():
@@ -200,6 +203,22 @@ def test_must_do_print_filters_to_must_do_and_includes_summaries():
     assert "Rationale / Notes" not in print_body
     assert "row.current_state" in print_body
     assert "row.walkthrough_notes" in print_body
+
+
+def test_frontend_does_not_render_rationale_blocks():
+    text = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "renderRationaleBlock" not in text
+    assert "Why this recommendation exists" not in text
+    assert "rationale-block" not in text
+    assert "<strong>Rationale:</strong>" not in text
+
+
+def test_report_composer_does_not_emit_rationale_payloads():
+    text = Path("report_composer.py").read_text(encoding="utf-8")
+
+    assert '"rationale"' not in text
+    assert "_rationale_from_row" not in text
 
 
 def test_frontend_can_edit_condition_and_note_metadata():
