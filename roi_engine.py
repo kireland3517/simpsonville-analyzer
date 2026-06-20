@@ -50,6 +50,7 @@ class RoiItem:
     cost_high:           float
     cost_midpoint:       float
     estimated_value_add: float
+    roi_quality:         str    # raw text from decision_matrix_options; "" = no data
     roi_bucket_suggested: str
     roi_bucket_override:  Optional[str]
     roi_bucket_final:    str
@@ -145,6 +146,7 @@ def _build_roi_item(
     cost_high     = float(option.get("cost_high") or 0)
     cost_midpoint = (cost_low + cost_high) / 2.0
 
+    roi_quality         = (option.get("roi_quality") or "").lower().strip()
     estimated_value_add = _value_add_from_option(option, cost_midpoint)
 
     raw_tier = row.get("minimum_tier") or "nice_to_do"
@@ -171,6 +173,7 @@ def _build_roi_item(
         cost_high            = cost_high,
         cost_midpoint        = cost_midpoint,
         estimated_value_add  = estimated_value_add,
+        roi_quality          = roi_quality,
         roi_bucket_suggested = bucket_suggested,
         roi_bucket_override  = bucket_override,
         roi_bucket_final     = bucket_final,

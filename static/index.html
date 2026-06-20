@@ -6067,7 +6067,12 @@ function spRenderResult(result) {
   }
   tbody.innerHTML = items.map(item => {
     const excluded = !item.include_final;
-    const itemRoi = (item.estimated_value_add && item.cost_midpoint && item.cost_midpoint > 0)
+    // Show item ROI only when there is a real quality signal (good/excellent/poor).
+    // "fair" and missing roi_quality both use the 1.0× fallback multiplier — not a real measurement.
+    // Must-do items skip ROI entirely since they're required regardless.
+    const hasRealQuality = item.roi_quality && item.roi_quality !== 'fair';
+    const isMustDo = item.roi_bucket_final === 'must_do';
+    const itemRoi = (!isMustDo && hasRealQuality && item.cost_midpoint > 0)
       ? spFmtPct(((item.estimated_value_add - item.cost_midpoint) / item.cost_midpoint) * 100)
       : '—';
     return `<tr class="${excluded ? 'sp-row-excluded' : ''}">
