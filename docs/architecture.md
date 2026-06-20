@@ -5,50 +5,43 @@
 
 ## Overview
 
-The ROI Analyzer helps a homeowner prepare a house for sale by combining photo analysis, a seller walkthrough checklist, property metadata, and Claude text generation into listing-readiness renovation recommendations grounded in Greenville SC contractor costs and local comps.
+The ROI Analyzer helps a homeowner prepare a house for sale by combining existing photo analysis, a seller walkthrough checklist, property metadata, and Claude text generation into listing-readiness recommendations grounded in Greenville SC contractor costs and local comps.
 
-**Product split:**
+External photo import has been removed. Existing `photo_analyses` records remain the photo evidence source in Supabase, and local media scripts remain available if new analysis is needed.
 
-| Layer | Surface | Question |
-|-------|---------|----------|
-| Evidence | Walkthrough tab | What's true about my house? |
-| Decision | ROI tab + Decision Workspace | What must I do to list vs improve competitiveness? |
-
----
-
-## System diagram
+## System Diagram
 
 ```mermaid
 flowchart TB
-    subgraph sources [Evidence sources]
-        photos[Google Photos]
-        walkthrough[Seller walkthrough ~130 components]
-        attom[ATTOM property data]
+    subgraph sources ["Evidence sources"]
+        media["Local media or existing photo_analyses"]
+        walkthrough["Seller walkthrough"]
+        attom["ATTOM property data"]
     end
 
-    subgraph ingest [Ingestion]
-        vision[Claude Vision - analyzer.py]
-        photoDB[(photo_analyses)]
-        wtDB[(walkthrough_items)]
+    subgraph ingest ["Ingestion"]
+        vision["Claude Vision - analyzer.py / run_analysis.py"]
+        photoDB[("photo_analyses")]
+        wtDB[("walkthrough_items")]
     end
 
-    subgraph merge [Evidence layer]
-        summary[build_analysis_summary - run_roi.py]
-        package[build_evidence_package - evidence.py]
+    subgraph merge ["Evidence layer"]
+        summary["build_analysis_summary - run_roi.py"]
+        package["build_evidence_package - evidence.py"]
     end
 
-    subgraph decision [Decision layer]
-        roi[Claude Text - roi.py]
-        reportDB[(roi_report)]
-        detailsDB[(upgrade_details)]
+    subgraph decision ["Decision layer"]
+        roi["Claude Text - roi.py"]
+        reportDB[("roi_report")]
+        detailsDB[("upgrade_details")]
     end
 
-    subgraph ui [Presentation]
-        spa[static/index.html]
-        api[FastAPI - main.py]
+    subgraph ui ["Presentation"]
+        spa["static/index.html"]
+        api["FastAPI - main.py"]
     end
 
-    photos --> vision --> photoDB
+    media --> vision --> photoDB
     walkthrough --> wtDB
     attom --> package
     photoDB --> summary --> package
@@ -62,190 +55,74 @@ flowchart TB
     api --> detailsDB
 ```
 
----
+## Runtime Components
 
-## Runtime components
+| Component | Role |
+|---|---|
+| `main.py` | FastAPI server, report APIs, walkthrough APIs, inventory overrides, decision matrix APIs |
+| `static/index.html` | Single-page UI for ROI, Decision Matrix, Walkthrough, Property Data, Inventory, Notes, and Print |
+| `analyzer.py` | Claude vision analysis for local media workflows |
+| `claude_client.py` | Active Claude API wrapper for vision, reports, and deep details |
+| `attom.py` | Legacy cached ATTOM property facts and sales history |
+| `run_analysis.py` | Local media photo-analysis CLI |
+| `run_inventory.py` | Local media inventory-analysis CLI |
+| `run_roi.py` | CLI report generation and analysis aggregation |
+| `decision_matrix.py` | Decision Matrix persistence, evidence matching, and row/option loading |
+| `report_composer.py` | Projects matrix selections into ROI report line items with traceability |
 
-### FastAPI backend (`main.py`)
-
-Primary web server. Serves `static/index.html`, exposes REST API, orchestrates report generation.
-
-**Key responsibilities:**
-
-- Google OAuth for Photos API (`photos.py`)
-- Photo analysis endpoints (`analyzer.py`, `gemini_client.py`)
-- ROI report CRUD and cache invalidation (`roi.py`)
-- Walkthrough CRUD, seed, recalculate (`walkthrough.py`)
-- Evidence package assembly for prompts (`evidence.py`)
-- Inventory overrides (`run_inventory.py`)
-- CSV export, deep-detail caching
-
-**Deploy:** `uvicorn main:app` (Railway via `Procfile`). Deployment is intended for a private trusted-access environment, not public unauthenticated internet exposure.
-
-### Static SPA (`static/index.html`)
-
-Single-page app with no build step. Tabs include Photos, Analysis, Walkthrough, ROI scenarios, Inventory, Print.
-
-- Debounced PATCH auto-save for walkthrough and inventory
-- Budget scenario tabs (current): Spend Nothing, $5k, $15k, Maximize — **planned replacement:** listing-readiness tiers (see [listing-readiness-tiers.md](listing-readiness-tiers.md))
-- Async print with deep-detail prefetch
-
-### ROI engine (`roi.py`)
-
-Uses Claude through `claude_client.py` to produce JSON reports. `gemini_client.py` is legacy/unused by the main FastAPI path.
-
-**Detail levels (budget scenarios — current production):**
-
-> **Planned:** Replace with listing-readiness tiers (`must_do`, `should_do`, `nice_to_do`). Remove `spend_nothing`. See [listing-readiness-tiers.md](listing-readiness-tiers.md).
-
-| Key | Label | Intent |
-|-----|-------|--------|
-| `spend_nothing` | Spend Nothing | *(to be removed)* Transaction-risk only |
-| `budget_5k` | $5,000 Budget | Highest ROI within ~$5k |
-| `budget_15k` | $15,000 Budget | Balanced prep plan |
-| `maximize` | Maximize Sale Price | No budget cap |
-
-Legacy cache keys (`executive`, `standard`, `deep_dive`) map to the above via `LEGACY_LEVEL_MAP`.
-
-**Buyer profiles:** `general`, `first_time_buyer`, `young_family`, `downsizer`, `investor`, `relocating_professional`
-
-**Grounding inputs:**
-
-- `_GREENVILLE_COST_ANCHORS` — 60+ local installed cost ranges
-- `_KNOWN_REPAIR_FACTS` — photo-confirmed deal killers
-- Unified evidence prompt from `evidence.format_evidence_prompt()`
-- `prompt_version` SHA1 hash for cache staleness detection
-
-### Photo analysis (`analyzer.py`, `run_analysis.py`)
-
-Claude vision analyzes each photo:
-
-- Room type, condition, issues, upgrades, inspection flags, deal risk, dated features
-- Results stored in Supabase `photo_analyses` (keyed by filename)
-
-`run_roi.py` → `build_analysis_summary()` aggregates 130+ analyses into weighted issue/upgrade lists for evidence merging.
-
-### Walkthrough (`walkthrough.py`)
-
-Read-only master template (~130 components) + property-specific `OWNER_NOTE_SEEDS`.
-
-**Two layers:**
-
-| Layer | Name | Examples |
-|-------|------|----------|
-| `room` | Room-by-Room Seller Assessment | Kitchen countertops, primary bath vanity |
-| `systems` | Hidden Issues & Transaction Risk | Roof, HVAC, GFCI, water heater |
-
-**Template fields (locked):** zone, component, category, buyer_visibility, inspection_risk
-
-**Seller-editable fields:** `owner_note`, `looks_fine`, `include_in_report`
-
-**Backend-inferred (not shown by default):** condition_label, action, cost, priority, bucket — via rule-based inference + `calculate_walkthrough_fields()`
-
-**Assessment prompts:** computed at enrich time (`get_assessment_prompt()`), shown as placeholders only — never persisted.
-
-### Evidence package (`evidence.py`)
-
-Merges walkthrough rows + photo summary + property facts into a unified structure for ROI prompts.
-
-**Precedence on conflict:** walkthrough > photos > metadata
-
-**Confidence tiers:**
-
-| Tier | Definition |
-|------|------------|
-| `confirmed` | Walkthrough + photos agree |
-| `observed` | One direct source |
-| `inferred` | Metadata/context only |
-| `unknown` | No evidence |
-
-`looks_fine=true` rows appear as seller-dismissed; `include_in_report` controls ROI routing independently.
-
-### Supporting modules
-
-| Module | Role |
-|--------|------|
-| `photos.py` | Google Photos OAuth, album listing, thumbnail proxy |
-| `attom.py` | Property AVM and sales history (cached JSON) |
-| `gemini_client.py` | Vision API wrapper |
-| `claude_client.py` | Text generation wrapper |
-| `check_report.py` | Report validation utility |
-| `run_inventory.py` | Materials shopping list generation |
-| `app.py` | Separate Streamlit media review tool (local CSV annotations) |
-
----
-
-## Data stores (Supabase)
+## Data Stores
 
 | Table | Key | Purpose |
-|-------|-----|---------|
-| `photo_analyses` | `id` (filename) | Per-photo Claude vision JSON |
-| `roi_report` | `id` (`{level}_{profile}`) | Cached ROI report JSON |
+|---|---|---|
+| `photo_analyses` | `id` | Per-photo Claude vision JSON; existing records remain usable |
+| `roi_report` | `id` | Cached ROI report JSON |
 | `upgrade_details` | `id` + `item_type` | Deep how-to detail cache |
-| `oauth_tokens` | `id` (`google`) | Google OAuth token |
 | `walkthrough_items` | `uuid` | Per-property editable checklist rows |
+| `decision_matrices` | `uuid` | Decision Matrix header/version/evidence snapshot |
+| `decision_matrix_rows` | `uuid` | Matrix evidence rows and existing labels |
+| `decision_matrix_options` | `uuid` | Matrix action options and costs |
+| `decision_matrix_scenarios` | `uuid` | Matrix scenario selections |
 | `inventory_overrides` | property id | Room count overrides |
 
-**Walkthrough uniqueness:** `(property_id, zone, component, layer)`
+## API Surface
 
-**Migrations:** `migrations/walkthrough_items.sql` (+ v2, v3, v4 incremental columns)
-
----
-
-## API surface (selected)
-
-```
-GET  /                          → static/index.html
-GET  /auth/*                    → Google OAuth
-GET  /photos/*                  → Albums, thumbnails
-POST /analyze, /analyze/bulk    → Vision analysis
-POST /report                    → Generate ROI report
-GET  /report, /report/status    → Cached reports + staleness
-POST /report/regenerate-all     → Rebuild all scenarios
-GET  /walkthrough-items         → List checklist rows
-POST /walkthrough-items/seed    → Idempotent template seed
-PATCH /walkthrough-items/{id}   → Seller edits
-POST /walkthrough-items/recalculate → Backfill inferred fields
-GET  /inventory                 → Materials list
+```text
+GET  /                          -> static/index.html
+POST /analyze                   -> removed import endpoint; returns 410
+POST /analyze/bulk              -> removed import endpoint; returns 410
+GET  /analyze/results           -> cached photo analysis results
+POST /report                    -> generate ROI report
+POST /report/from-tier          -> generate matrix-tier ROI report
+GET  /report, /report/status    -> cached reports and staleness
+POST /report/regenerate-all     -> rebuild all scenarios
+GET  /walkthrough-items         -> list checklist rows
+PATCH /walkthrough-items/{id}   -> update checklist rows
+GET  /decision-matrix/*         -> matrix views, tiers, scenarios, and health
+PATCH /decision-matrix/rows/*   -> seller matrix edits
+GET  /inventory                 -> inventory aggregation
+POST /inventory/override        -> save inventory overrides
 ```
 
----
-
-## CLI tools
+## CLI Tools
 
 ```bash
-python run_analysis.py    # Batch photo vision analysis → Supabase
-python run_roi.py         # Generate reports from CLI
-python run_inventory.py   # Inventory generation
+python run_analysis.py
+python run_inventory.py
+python run_roi.py
 ```
 
----
-
-## External services
+## External Services
 
 | Service | Use |
-|---------|-----|
-| Anthropic Claude | Vision + report + deep detail |
+|---|---|
+| Anthropic Claude | Vision, report, and deep detail |
 | Supabase | PostgreSQL persistence |
-| Google Photos | Source images (OAuth, read-only) |
-| ATTOM | Property facts (cached) |
+| ATTOM | Property facts, AVM, sales history; currently cached, live refresh planned via `ATTOM_API_KEY` |
 | Railway | Hosting |
 
----
+## Invariants
 
-## Key design constraints
-
-1. **Walkthrough = evidence backbone** — 100% component coverage; photos supplement gaps.
-2. **Seller sees facts only** on Walkthrough tab; recommendations live on ROI tab.
-3. **Rule-based inference in Phase 1** — Claude does not infer walkthrough condition from notes in the current deterministic walkthrough path.
-4. **Cost anchors are ground truth** — `_KNOWN_REPAIR_FACTS` and Greenville anchors override ambiguous AI interpretation.
-5. **No application framework** — vanilla HTML/CSS/JS SPA; changes are direct file edits.
-
----
-
-## Related docs
-
-- [ux-decisions.md](ux-decisions.md) — walkthrough UX choices
-- [listing-readiness-tiers.md](listing-readiness-tiers.md) — listing-readiness tier model
-- [rejected-designs.md](rejected-designs.md) — approaches we did not ship
-- [open-questions.md](open-questions.md) — unresolved decisions
+- Decision Matrix labels and evidence remain the condition source of truth.
+- Existing `photo_analyses` records are not deleted or regenerated by report workflows.
+- External photo import credentials are not required.
+- Local media scripts are the only supported path for new photo/inventory analysis.

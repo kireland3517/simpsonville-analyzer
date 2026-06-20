@@ -2,7 +2,7 @@
 run_roi.py
 ----------
 Reads all photo analyses from Supabase, pre-processes them into a
-structured summary, generates an ROI report with Gemini, and saves
+structured summary, generates an ROI report with Claude, and saves
 the result back to Supabase.
 
 Usage:
@@ -849,7 +849,7 @@ def main() -> None:
 
     for level in chain:
         level_report_id = f"{level}_{buyer_profile}"
-        print(f"\nGenerating [{level}] ROI report for [{buyer_profile}] buyer with Gemini...")
+        print(f"\nGenerating [{level}] ROI report for [{buyer_profile}] buyer with Claude...")
         walkthrough_block = _evidence_prompt_block(wt_rows, summary, level)
         report = generate_roi_report(
             summary, property_summary, last_sale,

@@ -9,7 +9,7 @@ AI-powered pre-sale renovation analysis for 130 Kingfisher Dr, Simpsonville SC 2
 ## How It Works
 
 ```
-Google Photos
+ Local media or existing Supabase `photo_analyses`
      │
      ▼
 Claude Vision (`CLAUDE_VISION_MODEL`)
@@ -44,9 +44,9 @@ FastAPI + static/index.html
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude vision, report generation, and item detail |
 | `SUPABASE_URL` | Yes | Supabase project URL (e.g. `https://xxxxx.supabase.co`) |
 | `SUPABASE_SERVICE_KEY` | Yes | Supabase service role key |
-| `GOOGLE_CREDENTIALS_JSON` | Yes | Google OAuth2 client config as JSON string (or `google_credentials.json` on disk) |
-| `GOOGLE_TOKEN_JSON` | No | Cached OAuth token as JSON string (or `google_token.json` on disk) |
-| `REDIRECT_URI` | No | OAuth callback URL (default: `http://localhost:8000/auth/callback`) |
+| `ATTOM_API_KEY` | No | Optional for app startup; required for future live ATTOM market refresh |
+| `OPENAI_API_KEY` | No | Reserved for future OpenAI integration; current app paths do not use it |
+| `SMARTY_AUTH_ID` / `SMARTY_AUTH_TOKEN` / `SMARTY_LICENSE` | No | Reserved for future address validation; not required for the current single-property workflow |
 | `CLAUDE_MODEL` | No | Optional override for all Claude calls |
 | `CLAUDE_VISION_MODEL` | No | Vision model override |
 | `CLAUDE_TEXT_MODEL` | No | Text/report model override |
@@ -61,7 +61,6 @@ FastAPI + static/index.html
 | `photo_analyses` | `id` (filename) | Raw Claude vision output per photo — room type, condition, issues, upgrades, inspection flags, deal risk, dated features |
 | `roi_report` | `id` (e.g. `standard_general`) | Generated ROI reports for each (detail_level, buyer_profile) combination |
 | `upgrade_details` | `id` (item name) + `item_type` | On-demand deep how-to detail cached after first Claude call |
-| `oauth_tokens` | `id` (`"google"`) | Google OAuth token for Photos API access |
 
 Create tables once in Supabase SQL Editor:
 
@@ -87,11 +86,6 @@ CREATE TABLE upgrade_details (
     PRIMARY KEY (id, item_type)
 );
 
-CREATE TABLE oauth_tokens (
-    id           TEXT PRIMARY KEY,
-    token_data   JSONB,
-    updated_at   TIMESTAMPTZ DEFAULT now()
-);
 ```
 
 ---
@@ -163,7 +157,7 @@ The same issue appearing across 5 critical-risk photos accumulates 50.0 points. 
 
 ### Inspection Flag Aggregation
 
-Inspection flags from critical/high photos are extracted separately and injected into the repairs prompt verbatim — giving Gemini the exact language a licensed inspector would use (e.g. "recommend full door replacement") rather than letting it interpret from issue text alone.
+Inspection flags from critical/high photos are extracted separately and injected into the repairs prompt verbatim — giving Claude the exact language a licensed inspector would use (e.g. "recommend full door replacement") rather than letting it interpret from issue text alone.
 
 ### Upgrade Ranking
 
@@ -173,7 +167,7 @@ Upgrades are ranked by raw count (how many photos mentioned the same upgrade opp
 
 ## Deal Killer Criteria
 
-`_enforce_repair_priorities()` in `roi.py` ensures Gemini never downgrades a known deal-risk item based on cost or ease of fix. Severity is about buyer impact.
+`_enforce_repair_priorities()` in `roi.py` ensures Claude never downgrades a known deal-risk item based on cost or ease of fix. Severity is about buyer impact.
 
 ### Mark as CRITICAL if any are true:
 - Item will fail FHA/USDA/conventional appraisal
@@ -203,7 +197,7 @@ _CRITICAL_REPAIR_TOKENS = {
 
 ## Known Repair Facts
 
-`_KNOWN_REPAIR_FACTS` in `roi.py` is a ground-truth block injected into every repairs prompt. It overrides ambiguous inspector flag language and prevents Gemini from choosing a cheaper interpretation.
+`_KNOWN_REPAIR_FACTS` in `roi.py` is a ground-truth block injected into every repairs prompt. It overrides ambiguous inspector flag language and prevents Claude from choosing a cheaper interpretation.
 
 **Current facts (derived from photo analysis of 130 Kingfisher Dr):**
 
@@ -219,7 +213,7 @@ Update this block if new photos reveal additional confirmed findings.
 
 ## Greenville SC Cost Anchors
 
-`_GREENVILLE_COST_ANCHORS` in `roi.py` is a 60+ item table of real-world installed costs sourced from Greenville/Simpsonville contractor quotes, HomeAdvisor regional data, and local Lowe's/Home Depot pricing. Labor is 15–20% below national average. Injected into every Gemini call.
+`_GREENVILLE_COST_ANCHORS` in `roi.py` is a 60+ item table of real-world installed costs sourced from Greenville/Simpsonville contractor quotes, HomeAdvisor regional data, and local Lowe's/Home Depot pricing. Labor is 15–20% below national average. Injected into every Claude call.
 
 Selected anchors:
 
@@ -245,7 +239,7 @@ Every generated report is stamped with `prompt_version` — an 8-character SHA1 
 
 ## Buyer Profiles
 
-Six profiles shape item selection, priority weighting, and description tone across all three Gemini calls.
+Six profiles shape item selection, priority weighting, and description tone across all three Claude calls.
 
 | Profile | Focus |
 |---|---|
@@ -348,17 +342,8 @@ Each photo analyzed by `analyzer.py` produces:
 
 ```
 GET  /                        Serve static/index.html
-GET  /auth/login              Return Google OAuth URL
-GET  /auth/callback?code=     Exchange OAuth code, redirect to /
-GET  /auth/status             Check whether a valid token exists
-GET  /auth/logout             Clear token from Supabase and memory
-
-GET  /photos/albums           List all albums owned by authenticated user
-GET  /photos/list             List photos in a Google Photos album
-GET  /photos/thumbnail        Proxy a photo thumbnail
-
-POST /analyze                 Analyze a single photo (body: {base_url, photo_id})
-POST /analyze/bulk            Analyze a batch of photos sequentially
+POST /analyze                 Removed import endpoint; returns 410 with local-media instructions
+POST /analyze/bulk            Removed import endpoint; returns 410 with local-media instructions
 GET  /analyze/results         Return all cached analysis results
 
 POST /report                  Generate ROI report (body: {detail_level, buyer_profile})
@@ -405,7 +390,7 @@ Invoke-RestMethod "https://your-domain/report/status"
 Invoke-RestMethod -Method POST "https://your-domain/report/invalidate?profile=all"
 
 # Regenerate all 3 levels (executive → standard → deep_dive)
-# ~9 Gemini calls, ~60-90 seconds
+# ~9 Claude calls, ~60-90 seconds
 Invoke-RestMethod -Method POST "https://your-domain/report/regenerate-all?profile=general"
 ```
 
@@ -417,10 +402,9 @@ Photo analyses (`photo_analyses` table) are never affected — only the 9-call r
 
 | Service | Used For | Cost Model |
 |---|---|---|
-| Google Gemini | Vision analysis + report generation + deep dive detail | Per token — vision on Flash, reports on Pro |
-| Supabase | PostgreSQL storage for analyses, reports, detail cache, OAuth tokens | Free tier sufficient for single-property use |
-| ATTOM Data | Property AVM and sales history | Local cached JSON files — no live calls |
-| Google Photos | Source photos via OAuth — read-only | Free |
+| Anthropic Claude | Vision analysis + report generation + deep dive detail | Per token |
+| Supabase | PostgreSQL storage for analyses, reports, detail cache, walkthrough, and decision matrix data | Free tier sufficient for single-property use |
+| ATTOM Data | Property AVM and sales history | Local cached JSON now; live refresh can use `ATTOM_API_KEY` |
 | Railway | Hosting | Usage-based |
 
 ---

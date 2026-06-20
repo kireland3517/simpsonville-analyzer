@@ -1,7 +1,7 @@
 """
 House Media Review
 ──────────────────
-Browses house photos and videos (sourced from Google Photos).
+Browses local house photos and videos.
 Lets you add notes, tag by room/area, mark favorites, and run AI analysis.
 All annotation data is saved locally to media_review.csv — nothing is uploaded.
 
@@ -165,13 +165,13 @@ with st.sidebar:
     st.markdown("### 🔍 AI Analysis")
 
     api_key_input: str = st.text_input(
-        "Gemini API Key",
+        "Anthropic API Key",
         type="password",
         key="api_key_input",
-        placeholder="AIza...",
+        placeholder="sk-ant-...",
     )
     if api_key_input:
-        os.environ["GEMINI_API_KEY"] = api_key_input
+        os.environ["ANTHROPIC_API_KEY"] = api_key_input
 
     already_analyzed = st.session_state.df["analysis"].str.strip().ne("").sum()
     st.caption(f"{already_analyzed} / {len(st.session_state.df)} files analyzed")

@@ -117,9 +117,9 @@ When a single photo is analyzed (`analyzer.analyze_image`):
 ```mermaid
 flowchart TD
     subgraph ingest [Photo Ingest]
-        GP[Google Photos OAuth]
+        Existing[Existing Supabase photo_analyses]
         Local[media/ folder CLI]
-        GP --> DL[Download / resize max 2000px JPEG q85]
+        Existing --> Vision
         Local --> DL
         DL --> Vision[analyzer.analyze_image]
         Vision --> PADB[(photo_analyses)]
@@ -257,7 +257,7 @@ Confidence tiers:
 
 | Source | Discovery method | Limits |
 |--------|------------------|--------|
-| **Google Photos (web)** | OAuth → `GET /photos/albums` → `GET /photos/list?album_id=` | Albums paginated 50/page; photos 100/page; **no hard cap** on total |
+| **Existing Supabase analyses** | Read `photo_analyses` records already persisted for the property | No new photo import |
 | **Local CLI** | `run_analysis.scan_files()` recurses `media/` (or repo root) | Skips `.git`, `node_modules`, `__pycache__`, `.venv` |
 | **Video** | `.mp4` in media → `extract_video_frames()` | ffmpeg: 1 frame / 5 seconds → `.video_frames/` |
 
@@ -290,10 +290,9 @@ Supported image types: `.jpg`, `.jpeg`, `.png`, `.webp`, `.heic`
 | Output format | JPEG quality 85 |
 | HEIC | Converted via `pillow-heif` if installed |
 
-**Google Photos download:**
+**External photo import:**
 
-- Thumbnail: `baseUrl=w{width}-h{width}` (default 400px for UI)
-- Full resolution for analysis: `baseUrl=d` (`width=0` in `get_photo_bytes`)
+- Removed from active app code. Use local media scripts for new analysis.
 
 ### 3.4 Photo Grouping (downstream, not at vision time)
 
@@ -731,13 +730,11 @@ Persisted to `roi_report` table as JSONB:
 | `CLAUDE_DETAIL_MODEL` | `claude_client.py` | Item detail model override |
 | `CLAUDE_MODEL` | `claude_client.py` | Global model override for all calls |
 | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | `gemini_client.py` only | Unused alternate client |
-| `SUPABASE_URL` | `main.py`, `photos.py`, CLIs | Database |
+| `SUPABASE_URL` | `main.py`, CLIs | Database |
 | `SUPABASE_SERVICE_KEY` | Same | Service role key |
-| `GOOGLE_CREDENTIALS_JSON` | `photos.py` | OAuth client config (JSON string) |
-| `google_credentials.json` | `photos.py` | OAuth client config (file fallback) |
-| `GOOGLE_TOKEN_JSON` | `photos.py` | OAuth token seed |
-| `google_token.json` | `photos.py` | OAuth token (local dev) |
-| `REDIRECT_URI` | `photos.py` | OAuth callback (default `http://localhost:8000/auth/callback`) |
+| `ATTOM_API_KEY` | Future market refresh | Optional for startup; needed for live ATTOM refresh |
+| `OPENAI_API_KEY` | Future adapter | Reserved; not used by current active app paths |
+| `SMARTY_*` | Future address validation | Reserved; not required for single-property workflow |
 
 ### 6.2 Python Modules (Behavior Control)
 
@@ -751,7 +748,6 @@ Persisted to `roi_report` table as JSONB:
 | `walkthrough_impact.py` | Observation → recommendation traceability |
 | `claude_client.py` | LLM client, model selection, JSON parse/retry |
 | `gemini_client.py` | Alternate client (unused) |
-| `photos.py` | Google Photos OAuth and download |
 | `attom.py` | Property AVM/specs from cached JSON |
 | `main.py` | API orchestration, caching, endpoint wiring |
 
@@ -772,7 +768,6 @@ Persisted to `roi_report` table as JSONB:
 | `walkthrough_items` | Seller checklist rows |
 | `roi_report` | Cached ROI reports (`id` = `{level}_{profile}`) |
 | `upgrade_details` | Cached on-demand item detail |
-| `oauth_tokens` | Google Photos OAuth token |
 | `inventory_overrides` | User-edited room counts |
 | `notes` | Freeform seller notes (`130_kingfisher`) |
 

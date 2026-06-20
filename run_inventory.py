@@ -1,41 +1,29 @@
 """
 run_inventory.py
-────────────────
-Backfill inventory counts for photos in Supabase photo_analyses.
+----------------
+Backfill inventory counts for local photos in Supabase photo_analyses.
 
-Two modes:
-
-  --local   Scan image files on disk, run inventory vision pass, update
-            Supabase rows that already have analysis data.
-            Use this when photos are in the repo and base_url was never stored.
-
-  (default) Fetch each photo via its stored base_url from Google Photos,
-            run inventory vision pass, save to Supabase.
-            Use this when photos came through the web app OAuth flow.
+This script scans local image/video files, runs the inventory vision pass, and
+updates Supabase rows that already have analysis data. External photo import has
+been removed from the active app.
 
 Usage:
-    python run_inventory.py --local
     python run_inventory.py
+    python run_inventory.py --local
 
 Requires:
-    ANTHROPIC_API_KEY     — Anthropic API key
-    SUPABASE_URL          — Supabase project URL
-    SUPABASE_SERVICE_KEY  — Supabase service role key
+    ANTHROPIC_API_KEY
+    SUPABASE_URL
+    SUPABASE_SERVICE_KEY
 
-For default (Google Photos) mode, also requires:
-    GOOGLE_CREDENTIALS_JSON or google_credentials.json
-    A valid Google token (google_token.json or GOOGLE_TOKEN_JSON env var)
-
-Supabase schema prerequisites (run once in Supabase SQL editor):
+Supabase schema prerequisite:
     ALTER TABLE photo_analyses ADD COLUMN IF NOT EXISTS inventory JSONB;
-    ALTER TABLE photo_analyses ADD COLUMN IF NOT EXISTS base_url TEXT;
 """
 from __future__ import annotations
 
 import argparse
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -47,15 +35,12 @@ from analyzer import analyze_image_inventory, extract_video_frames
 from claude_client import get_api_key
 
 TABLE = "photo_analyses"
-FULL_RES_WIDTH = 0  # width=0 → full-resolution download
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 VIDEO_EXTS = {".mp4"}
 VIDEO_FRAMES_DIR = Path(".video_frames")
-SKIP_DIRS  = {".git", "node_modules", "__pycache__", ".venv", "venv", ".video_frames", "static"}
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".video_frames", "static"}
 
-
-# ─── Supabase helpers ─────────────────────────────────────────────────────────
 
 def get_supabase():
     url = os.environ.get("SUPABASE_URL")
@@ -64,22 +49,6 @@ def get_supabase():
         print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.", file=sys.stderr)
         sys.exit(1)
     return create_client(url, key)
-
-
-def load_pending_rows(client) -> list[dict]:
-    """Return rows that have analysis but no inventory yet (Google Photos mode)."""
-    try:
-        result = (
-            client.table(TABLE)
-            .select("id, filename, base_url")
-            .is_("inventory", "null")
-            .not_.is_("analysis", "null")
-            .execute()
-        )
-        return result.data or []
-    except Exception as exc:
-        print(f"ERROR: Could not fetch pending rows: {exc}", file=sys.stderr)
-        sys.exit(1)
 
 
 def load_analyzed_ids(client) -> set[str]:
@@ -97,163 +66,87 @@ def load_analyzed_ids(client) -> set[str]:
         return set()
 
 
-# ─── Local file scan ──────────────────────────────────────────────────────────
-
 def scan_local_files() -> list[tuple[Path, str]]:
-    """Return (path_to_analyze, row_id) pairs from media/ folder.
-
-    Images are returned as-is. Videos are expanded into extracted frames,
-    one frame every 5 seconds, using ffmpeg.
-    """
+    """Return (path_to_analyze, row_id) pairs from media/ or the repo root."""
     media_dir = Path("media")
     search_root = media_dir if media_dir.is_dir() else Path(".")
     work: list[tuple[Path, str]] = []
-    for p in sorted(search_root.rglob("*")):
-        if not p.is_file():
+
+    for path in sorted(search_root.rglob("*")):
+        if not path.is_file():
             continue
-        ext = p.suffix.lower()
+        if any(part in SKIP_DIRS for part in path.parts):
+            continue
+
+        ext = path.suffix.lower()
         if ext in IMAGE_EXTS:
-            work.append((p, p.name))
+            work.append((path, path.name))
         elif ext in VIDEO_EXTS:
-            frames_dir = VIDEO_FRAMES_DIR / p.stem
-            frames = extract_video_frames(p, frames_dir, every_n_seconds=5)
+            frames_dir = VIDEO_FRAMES_DIR / path.stem
+            frames = extract_video_frames(path, frames_dir, every_n_seconds=5)
             if not frames:
-                print(f"  SKIP  {p.name} — ffmpeg not found or no frames extracted")
+                print(f"  SKIP  {path.name} - ffmpeg not found or no frames extracted")
                 continue
             for frame in frames:
                 work.append((frame, frame.name))
+
     return work
 
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
-
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run inventory vision pass on house photos and save to Supabase."
+        description="Run inventory vision pass on local house photos and save to Supabase."
     )
     parser.add_argument(
         "--local",
         action="store_true",
-        help="Scan local image files instead of fetching from Google Photos",
+        help="Deprecated no-op; local media is the only supported mode.",
     )
-    args = parser.parse_args()
+    parser.parse_args()
 
     if not get_api_key():
         print("ERROR: ANTHROPIC_API_KEY must be set.", file=sys.stderr)
         sys.exit(1)
 
     client = get_supabase()
-
-    # ── Local mode ────────────────────────────────────────────────────────────
-    if args.local:
-        all_work = scan_local_files()
-        if not all_work:
-            print("No image or video files found.")
-            return
-
-        already_done = load_analyzed_ids(client)
-        to_run = [(path, row_id) for path, row_id in all_work if row_id not in already_done]
-
-        print(f"{len(all_work)} files found on disk (images + video frames).")
-        print(f"{len(already_done)} already have inventory in Supabase.")
-        print(f"{len(to_run)} to analyze.")
-
-        if not to_run:
-            print("Nothing to do.")
-            return
-
-        succeeded = failed = 0
-
-        for i, (path, row_id) in enumerate(to_run, start=1):
-            print(f"  [{i}/{len(to_run)}] {row_id}", end="", flush=True)
-
-            result = analyze_image_inventory(path)
-
-            if result.get("error"):
-                print(f" — FAIL: {result['error']}")
-                failed += 1
-                continue
-
-            try:
-                client.table(TABLE).update({"inventory": result}).eq("id", row_id).execute()
-                print(f" — OK ({result.get('room_type', '?')})")
-                succeeded += 1
-            except Exception as exc:
-                print(f" — WARN: could not save to Supabase: {exc}")
-                failed += 1
-
-        print()
-        print(f"Done. {succeeded} succeeded, {failed} failed out of {len(to_run)}.")
+    all_work = scan_local_files()
+    if not all_work:
+        print("No image or video files found.")
         return
 
-    # ── Google Photos mode (default) ──────────────────────────────────────────
-    from photos import get_credentials, get_photo_bytes
+    already_done = load_analyzed_ids(client)
+    to_run = [(path, row_id) for path, row_id in all_work if row_id not in already_done]
 
-    rows = load_pending_rows(client)
+    print(f"{len(all_work)} files found on disk (images + video frames).")
+    print(f"{len(already_done)} already have inventory in Supabase.")
+    print(f"{len(to_run)} to analyze.")
 
-    if not rows:
-        print("Nothing to do — all analyzed photos already have inventory data.")
+    if not to_run:
+        print("Nothing to do.")
         return
 
-    print(f"{len(rows)} photos need inventory analysis.")
+    succeeded = failed = 0
 
-    creds = get_credentials()
-    if not creds:
-        print(
-            "ERROR: No Google credentials found. Authenticate via the web app first "
-            "(GET /auth/login), or set GOOGLE_TOKEN_JSON in your environment.\n"
-            "Tip: if photos are stored locally, run with --local instead.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    for index, (path, row_id) in enumerate(to_run, start=1):
+        print(f"  [{index}/{len(to_run)}] {row_id}", end="", flush=True)
 
-    succeeded = skipped = failed = 0
-
-    for i, row in enumerate(rows, start=1):
-        row_id   = row.get("id") or row.get("filename")
-        base_url = row.get("base_url")
-
-        if not base_url:
-            print(f"  SKIP  [{i}/{len(rows)}] {row_id} — no base_url stored")
-            print("        Tip: run with --local if photos are in the repo.")
-            skipped += 1
-            continue
-
-        print(f"  [{i}/{len(rows)}] {row_id}", end="", flush=True)
-
-        photo_bytes = get_photo_bytes(base_url, creds, width=FULL_RES_WIDTH)
-        if photo_bytes is None:
-            print(" — FAIL: could not download photo (token expired or URL stale)")
-            failed += 1
-            continue
-
-        tmp_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-                tmp_path = Path(tmp.name)
-                tmp.write(photo_bytes)
-            result = analyze_image_inventory(tmp_path)
-        finally:
-            if tmp_path and tmp_path.exists():
-                tmp_path.unlink()
+        result = analyze_image_inventory(path)
 
         if result.get("error"):
-            print(f" — FAIL: {result['error']}")
+            print(f" - FAIL: {result['error']}")
             failed += 1
             continue
 
         try:
             client.table(TABLE).update({"inventory": result}).eq("id", row_id).execute()
-            print(f" — OK ({result.get('room_type', '?')})")
+            print(f" - OK ({result.get('room_type', '?')})")
             succeeded += 1
         except Exception as exc:
-            print(f" — WARN: could not save to Supabase: {exc}")
+            print(f" - WARN: could not save to Supabase: {exc}")
             failed += 1
 
     print()
-    print(f"Done. {succeeded} succeeded, {skipped} skipped (no base_url), {failed} failed.")
-    if skipped:
-        print("Tip: re-run with --local to process photos stored on disk.")
+    print(f"Done. {succeeded} succeeded, {failed} failed out of {len(to_run)}.")
 
 
 if __name__ == "__main__":

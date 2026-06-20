@@ -1,8 +1,8 @@
 """
 analyzer.py
 ───────────
-Uses Gemini Vision to analyze house photos and return structured condition findings.
-Requires GEMINI_API_KEY to be set in the environment.
+Uses Claude Vision to analyze house photos and return structured condition findings.
+Requires ANTHROPIC_API_KEY to be set in the environment.
 
 No API calls are made for local helpers (extract_video_frames uses ffmpeg via subprocess).
 """
@@ -177,7 +177,7 @@ def _media_type(path: Path) -> Optional[str]:
 
 def analyze_image(image_path: Path) -> dict:
     """
-    Send a house photo to Gemini Vision and return structured condition findings.
+    Send a house photo to Claude Vision and return structured condition findings.
 
     Returns a dict with keys: room_type, condition, issues, upgrades, finish_quality.
     On any error (missing file, unsupported type, API failure, bad JSON) returns
@@ -207,7 +207,7 @@ def analyze_image(image_path: Path) -> dict:
         return {**_ERROR_RESULT, "error": str(exc)}
 
     if not get_api_key():
-        return {**_ERROR_RESULT, "error": "GEMINI_API_KEY environment variable is not set"}
+        return {**_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
 
     result, err = generate_vision(
         image_bytes,

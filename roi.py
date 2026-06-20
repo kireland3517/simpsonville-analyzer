@@ -1,10 +1,10 @@
 """
 roi.py
 ------
-Uses Gemini to generate a pre-sale ROI report from vision analysis
+Uses Claude to generate a pre-sale ROI report from vision analysis
 summary data. Supports three detail levels and six buyer profiles.
 
-Requires GEMINI_API_KEY to be set in the environment.
+Requires ANTHROPIC_API_KEY to be set in the environment.
 """
 from __future__ import annotations
 
@@ -726,7 +726,7 @@ Staging — basic furniture rental (90 days):                        $1,500–$3
 # _GREENVILLE_COST_ANCHORS is edited — used to detect stale cached reports.
 PROMPT_VERSION = hashlib.sha1(_GREENVILLE_COST_ANCHORS.encode()).hexdigest()[:8]
 
-# Photo-analysis-derived facts that Gemini must treat as ground truth.
+# Photo-analysis-derived facts that Claude must treat as ground truth.
 # These override any ambiguous flag language (e.g. "panel OR full door").
 _KNOWN_REPAIR_FACTS = """\
 KNOWN REPAIR FACTS — DERIVED FROM PHOTO ANALYSIS (treat as ground truth)
@@ -1126,7 +1126,7 @@ def generate_roi_report(
     matrix_line_items: dict[str, list] | None = None,
 ) -> dict:
     """
-    Generate a pre-sale ROI report using three sequential Gemini calls (all levels):
+    Generate a pre-sale ROI report using three sequential Claude calls (all levels):
       Call 1 — Assessment: executive_summary, deal_killers, timeline, SC notes
       Call 2 — Upgrades: sorted by ROI (executive 3 / standard 5 / deep_dive 8)
       Call 3 — Repairs:  sorted by priority (executive 3 / standard 5 / deep_dive 8)
@@ -1144,7 +1144,7 @@ def generate_roi_report(
         return {**_ERROR_RESULT, "error": "Empty analysis summary — nothing to report on"}
 
     if not get_api_key():
-        return {**_ERROR_RESULT, "error": "GEMINI_API_KEY environment variable is not set"}
+        return {**_ERROR_RESULT, "error": "ANTHROPIC_API_KEY environment variable is not set"}
 
     # ── Call 1: Assessment ─────────────────────────────────────────
     print("  [1/3] Assessment call...")
@@ -1323,7 +1323,7 @@ def get_item_detail(name: str, item_type: str, description: str = "", issues: st
         return {"error": f"item_type must be 'upgrade' or 'repair', got {item_type!r}"}
 
     if not get_api_key():
-        return {"error": "GEMINI_API_KEY environment variable is not set"}
+        return {"error": "ANTHROPIC_API_KEY environment variable is not set"}
 
     verb = "upgrading" if item_type == "upgrade" else "repairing"
 
