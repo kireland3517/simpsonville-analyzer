@@ -2052,8 +2052,9 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
           </div>
           <div id="sp-market-bar" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gray-600);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 12px;margin-bottom:16px">
             <span>As-Is: <strong id="sp-as-is">—</strong></span>
-            <span>Listing Ceiling: <strong id="sp-ceiling">—</strong></span>
-            <span>Max Supported Lift: <strong id="sp-max-lift">—</strong></span>
+            <span style="color:var(--accent);font-weight:600">Scenario Price: <strong id="sp-scenario-price">—</strong></span>
+            <span>Ceiling: <strong id="sp-ceiling">—</strong></span>
+            <span>Max Lift: <strong id="sp-max-lift">—</strong></span>
             <span id="sp-freshness-badge" style="margin-left:auto;font-style:italic"></span>
           </div>
           <div id="sp-items-wrap" style="overflow-x:auto;margin-bottom:14px">
@@ -6051,6 +6052,11 @@ function spRenderResult(result) {
       : 'On selected work';
   }
   spUpdateInputsSummary(result.seller_inputs_used || {});
+
+  const scenarioPriceEl = $('sp-scenario-price');
+  if (scenarioPriceEl && result.scenario_listing_price != null) {
+    scenarioPriceEl.textContent = '~' + spFmt(result.scenario_listing_price);
+  }
 
   const tbody = $('sp-items-body');
   if (!tbody) return;

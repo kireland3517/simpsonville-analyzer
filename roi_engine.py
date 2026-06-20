@@ -61,20 +61,21 @@ class RoiItem:
 
 @dataclasses.dataclass
 class RoiResult:
-    scenario:              str
-    items:                 list[RoiItem]
-    total_cost_low:        float
-    total_cost_high:       float
-    total_cost_midpoint:   float
-    value_lift_uncapped:   float
-    max_supported_lift:    float
-    value_lift_capped:     float
-    roi_pct:               Optional[float]
-    net_proceeds:          float
-    listing_price:         float
-    seller_inputs_used:    dict
-    confidence:            str
-    generated_at:          str
+    scenario:               str
+    items:                  list[RoiItem]
+    total_cost_low:         float
+    total_cost_high:        float
+    total_cost_midpoint:    float
+    value_lift_uncapped:    float
+    max_supported_lift:     float
+    value_lift_capped:      float
+    roi_pct:                Optional[float]
+    net_proceeds:           float
+    listing_price:          float
+    scenario_listing_price: float   # as_is + value_lift_capped for this scenario
+    seller_inputs_used:     dict
+    confidence:             str
+    generated_at:           str
 
 
 # ─── Core math functions ───────────────────────────────────────────────────────
@@ -325,18 +326,19 @@ def compute_scenario(
     roi_pct = compute_roi_pct(total_cost_midpoint, value_lift_capped)
 
     return RoiResult(
-        scenario            = scenario,
-        items               = selected,
-        total_cost_low      = total_cost_low,
-        total_cost_high     = total_cost_high,
-        total_cost_midpoint = total_cost_midpoint,
-        value_lift_uncapped = value_lift_uncapped,
-        max_supported_lift  = max_supported_lift,
-        value_lift_capped   = value_lift_capped,
-        roi_pct             = roi_pct,
-        net_proceeds        = net_proceeds,
-        listing_price       = listing_price,
-        seller_inputs_used  = {
+        scenario               = scenario,
+        items                  = selected,
+        total_cost_low         = total_cost_low,
+        total_cost_high        = total_cost_high,
+        total_cost_midpoint    = total_cost_midpoint,
+        value_lift_uncapped    = value_lift_uncapped,
+        max_supported_lift     = max_supported_lift,
+        value_lift_capped      = value_lift_capped,
+        roi_pct                = roi_pct,
+        net_proceeds           = net_proceeds,
+        listing_price          = listing_price,
+        scenario_listing_price = round(as_is + value_lift_capped),
+        seller_inputs_used     = {
             "listing_price":      listing_price,
             "mortgage_payoff":    mortgage_payoff,
             "commission_pct":     commission_pct,
