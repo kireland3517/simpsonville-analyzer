@@ -366,7 +366,8 @@ class RoiOverrideUpdate(BaseModel):
 
 
 class RoiComputeRequest(BaseModel):
-    scenario: str = "full-recommended"
+    scenario:      str            = "full-recommended"
+    seller_inputs: Optional[dict] = None   # inline override; bypasses DB lookup when provided
 
 
 class RoiSnapshotRequest(BaseModel):
@@ -1914,8 +1915,15 @@ def roi_compute_post(property_id: str, body: RoiComputeRequest):
     _require_property(property_id)
     sb = _sb()
 
-    snapshot      = get_or_refresh_market_snapshot(property_id, sb)
-    seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
+    snapshot = get_or_refresh_market_snapshot(property_id, sb)
+
+    # Use inline seller_inputs from request if provided (real-time form values);
+    # otherwise load from DB so saved values persist across page reloads.
+    if body.seller_inputs:
+        seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
+        seller_inputs.update({k: v for k, v in body.seller_inputs.items() if v is not None})
+    else:
+        seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
 
     matrix_ctx = _matrix_rows_for_property(sb, property_id)
     if not matrix_ctx:

@@ -6008,6 +6008,17 @@ async function spLoadMarketSummary() {
   } catch (_) {}
 }
 
+function spCurrentFormInputs() {
+  return {
+    listing_price:      parseFloat($('sp-listing-price').value)    || null,
+    mortgage_payoff:    parseFloat($('sp-mortgage-payoff').value)  || 0,
+    commission_pct:     parseFloat($('sp-commission-pct').value)   || 5.5,
+    closing_costs:      parseFloat($('sp-closing-costs').value)    || 0,
+    seller_credits:     parseFloat($('sp-seller-credits').value)   || 0,
+    other_seller_costs: parseFloat($('sp-other-costs').value)      || 0,
+  };
+}
+
 async function spCompute() {
   const tbody = $('sp-items-body');
   if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Computing…</td></tr>';
@@ -6015,7 +6026,7 @@ async function spCompute() {
     const res = await fetch(`/properties/${SP_PROPERTY_ID}/roi-compute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scenario: spCurrentScenario }),
+      body: JSON.stringify({ scenario: spCurrentScenario, seller_inputs: spCurrentFormInputs() }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -6067,11 +6078,10 @@ function spRenderResult(result) {
   }
   tbody.innerHTML = items.map(item => {
     const excluded = !item.include_final;
-    // estimated_value_add is null when no estimate is possible (inspection pending,
-    // leave_as_is, or safety/systems items). Must-do items suppress ROI display.
-    const isMustDo = item.roi_bucket_final === 'must_do';
+    // Show item ROI whenever we have a real estimate. "—" only when value add is null
+    // (inspection pending, leave_as_is, or safety/systems items with no estimate).
     const hasEstimate = item.estimated_value_add != null && item.cost_midpoint > 0;
-    const itemRoi = (!isMustDo && hasEstimate)
+    const itemRoi = hasEstimate
       ? spFmtPct(((item.estimated_value_add - item.cost_midpoint) / item.cost_midpoint) * 100)
       : '—';
     return `<tr class="${excluded ? 'sp-row-excluded' : ''}">
