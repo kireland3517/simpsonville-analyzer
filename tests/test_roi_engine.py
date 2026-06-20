@@ -201,3 +201,37 @@ def test_compute_scenario_does_not_mutate_input_rows():
     compute_scenario("full-recommended", rows, [], SELLER_INPUTS, SNAPSHOT)
     assert rows[0]["minimum_tier"] == original_tier
     assert len(rows) == original_len
+
+
+# ─── Mortgage payoff reactivity ────────────────────────────────────────────────
+
+def test_mortgage_payoff_150k_correct_net():
+    """
+    listing=305k, payoff=150k, 5.5% commission, closing=3500, credits=2000, work=1000
+    commission = 305000 * 0.055 = 16775
+    net = 305000 - 1000 - 150000 - 16775 - 3500 - 2000 - 0 = 131725
+    """
+    row    = _make_row("r1", tier="must_do", cost_low=1_000, cost_high=1_000)
+    inputs = {**SELLER_INPUTS, "mortgage_payoff": 150_000.0}
+    result = compute_scenario("full-recommended", [row], [], inputs, SNAPSHOT)
+    assert result.net_proceeds == pytest.approx(131_725, abs=0.01)
+
+
+def test_mortgage_payoff_zero_increases_net_by_payoff_amount():
+    """Setting payoff from 150k to 0 increases net proceeds by exactly 150k."""
+    row      = _make_row("r1", tier="must_do", cost_low=1_000, cost_high=1_000)
+    base     = {**SELLER_INPUTS, "listing_price": 305_000.0}
+    r_150k   = compute_scenario("full-recommended", [row], [], {**base, "mortgage_payoff": 150_000.0}, SNAPSHOT)
+    r_zero   = compute_scenario("full-recommended", [row], [], {**base, "mortgage_payoff": 0.0},       SNAPSHOT)
+    assert r_zero.net_proceeds == pytest.approx(r_150k.net_proceeds + 150_000, abs=0.01)
+
+
+def test_explicit_zero_mortgage_payoff_is_not_overridden_by_default():
+    """Explicit 0.0 payoff must NOT fall back to any non-zero default."""
+    row    = _make_row("r1", tier="must_do", cost_low=0, cost_high=0,
+                       roi_quality="none", option_key="further_inspect")
+    inputs = {**SELLER_INPUTS, "listing_price": 305_000.0, "mortgage_payoff": 0.0}
+    result = compute_scenario("full-recommended", [row], [], inputs, SNAPSHOT)
+    # commission = 305000 * 0.055 = 16775; closing=3500; credits=2000; work=0
+    # net = 305000 - 0 - 0 - 16775 - 3500 - 2000 = 282725
+    assert result.net_proceeds == pytest.approx(282_725, abs=0.01)

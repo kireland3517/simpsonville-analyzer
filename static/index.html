@@ -6017,14 +6017,13 @@ async function spLoadSellerInputs() {
   try {
     const res = await fetch(`/properties/${SP_PROPERTY_ID}/seller-inputs`);
     if (!res.ok) return;
-    const data = await res.json();
-    const si = data.seller_inputs || {};
-    if (si.listing_price != null) $('sp-listing-price').value = si.listing_price;
-    if (si.mortgage_payoff != null) $('sp-mortgage-payoff').value = si.mortgage_payoff;
-    if (si.commission_pct != null) $('sp-commission-pct').value = si.commission_pct;
-    if (si.closing_costs != null) $('sp-closing-costs').value = si.closing_costs;
-    if (si.seller_credits != null) $('sp-seller-credits').value = si.seller_credits;
-    if (si.other_seller_costs != null) $('sp-other-costs').value = si.other_seller_costs;
+    const si = await res.json();   // API returns the dict directly (no wrapper key)
+    if (si.listing_price      != null) $('sp-listing-price').value   = si.listing_price;
+    if (si.mortgage_payoff    != null) $('sp-mortgage-payoff').value = si.mortgage_payoff;
+    if (si.commission_pct     != null) $('sp-commission-pct').value  = si.commission_pct;
+    if (si.closing_costs      != null) $('sp-closing-costs').value   = si.closing_costs;
+    if (si.seller_credits     != null) $('sp-seller-credits').value  = si.seller_credits;
+    if (si.other_seller_costs != null) $('sp-other-costs').value     = si.other_seller_costs;
     spUpdateInputsSummary(si);
   } catch (_) {}
 }
@@ -6043,19 +6042,11 @@ function spDebouncedSave() {
 }
 
 async function spSaveInputs() {
-  const payload = {
-    listing_price: parseFloat($('sp-listing-price').value) || null,
-    mortgage_payoff: parseFloat($('sp-mortgage-payoff').value) || 0,
-    commission_pct: parseFloat($('sp-commission-pct').value) || 5.5,
-    closing_costs: parseFloat($('sp-closing-costs').value) || 0,
-    seller_credits: parseFloat($('sp-seller-credits').value) || 0,
-    other_seller_costs: parseFloat($('sp-other-costs').value) || 0,
-  };
   try {
     await fetch(`/properties/${SP_PROPERTY_ID}/seller-inputs`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(spCurrentFormInputs()),
     });
   } catch (_) {}
   spCompute();
@@ -6079,13 +6070,21 @@ async function spLoadMarketSummary() {
 }
 
 function spCurrentFormInputs() {
+  // Return null for blank fields so the backend preserves DB/default values.
+  // Explicitly typed "0" sends 0 (honoured as a real zero, e.g. no mortgage payoff).
+  function _fv(id) {
+    const el = document.getElementById(id);
+    if (!el || el.value === '') return null;
+    const n = parseFloat(el.value);
+    return isNaN(n) ? null : n;
+  }
   return {
-    listing_price:      parseFloat($('sp-listing-price').value)    || null,
-    mortgage_payoff:    parseFloat($('sp-mortgage-payoff').value)  || 0,
-    commission_pct:     parseFloat($('sp-commission-pct').value)   || 5.5,
-    closing_costs:      parseFloat($('sp-closing-costs').value)    || 0,
-    seller_credits:     parseFloat($('sp-seller-credits').value)   || 0,
-    other_seller_costs: parseFloat($('sp-other-costs').value)      || 0,
+    listing_price:      _fv('sp-listing-price'),
+    mortgage_payoff:    _fv('sp-mortgage-payoff'),
+    commission_pct:     _fv('sp-commission-pct'),
+    closing_costs:      _fv('sp-closing-costs'),
+    seller_credits:     _fv('sp-seller-credits'),
+    other_seller_costs: _fv('sp-other-costs'),
   };
 }
 

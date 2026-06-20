@@ -386,15 +386,18 @@ def compute_scenario(
     value_lift_uncapped = sum(it.estimated_value_add or 0.0 for it in selected)
     value_lift_capped   = min(value_lift_uncapped, max_supported_lift)
 
-    # Seller inputs with defaults
-    listing_price = float(
-        seller_inputs.get("listing_price") or ceiling or as_is
-    )
-    mortgage_payoff    = float(seller_inputs.get("mortgage_payoff")    or 0)
-    commission_pct     = float(seller_inputs.get("commission_pct")     or _DEFAULT_COMMISSION_PCT)
-    closing_costs      = float(seller_inputs.get("closing_costs")      or _DEFAULT_CLOSING_COSTS)
-    seller_credits     = float(seller_inputs.get("seller_credits")     or 0)
-    other_seller_costs = float(seller_inputs.get("other_seller_costs") or 0)
+    # Seller inputs — explicit None-check so 0.0 is honoured, not treated as "missing"
+    def _sf(key: str, default: float) -> float:
+        v = seller_inputs.get(key)
+        return float(v) if v is not None else float(default)
+
+    _lp = seller_inputs.get("listing_price")
+    listing_price      = float(_lp) if _lp is not None else float(ceiling or as_is)
+    mortgage_payoff    = _sf("mortgage_payoff",    0)
+    commission_pct     = _sf("commission_pct",     _DEFAULT_COMMISSION_PCT)
+    closing_costs      = _sf("closing_costs",      _DEFAULT_CLOSING_COSTS)
+    seller_credits     = _sf("seller_credits",     0)
+    other_seller_costs = _sf("other_seller_costs", 0)
 
     net_proceeds = compute_net_proceeds(
         listing_price      = listing_price,

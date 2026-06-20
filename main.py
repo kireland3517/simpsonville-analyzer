@@ -1963,11 +1963,15 @@ def roi_compare_post(property_id: str, body: RoiComputeRequest):
     ceiling  = float(snapshot.get("improved_listing_ceiling") or 305_000.0)
     max_lift = max(0.0, ceiling - as_is)
 
-    mortgage_payoff    = float(seller_inputs.get("mortgage_payoff")    or 0)
-    commission_pct     = float(seller_inputs.get("commission_pct")     or 5.5)
-    closing_costs      = float(seller_inputs.get("closing_costs")      or 3_500)
-    seller_credits     = float(seller_inputs.get("seller_credits")     or 0)
-    other_seller_costs = float(seller_inputs.get("other_seller_costs") or 0)
+    def _sf(key: str, default: float) -> float:
+        v = seller_inputs.get(key)
+        return float(v) if v is not None else float(default)
+
+    mortgage_payoff    = _sf("mortgage_payoff",    0)
+    commission_pct     = _sf("commission_pct",     5.5)
+    closing_costs      = _sf("closing_costs",      3_500)
+    seller_credits     = _sf("seller_credits",     0)
+    other_seller_costs = _sf("other_seller_costs", 0)
 
     def _net(sale_price: float, work_cost: float) -> float:
         commission = sale_price * (commission_pct / 100.0)
