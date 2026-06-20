@@ -317,6 +317,24 @@ def _sb():
         return None
 
 
+def _safe_property_summary() -> dict:
+    """Return ATTOM/cache property facts without letting data failures crash routes."""
+    try:
+        return get_property_summary()
+    except Exception as exc:
+        print(f"WARNING: property summary unavailable; continuing without ATTOM data: {exc}")
+        return {}
+
+
+def _safe_last_sale() -> dict:
+    """Return ATTOM/cache sale facts without letting data failures crash routes."""
+    try:
+        return get_last_sale()
+    except Exception as exc:
+        print(f"WARNING: last sale unavailable; continuing without ATTOM data: {exc}")
+        return {}
+
+
 # ─── Pydantic models ──────────────────────────────────────────────────────────
 
 class ReportRequest(BaseModel):
@@ -439,8 +457,8 @@ def report_generate(body: ReportRequest):
         raise HTTPException(status_code=422, detail="No analyses found in Supabase photo_analyses table — run run_analysis.py first")
 
     summary = build_analysis_summary(analyses)
-    property_summary = get_property_summary()
-    last_sale = get_last_sale()
+    property_summary = _safe_property_summary()
+    last_sale = _safe_last_sale()
 
     # Generate executive → standard → deep_dive so each tab includes the prior level.
     chain = levels_up_to(detail_level)
@@ -514,8 +532,8 @@ def report_from_tier(body: TierReportRequest):
         raise HTTPException(status_code=503, detail="Supabase required for tier reports")
 
     summary = build_analysis_summary(analyses)
-    property_summary = get_property_summary()
-    last_sale = get_last_sale()
+    property_summary = _safe_property_summary()
+    last_sale = _safe_last_sale()
 
     report = _generate_report_from_tier(
         tier=body.tier,
@@ -641,8 +659,8 @@ def report_regenerate_all(profile: str = Query(default="general")):
         raise HTTPException(status_code=422, detail="No photo analyses available")
 
     summary = build_analysis_summary(analyses)
-    property_summary = get_property_summary()
-    last_sale = get_last_sale()
+    property_summary = _safe_property_summary()
+    last_sale = _safe_last_sale()
 
     prior: dict | None = None
     reports: dict[str, dict] = {}
@@ -816,7 +834,6 @@ def inventory_get():
     Returns summary totals (for shopping list) and per-room breakdown.
     """
     from run_roi import aggregate_inventory
-    from attom import get_property_summary
 
     sb = _sb()
     if not sb:
@@ -833,7 +850,7 @@ def inventory_get():
     if not rows.data:
         raise HTTPException(
             status_code=404,
-            detail="No inventory data found. Run the inventory analysis pass first via POST /analyze/bulk or python run_inventory.py",
+            detail="No inventory data found. Run the local inventory analysis pass first with python run_inventory.py",
         )
 
     combined: list[dict] = []
@@ -846,7 +863,7 @@ def inventory_get():
         combined.append(inv)
 
     try:
-        property_summary = get_property_summary()
+        property_summary = _safe_property_summary()
     except Exception:
         property_summary = {}
 
