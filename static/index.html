@@ -6067,12 +6067,11 @@ function spRenderResult(result) {
   }
   tbody.innerHTML = items.map(item => {
     const excluded = !item.include_final;
-    // Show item ROI only when there is a real quality signal (good/excellent/poor).
-    // "fair" and missing roi_quality both use the 1.0× fallback multiplier — not a real measurement.
-    // Must-do items skip ROI entirely since they're required regardless.
-    const hasRealQuality = item.roi_quality && item.roi_quality !== 'fair';
+    // estimated_value_add is null when no estimate is possible (inspection pending,
+    // leave_as_is, or safety/systems items). Must-do items suppress ROI display.
     const isMustDo = item.roi_bucket_final === 'must_do';
-    const itemRoi = (!isMustDo && hasRealQuality && item.cost_midpoint > 0)
+    const hasEstimate = item.estimated_value_add != null && item.cost_midpoint > 0;
+    const itemRoi = (!isMustDo && hasEstimate)
       ? spFmtPct(((item.estimated_value_add - item.cost_midpoint) / item.cost_midpoint) * 100)
       : '—';
     return `<tr class="${excluded ? 'sp-row-excluded' : ''}">
@@ -6081,7 +6080,7 @@ function spRenderResult(result) {
       <td style="color:var(--gray-500);font-size:11px">${escHtml(item.zone || '')}</td>
       <td style="font-size:11px">${escHtml(item.option_key || '—')}</td>
       <td>${spFmt(item.cost_midpoint)}</td>
-      <td>${spFmt(item.estimated_value_add)}</td>
+      <td>${item.estimated_value_add != null ? spFmt(item.estimated_value_add) : '—'}</td>
       <td style="font-size:12px">${itemRoi}</td>
       <td><span class="sp-bucket-pill ${escHtml(item.roi_bucket_final || 'exclude')}" style="cursor:pointer" onclick="spShowBucketOverride('${escHtml(item.matrix_row_id)}', '${escHtml(item.roi_bucket_final || '')}')">${escHtml((item.roi_bucket_final || 'exclude').replace(/_/g,' '))}</span></td>
     </tr>`;

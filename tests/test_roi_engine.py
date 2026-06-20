@@ -27,11 +27,13 @@ SELLER_INPUTS = {
     "other_seller_costs": 0.0,
 }
 
-def _make_row(row_id, tier="should_do", cost_low=1000, cost_high=2000, roi_quality="good",
-              option_key="repair", decision_status="decision_required"):
+def _make_row(row_id, tier="should_do", cost_low=1000, cost_high=2000, roi_quality="high",
+              option_key="repair", decision_status="decision_required", component=None):
+    # Default component "Door hardware" maps to 0.80 recoup in _COMPONENT_RECOUP.
+    # Pass component= to use a specific lookup entry.
     return {
         "id": row_id,
-        "component": f"Component-{row_id}",
+        "component": component or "Door hardware",
         "zone": "Main Level",
         "minimum_tier": tier,
         "decision_status": decision_status,
@@ -117,18 +119,19 @@ def test_roi_pct_zero_lift_zero_cost():
 def test_value_lift_capped_when_over_ceiling():
     """
     Ceiling=305k, as-is=276,810 → max_supported_lift=28,190
-    If item value-add exceeds cap, result is capped.
+    "Garage door" has 0.98 recoup. At cost=30k → value_add=29.4k, which exceeds cap.
     """
     snap = {
         "as_is_market_estimate":    276_810.0,
         "improved_listing_ceiling": 305_000.0,
         "confidence_label": "Medium",
     }
-    # One item with cost_midpoint=20k, roi_quality="excellent" → value_add=30k (exceeds cap)
-    row = _make_row("r1", tier="should_do", cost_low=20_000, cost_high=20_000, roi_quality="excellent")
+    row = _make_row("r1", tier="should_do", cost_low=30_000, cost_high=30_000,
+                    component="Garage door")
     result = compute_scenario("full-recommended", [row], [], SELLER_INPUTS, snap)
     assert result.max_supported_lift == pytest.approx(28_190, abs=1)
     assert result.value_lift_capped <= result.max_supported_lift
+    assert result.value_lift_capped < result.value_lift_uncapped  # was capped
 
 
 def test_value_lift_not_capped_when_under_ceiling():
@@ -137,8 +140,8 @@ def test_value_lift_not_capped_when_under_ceiling():
         "improved_listing_ceiling": 305_000.0,
         "confidence_label": "Medium",
     }
-    # Small item — value add well under max supported lift
-    row = _make_row("r1", tier="should_do", cost_low=1_000, cost_high=1_000, roi_quality="good")
+    # "Door hardware" at 0.80 recoup, cost=1k → value_add=800, well under 28,190 cap
+    row = _make_row("r1", tier="should_do", cost_low=1_000, cost_high=1_000)
     result = compute_scenario("full-recommended", [row], [], SELLER_INPUTS, snap)
     assert result.value_lift_capped == result.value_lift_uncapped
 

@@ -15,26 +15,75 @@ from typing import Literal, Optional
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-# Temporary value-add bridge: decision_matrix_options.roi_quality is text.
-# Replace this when a numeric estimated_value_add column is added to that table.
-_ROI_QUALITY_MULTIPLIER: dict[str, float] = {
-    "excellent": 1.5,
-    "good":      1.25,
-    "fair":      1.0,
-    "poor":      0.5,
-}
-
 # Seller input defaults used when no row exists in roi_seller_inputs
-_DEFAULT_COMMISSION_PCT   = 5.5
-_DEFAULT_CLOSING_COSTS    = 3_500.0
+_DEFAULT_COMMISSION_PCT = 5.5
+_DEFAULT_CLOSING_COSTS  = 3_500.0
 
 ScenarioName = Literal["must-do-only", "highest-roi", "full-recommended", "custom"]
 
 # Mapping from decision_matrix_rows.minimum_tier to roi_bucket vocabulary
 _TIER_TO_BUCKET: dict[str, str] = {
-    "must_do":   "must_do",
-    "should_do": "should_do",
+    "must_do":    "must_do",
+    "should_do":  "should_do",
     "nice_to_do": "nice_to_do",
+}
+
+# Option types where no value estimate is meaningful (inspection pending or no work done).
+_NO_ESTIMATE_OPTIONS = {"further_inspect", "leave_as_is"}
+
+# Component-level Cost vs. Value recoup rates — South Atlantic / Greenville SC (2024).
+# Value: fraction of cost recouped at resale (e.g. 0.98 = 98 cents per dollar spent).
+# Source: Remodeling Magazine Cost vs. Value 2024, South Atlantic region.
+_COMPONENT_RECOUP: dict[str, float] = {
+    # ── Exterior ──────────────────────────────────────────────────────────────
+    "Deck":                                           0.65,   # wood deck replacement
+    "Driveway cracks":                                0.85,   # driveway reseal / refresh
+    "Exterior lighting":                              0.80,   # exterior lighting upgrade
+    "Front porch repair / repaint":                   0.90,   # entry/porch curb appeal
+    "Landscaping / yard":                             0.95,   # curb appeal landscaping
+    "Pressure wash — house / driveway / deck":   1.00,   # preserves value, low cost
+    "Window Screens":                                 0.80,   # window screen replacement
+    # ── Garage ────────────────────────────────────────────────────────────────
+    "Garage door":                                    0.98,   # #1 ROI project South Atlantic
+    "Garage floor":                                   0.75,   # garage floor clean/epoxy
+    "Garage walls":                                   0.70,   # garage wall paint/clean
+    "Garage walls, ceiling":                          0.70,
+    # ── Great Room ────────────────────────────────────────────────────────────
+    "Ceiling fan":                                    0.80,   # ceiling fan refresh
+    # ── Interior Doors ────────────────────────────────────────────────────────
+    "Door hardware":                                  0.80,   # hardware refresh
+    # ── Kitchen ───────────────────────────────────────────────────────────────
+    "Cabinets":                                       0.75,   # minor kitchen remodel proxy
+    "Cabinets, hardware, faucet":                     0.75,
+    "Countertops":                                    0.72,   # countertop refresh
+    "Lighting":                                       0.75,   # kitchen lighting upgrade
+    # ── Primary Bathroom ──────────────────────────────────────────────────────
+    "Bath modernization":                             0.65,   # mid-range bathroom remodel
+    "Double vanity with mirrors":                     0.70,
+    "Modernize and replace fan/cover":                0.65,
+    "Vanity cabinet":                                 0.68,
+    "Vanity mirror":                                  0.75,
+    # ── Guest Bathroom ────────────────────────────────────────────────────────
+    "Vanity, mirror, toilet lever, fan/cover":        0.70,
+    # ── Primary Bedroom ───────────────────────────────────────────────────────
+    "Closet paint":                                   0.90,
+    # ── Whole House ───────────────────────────────────────────────────────────
+    "Ceiling water damage":                           0.85,   # ceiling repair
+    "Flooring (overall)":                             0.75,   # mid-range flooring
+    "Indoor air quality":                             0.70,   # smoke odor remediation
+    "Interior light fixtures":                        0.75,
+    "Interior paint — walls":                    1.05,   # highest ROI whole-house item
+    "Popcorn ceiling":                                0.60,   # popcorn removal (varies)
+    "Trim paint — baseboards + door frames":     1.00,
+}
+
+# Quality-based fallback recoup rates for components not in the lookup above.
+# roi_quality values in this DB: "none", "medium", "high", "manual"
+_QUALITY_FALLBACK_RECOUP: dict[str, float] = {
+    "high":   0.85,   # cosmetic upgrades, refreshes
+    "medium": 0.75,   # cleaning, minor repairs
+    "manual": 0.70,   # manually priced items (conservative default)
+    # "none" intentionally omitted — inspection items, no estimate possible
 }
 
 
@@ -49,8 +98,8 @@ class RoiItem:
     cost_low:            float
     cost_high:           float
     cost_midpoint:       float
-    estimated_value_add: float
-    roi_quality:         str    # raw text from decision_matrix_options; "" = no data
+    estimated_value_add: Optional[float]  # None = no estimate possible
+    roi_quality:         str              # raw text from decision_matrix_options
     roi_bucket_suggested: str
     roi_bucket_override:  Optional[str]
     roi_bucket_final:    str
@@ -121,11 +170,36 @@ def compute_roi_pct(total_cost: float, capped_lift: float) -> Optional[float]:
     return ((capped_lift - total_cost) / total_cost) * 100.0
 
 
-def _value_add_from_option(option: dict, cost_midpoint: float) -> float:
-    """Bridge function: convert text roi_quality to a numeric value-add estimate."""
-    quality    = (option.get("roi_quality") or "").lower()
-    multiplier = _ROI_QUALITY_MULTIPLIER.get(quality, 1.0)
-    return round(cost_midpoint * multiplier, 2)
+def _value_add_from_component(
+    component: str,
+    option_key: str,
+    roi_quality: str,
+    cost_midpoint: float,
+) -> Optional[float]:
+    """
+    Estimate resale value add using Cost vs. Value regional lookup (South Atlantic 2024).
+
+    Returns None when no meaningful estimate is possible:
+      - option is further_inspect or leave_as_is (work scope unknown)
+      - cost is zero (nothing to recoup)
+      - component not in lookup and quality is "none" (safety/systems items)
+    """
+    if option_key in _NO_ESTIMATE_OPTIONS:
+        return None
+    if cost_midpoint <= 0:
+        return None
+
+    # Component-specific recoup rate takes priority
+    recoup = _COMPONENT_RECOUP.get(component)
+
+    # Fall back to quality bucket if component not mapped
+    if recoup is None:
+        recoup = _QUALITY_FALLBACK_RECOUP.get(roi_quality)
+
+    if recoup is None:
+        return None
+
+    return round(cost_midpoint * recoup, 2)
 
 
 # ─── Item building ─────────────────────────────────────────────────────────────
@@ -147,7 +221,12 @@ def _build_roi_item(
     cost_midpoint = (cost_low + cost_high) / 2.0
 
     roi_quality         = (option.get("roi_quality") or "").lower().strip()
-    estimated_value_add = _value_add_from_option(option, cost_midpoint)
+    estimated_value_add = _value_add_from_component(
+        component   = row.get("component") or "",
+        option_key  = option.get("option_key") or "",
+        roi_quality = roi_quality,
+        cost_midpoint = cost_midpoint,
+    )
 
     raw_tier = row.get("minimum_tier") or "nice_to_do"
     bucket_suggested = _TIER_TO_BUCKET.get(raw_tier, "nice_to_do")
@@ -242,8 +321,9 @@ def _filter_highest_roi(items: list[RoiItem]) -> list[RoiItem]:
     ]
 
     def marginal_roi(it: RoiItem) -> float:
-        cost = it.cost_midpoint
-        return (it.estimated_value_add - cost) / cost if cost > 0 else 0.0
+        cost  = it.cost_midpoint
+        lift  = it.estimated_value_add or 0.0
+        return (lift - cost) / cost if cost > 0 else 0.0
 
     optional_sorted = sorted(optional, key=marginal_roi, reverse=True)
 
@@ -303,7 +383,7 @@ def compute_scenario(
     as_is   = float(snapshot.get("as_is_market_estimate") or 0)
     ceiling = float(snapshot.get("improved_listing_ceiling") or 0)
     max_supported_lift  = max(0.0, ceiling - as_is)
-    value_lift_uncapped = sum(it.estimated_value_add for it in selected)
+    value_lift_uncapped = sum(it.estimated_value_add or 0.0 for it in selected)
     value_lift_capped   = min(value_lift_uncapped, max_supported_lift)
 
     # Seller inputs with defaults
