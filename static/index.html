@@ -1892,8 +1892,8 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
   background: var(--white); color: var(--gray-600); font-size: 13px;
   cursor: pointer; transition: all 0.15s;
 }
-.sp-tab:hover { border-color: var(--blue-500); color: var(--blue-500); }
-.sp-tab--active { background: var(--blue-500); border-color: var(--blue-500); color: #fff; font-weight: 600; }
+.sp-tab:hover { border-color: var(--accent); color: var(--accent); }
+.sp-tab--active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .sp-field-label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--gray-600); font-weight:500; }
 .sp-input { padding: 6px 8px; border: 1px solid var(--gray-300); border-radius:4px; font-size:13px; width:100%; box-sizing:border-box; }
 .sp-input:focus { outline:none; border-color:var(--blue-500); box-shadow:0 0 0 2px rgba(37,99,235,0.15); }
@@ -2048,7 +2048,7 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <div class="summary-card"><div class="card-label">Net Proceeds</div><div class="card-value accent" id="sp-card-net-proceeds">—</div><div class="card-sub">After all costs &amp; payoff</div></div>
             <div class="summary-card"><div class="card-label">Total Work Cost</div><div class="card-value" id="sp-card-work-cost">—</div><div class="card-sub" id="sp-card-work-cost-range"></div></div>
             <div class="summary-card"><div class="card-label">Value Lift (capped)</div><div class="card-value green" id="sp-card-lift">—</div><div class="card-sub" id="sp-card-lift-cap"></div></div>
-            <div class="summary-card"><div class="card-label">ROI %</div><div class="card-value" id="sp-card-roi-pct">—</div><div class="card-sub">On selected work</div></div>
+            <div class="summary-card"><div class="card-label">ROI %</div><div class="card-value" id="sp-card-roi-pct">—</div><div class="card-sub" id="sp-card-roi-sub">On selected work</div></div>
           </div>
           <div id="sp-market-bar" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gray-600);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 12px;margin-bottom:16px">
             <span>As-Is: <strong id="sp-as-is">—</strong></span>
@@ -6043,6 +6043,12 @@ function spRenderResult(result) {
   if (roiEl) {
     roiEl.textContent = result.roi_pct != null ? spFmtPct(result.roi_pct) : '—';
     roiEl.style.color = (result.roi_pct != null && result.roi_pct >= 0) ? 'var(--green-700, #15803d)' : '#dc2626';
+  }
+  const roiSub = $('sp-card-roi-sub');
+  if (roiSub) {
+    roiSub.textContent = result.scenario === 'must-do-only'
+      ? 'Required — ROI not the goal'
+      : 'On selected work';
   }
   spUpdateInputsSummary(result.seller_inputs_used || {});
 

@@ -326,7 +326,7 @@ def compute_scenario(
 
     return RoiResult(
         scenario            = scenario,
-        items               = all_items,   # full list; frontend filters by include_final
+        items               = selected,
         total_cost_low      = total_cost_low,
         total_cost_high     = total_cost_high,
         total_cost_midpoint = total_cost_midpoint,

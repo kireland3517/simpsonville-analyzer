@@ -172,9 +172,10 @@ def test_include_override_false_excludes_item():
     rows  = [_make_row("r1", tier="must_do")]
     overrides = [{"matrix_row_id": "r1", "include_override": False, "roi_bucket_override": None}]
     result = compute_scenario("full-recommended", rows, overrides, SELLER_INPUTS, SNAPSHOT)
-    item = result.items[0]
-    assert item.include_final is False
-    assert item.include_override is False
+    # Item is excluded: result.items contains only selected items, so it should be empty.
+    assert result.items == []
+    # Total costs should be zero since nothing is selected.
+    assert result.total_cost_midpoint == 0
 
 
 def test_bucket_override_changes_final_bucket():
