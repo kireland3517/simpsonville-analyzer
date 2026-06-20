@@ -1907,6 +1907,15 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .sp-bucket-pill.exclude   { background:var(--gray-100); color:var(--gray-500); border:1px solid var(--gray-300); }
 .sp-include-toggle { width:15px; height:15px; cursor:pointer; accent-color:var(--blue-500); }
 .sp-row-excluded td { opacity:0.45; }
+
+/* ── Scenario comparison & new SP sections ───────────────────────────── */
+#sp-compare-tbody tr:hover td { background:var(--gray-50); }
+.sp-compare-best td { background:#f0fdf4; }
+.sp-best-badge { font-size:10px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:600;vertical-align:middle }
+.sp-risk-item { padding:8px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:flex-start;gap:10px }
+.sp-risk-item:last-child { border-bottom:none }
+.sp-action-item { padding:7px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px }
+.sp-action-item:last-child { border-bottom:none }
 </style>
 </head>
 <body>
@@ -2044,11 +2053,34 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <label class="sp-field-label">Other Costs<input type="number" id="sp-other-costs" class="sp-input" placeholder="0" oninput="spDebouncedSave()"></label>
             </div>
           </details>
+
+          <!-- Scenario Comparison Table -->
+          <div id="sp-compare-section" style="margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-500);margin-bottom:8px">Scenario Comparison</div>
+            <div style="overflow-x:auto">
+              <table class="data-table" style="min-width:580px;font-size:13px">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;min-width:130px">Scenario</th>
+                    <th>Work Cost</th>
+                    <th>Value Lift</th>
+                    <th>Expected Sale</th>
+                    <th>Net Proceeds</th>
+                    <th>Cost Recovery</th>
+                  </tr>
+                </thead>
+                <tbody id="sp-compare-tbody">
+                  <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:12px">Loading comparison…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="summary-cards" style="margin-bottom:16px">
-            <div class="summary-card"><div class="card-label">Net Proceeds</div><div class="card-value accent" id="sp-card-net-proceeds">—</div><div class="card-sub">After all costs &amp; payoff</div></div>
-            <div class="summary-card"><div class="card-label">Total Work Cost</div><div class="card-value" id="sp-card-work-cost">—</div><div class="card-sub" id="sp-card-work-cost-range"></div></div>
-            <div class="summary-card"><div class="card-label">Value Lift (capped)</div><div class="card-value green" id="sp-card-lift">—</div><div class="card-sub" id="sp-card-lift-cap"></div></div>
-            <div class="summary-card"><div class="card-label">ROI %</div><div class="card-value" id="sp-card-roi-pct">—</div><div class="card-sub" id="sp-card-roi-sub">On selected work</div></div>
+            <div class="summary-card"><div class="card-label">Net Proceeds</div><div class="card-value accent" id="sp-card-net-proceeds">—</div><div class="card-sub">After payoff, commission &amp; work cost</div></div>
+            <div class="summary-card"><div class="card-label">Cash Required Before Listing</div><div class="card-value" id="sp-card-work-cost">—</div><div class="card-sub" id="sp-card-work-cost-range"></div></div>
+            <div class="summary-card"><div class="card-label">Value Lift (Capped)</div><div class="card-value green" id="sp-card-lift">—</div><div class="card-sub" id="sp-card-lift-cap"></div></div>
+            <div class="summary-card"><div class="card-label">Cost Recovery / ROI</div><div class="card-value" id="sp-card-roi-pct">—</div><div class="card-sub" id="sp-card-roi-sub">On selected work</div></div>
           </div>
           <div id="sp-market-bar" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gray-600);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 12px;margin-bottom:16px">
             <span>As-Is: <strong id="sp-as-is">—</strong></span>
@@ -2057,6 +2089,12 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <span>Max Lift: <strong id="sp-max-lift">—</strong></span>
             <span id="sp-freshness-badge" style="margin-left:auto;font-style:italic"></span>
           </div>
+          <!-- Recommended Action Plan -->
+          <div id="sp-action-plan-section" style="margin-bottom:14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:12px">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-600);margin-bottom:8px">Recommended Action Plan <span style="font-weight:400;font-size:11px;color:var(--gray-400)">(top 5 by priority)</span></div>
+            <div id="sp-action-plan-list"><div style="color:var(--gray-400);font-size:12px">Loading…</div></div>
+          </div>
+
           <div id="sp-items-wrap" style="overflow-x:auto;margin-bottom:14px">
             <table id="sp-items-table" class="data-table" style="min-width:680px">
               <thead><tr>
@@ -2067,6 +2105,38 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
               <tbody id="sp-items-body"><tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Loading scenario…</td></tr></tbody>
             </table>
           </div>
+          <!-- Required Repairs -->
+          <div id="sp-repairs-section" style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-600);margin-bottom:8px">Required Repairs <span id="sp-repairs-count" style="font-weight:400;font-size:11px;color:var(--gray-400)"></span></div>
+            <div style="overflow-x:auto">
+              <table class="data-table" style="font-size:13px">
+                <thead><tr><th style="text-align:left">Component</th><th style="text-align:left">Zone</th><th style="text-align:left">Action</th><th>Est. Cost</th></tr></thead>
+                <tbody id="sp-required-repairs-tbody">
+                  <tr><td colspan="4" style="color:var(--gray-400);text-align:center;padding:12px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recommended Upgrades -->
+          <div id="sp-upgrades-section" style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-600);margin-bottom:8px">Recommended Upgrades <span id="sp-upgrades-count" style="font-weight:400;font-size:11px;color:var(--gray-400)"></span></div>
+            <div style="overflow-x:auto">
+              <table class="data-table" style="font-size:13px">
+                <thead><tr><th style="text-align:left">Component</th><th style="text-align:left">Zone</th><th>Cost</th><th>Est. Value Add</th><th>Cost Recovery</th></tr></thead>
+                <tbody id="sp-upgrades-tbody">
+                  <tr><td colspan="5" style="color:var(--gray-400);text-align:center;padding:12px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Buyer Renegotiation Risks -->
+          <div id="sp-risks-section" style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#dc2626;margin-bottom:8px">⚠ Buyer Renegotiation Risks</div>
+            <div id="sp-risks-list"><div style="color:var(--gray-400);font-size:12px">Loading…</div></div>
+          </div>
+
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <button class="btn-primary" onclick="spSaveSnapshot()" id="sp-save-btn">Save Snapshot</button>
             <span id="sp-save-status" style="font-size:12px;color:var(--gray-500)"></span>
@@ -5969,7 +6039,7 @@ function spUpdateInputsSummary(si) {
 
 function spDebouncedSave() {
   clearTimeout(spSaveTimer);
-  spSaveTimer = setTimeout(() => spSaveInputs(), 600);
+  spSaveTimer = setTimeout(() => { spSaveInputs(); spLoadCompare(); }, 600);
 }
 
 async function spSaveInputs() {
@@ -6095,6 +6165,141 @@ function spRenderResult(result) {
       <td><span class="sp-bucket-pill ${escHtml(item.roi_bucket_final || 'exclude')}" style="cursor:pointer" onclick="spShowBucketOverride('${escHtml(item.matrix_row_id)}', '${escHtml(item.roi_bucket_final || '')}')">${escHtml((item.roi_bucket_final || 'exclude').replace(/_/g,' '))}</span></td>
     </tr>`;
   }).join('');
+
+  spRenderActionPlan(items);
+  spRenderRepairsAndUpgrades(items);
+}
+
+// ─── Scenario Comparison ─────────────────────────────────────────────────────
+
+async function spLoadCompare() {
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/roi-compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: spCurrentScenario, seller_inputs: spCurrentFormInputs() }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    spRenderCompare(data.scenarios || []);
+    spRenderRisks(data.risk_items || []);
+  } catch (_) {}
+}
+
+function spRenderCompare(scenarios) {
+  const tbody = $('sp-compare-tbody');
+  if (!tbody) return;
+  if (!scenarios.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:12px">No data</td></tr>';
+    return;
+  }
+  const maxNet = Math.max(...scenarios.map(s => s.net_proceeds));
+  tbody.innerHTML = scenarios.map(s => {
+    const isBest = s.net_proceeds === maxNet && s.key !== 'sell_as_is';
+    const recov  = s.cost_recovery_pct != null
+      ? `<span style="color:${s.cost_recovery_pct >= 100 ? '#15803d' : 'inherit'}">${s.cost_recovery_pct.toFixed(0)}%</span>`
+      : '—';
+    return `<tr class="${isBest ? 'sp-compare-best' : ''}">
+      <td style="min-width:130px">
+        <div style="font-weight:600;font-size:13px">${escHtml(s.label)}${isBest ? '<span class="sp-best-badge">Best</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--gray-500)">${escHtml(s.description)}</div>
+      </td>
+      <td>${s.work_cost > 0 ? spFmt(s.work_cost) : '<span style="color:var(--gray-400)">$0</span>'}</td>
+      <td>${s.value_lift > 0 ? spFmt(s.value_lift) : '—'}</td>
+      <td><strong>${spFmt(s.sale_price)}</strong></td>
+      <td style="color:var(--accent);font-weight:600">${spFmt(s.net_proceeds)}</td>
+      <td>${recov}</td>
+    </tr>`;
+  }).join('');
+}
+
+function spRenderRisks(riskItems) {
+  const el = $('sp-risks-list');
+  if (!el) return;
+  if (!riskItems.length) {
+    el.innerHTML = '<div style="color:var(--gray-400);font-size:12px;padding:4px 0">No high-priority inspection items flagged.</div>';
+    return;
+  }
+  el.innerHTML = riskItems.map((item, i) => `
+    <div class="sp-risk-item">
+      <span style="font-size:11px;font-weight:700;color:var(--gray-400);min-width:18px;margin-top:1px">${i + 1}.</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${escHtml(item.component)}</div>
+        <div style="font-size:11px;color:var(--gray-500);margin-top:1px">${escHtml(item.zone)} · <em>${escHtml((item.option_key || '').replace(/_/g, ' '))}</em></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        ${item.cost_midpoint > 0 ? `<div style="font-size:12px;font-weight:600">${spFmt(item.cost_midpoint)}</div>` : ''}
+        <span class="sp-bucket-pill ${escHtml(item.roi_bucket_final || 'exclude')}" style="font-size:10px">${escHtml((item.roi_bucket_final || '').replace(/_/g, ' '))}</span>
+      </div>
+    </div>`).join('');
+}
+
+function spRenderActionPlan(items) {
+  const el = $('sp-action-plan-list');
+  if (!el) return;
+  if (!items || !items.length) {
+    el.innerHTML = '<div style="color:var(--gray-400);font-size:12px">Select a scenario above to populate the action plan.</div>';
+    return;
+  }
+  const ranked = [...items].sort((a, b) => {
+    const aPri = a.roi_bucket_final === 'must_do' ? 0 : 1;
+    const bPri = b.roi_bucket_final === 'must_do' ? 0 : 1;
+    if (aPri !== bPri) return aPri - bPri;
+    const aR = (a.estimated_value_add || 0) / (a.cost_midpoint || 1);
+    const bR = (b.estimated_value_add || 0) / (b.cost_midpoint || 1);
+    return bR - aR;
+  }).slice(0, 5);
+  el.innerHTML = ranked.map((item, i) => {
+    const isPending = item.option_key === 'further_inspect';
+    const costStr   = item.cost_midpoint > 0
+      ? spFmt(item.cost_midpoint)
+      : (isPending ? '<em style="color:var(--gray-400)">Pending inspection</em>' : '—');
+    return `<div class="sp-action-item">
+      <span style="font-size:11px;font-weight:700;color:var(--gray-400);min-width:18px">${i + 1}.</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${escHtml(item.component)}</div>
+        <div style="font-size:11px;color:var(--gray-500)">${escHtml((item.option_key || '').replace(/_/g, ' '))} · ${escHtml(item.zone)}</div>
+      </div>
+      <div style="font-size:12px;font-weight:600;text-align:right;color:var(--gray-700)">${costStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function spRenderRepairsAndUpgrades(items) {
+  if (!items) return;
+  const repairs  = items.filter(it => it.roi_bucket_final === 'must_do');
+  const upgrades = items.filter(it => it.roi_bucket_final !== 'must_do' && it.estimated_value_add != null);
+
+  const repairsCount = $('sp-repairs-count');
+  if (repairsCount) repairsCount.textContent = repairs.length ? `(${repairs.length})` : '';
+  const upgradesCount = $('sp-upgrades-count');
+  if (upgradesCount) upgradesCount.textContent = upgrades.length ? `(${upgrades.length})` : '';
+
+  const repairsTbody = $('sp-required-repairs-tbody');
+  if (repairsTbody) {
+    if (!repairs.length) {
+      repairsTbody.innerHTML = '<tr><td colspan="4" style="color:var(--gray-400);text-align:center;padding:12px">No required repairs in this scenario.</td></tr>';
+    } else {
+      const total = repairs.reduce((s, it) => s + (it.cost_midpoint || 0), 0);
+      repairsTbody.innerHTML = repairs.map(it =>
+        `<tr><td>${escHtml(it.component)}</td><td style="font-size:11px;color:var(--gray-500)">${escHtml(it.zone)}</td><td style="font-size:11px">${escHtml((it.option_key || '').replace(/_/g, ' '))}</td><td>${it.cost_midpoint > 0 ? spFmt(it.cost_midpoint) : '—'}</td></tr>`
+      ).join('') + `<tr style="font-weight:700;border-top:2px solid var(--gray-200)"><td colspan="3">Total</td><td>${spFmt(total)}</td></tr>`;
+    }
+  }
+
+  const upgradesTbody = $('sp-upgrades-tbody');
+  if (upgradesTbody) {
+    if (!upgrades.length) {
+      upgradesTbody.innerHTML = '<tr><td colspan="5" style="color:var(--gray-400);text-align:center;padding:12px">No upgrades with value estimates in this scenario.</td></tr>';
+    } else {
+      upgradesTbody.innerHTML = upgrades.map(it => {
+        const roi = it.estimated_value_add != null && it.cost_midpoint > 0
+          ? spFmtPct(((it.estimated_value_add - it.cost_midpoint) / it.cost_midpoint) * 100)
+          : '—';
+        return `<tr><td>${escHtml(it.component)}</td><td style="font-size:11px;color:var(--gray-500)">${escHtml(it.zone)}</td><td>${it.cost_midpoint > 0 ? spFmt(it.cost_midpoint) : '—'}</td><td>${it.estimated_value_add != null ? spFmt(it.estimated_value_add) : '—'}</td><td style="font-size:12px">${roi}</td></tr>`;
+      }).join('');
+    }
+  }
 }
 
 async function spToggleInclude(rowId, checked) {
@@ -6151,11 +6356,12 @@ async function spSaveSnapshot() {
 
 let spInitialized = false;
 function spInit() {
-  if (spInitialized) { spCompute(); return; }
+  if (spInitialized) { spCompute(); spLoadCompare(); return; }
   spInitialized = true;
   spLoadSellerInputs();
   spLoadMarketSummary();
   spCompute();
+  spLoadCompare();
 }
 
 // ─── Property Data (pd*) ─────────────────────────────────────────────────────

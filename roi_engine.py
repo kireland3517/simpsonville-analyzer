@@ -432,3 +432,8 @@ def compute_scenario(
         confidence          = snapshot.get("confidence_label") or "Unknown",
         generated_at        = datetime.now(timezone.utc).isoformat(),
     )
+
+
+def build_all_roi_items(matrix_rows: list[dict], overrides: list[dict]) -> list[RoiItem]:
+    """Return the full unfiltered item list for comparison and risk analysis."""
+    return _build_all_items(matrix_rows, overrides)

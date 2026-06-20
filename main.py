@@ -66,7 +66,7 @@ from pydantic import BaseModel
 
 from attom import get_last_sale, get_property_summary, get_or_refresh_market_snapshot
 from market_summary import get_market_summary, refresh_market_snapshot
-from roi_engine import compute_scenario
+from roi_engine import compute_scenario, build_all_roi_items
 import dataclasses
 from roi import (
     generate_roi_report,
@@ -1936,6 +1936,105 @@ def roi_compute_post(property_id: str, body: RoiComputeRequest):
     overrides = _load_roi_overrides(sb, property_id)
     result    = compute_scenario(body.scenario, rows, overrides, seller_inputs, snapshot)
     return dataclasses.asdict(result)
+
+
+@app.post("/properties/{property_id}/roi-compare")
+def roi_compare_post(property_id: str, body: RoiComputeRequest):
+    _require_property(property_id)
+    sb = _sb()
+
+    snapshot = get_or_refresh_market_snapshot(property_id, sb)
+
+    if body.seller_inputs:
+        seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
+        seller_inputs.update({k: v for k, v in body.seller_inputs.items() if v is not None})
+    else:
+        seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
+
+    matrix_ctx = _matrix_rows_for_property(sb, property_id)
+    if not matrix_ctx:
+        raise HTTPException(status_code=422, detail="No decision matrix found — rebuild the matrix first.")
+    _, rows = matrix_ctx
+
+    overrides = _load_roi_overrides(sb, property_id)
+    all_items = build_all_roi_items(rows, overrides)
+
+    as_is    = float(snapshot.get("as_is_market_estimate")    or 276_810.0)
+    ceiling  = float(snapshot.get("improved_listing_ceiling") or 305_000.0)
+    max_lift = max(0.0, ceiling - as_is)
+
+    mortgage_payoff    = float(seller_inputs.get("mortgage_payoff")    or 0)
+    commission_pct     = float(seller_inputs.get("commission_pct")     or 5.5)
+    closing_costs      = float(seller_inputs.get("closing_costs")      or 3_500)
+    seller_credits     = float(seller_inputs.get("seller_credits")     or 0)
+    other_seller_costs = float(seller_inputs.get("other_seller_costs") or 0)
+
+    def _net(sale_price: float, work_cost: float) -> float:
+        commission = sale_price * (commission_pct / 100.0)
+        return sale_price - work_cost - mortgage_payoff - commission - closing_costs - seller_credits - other_seller_costs
+
+    def _scenario_row(key: str, label: str, description: str, buckets) -> dict:
+        if buckets is None:
+            work_cost  = 0.0
+            lift       = 0.0
+            sale_price = round(as_is)
+        else:
+            selected  = [it for it in all_items if it.roi_bucket_final in buckets]
+            work_cost = sum(it.cost_midpoint for it in selected)
+            lift_raw  = sum((it.estimated_value_add or 0.0) for it in selected)
+            lift      = min(lift_raw, max_lift)
+            sale_price = round(as_is + lift)
+
+        net      = _net(sale_price, work_cost)
+        recovery = round((lift / work_cost) * 100.0, 1) if work_cost > 0 else None
+
+        return {
+            "key":               key,
+            "label":             label,
+            "description":       description,
+            "work_cost":         round(work_cost),
+            "value_lift":        round(lift),
+            "sale_price":        sale_price,
+            "net_proceeds":      round(net),
+            "cost_recovery_pct": recovery,
+        }
+
+    # Buyer renegotiation risk items: further_inspect or quality=none must/should items
+    _RISK_PRIORITY = [
+        "crawlspace", "garage door", "deck", "cracked window", "smoke", "odor",
+        "electrical", "hvac", "duct", "moisture", "plumbing", "water heater",
+        "structural", "water damage",
+    ]
+
+    risk_candidates = [
+        dataclasses.asdict(it) for it in all_items
+        if it.option_key == "further_inspect" or (
+            it.roi_quality == "none" and it.roi_bucket_final in ("must_do", "should_do")
+        )
+    ]
+
+    def _risk_rank(item: dict) -> int:
+        name = (item["component"] + " " + item["zone"]).lower()
+        for i, kw in enumerate(_RISK_PRIORITY):
+            if kw in name:
+                return i
+        return len(_RISK_PRIORITY)
+
+    risk_items = sorted(risk_candidates, key=_risk_rank)[:8]
+
+    return {
+        "property_id":        property_id,
+        "seller_inputs_used": seller_inputs,
+        "as_is":              as_is,
+        "ceiling":            ceiling,
+        "scenarios": [
+            _scenario_row("sell_as_is",       "Sell As-Is",    "No work done",                   None),
+            _scenario_row("must_do_only",     "Must Do Only",  "Required repairs & safety",       {"must_do"}),
+            _scenario_row("must_plus_should", "Must + Should", "Required + high-value upgrades",  {"must_do", "should_do"}),
+            _scenario_row("full_plan",        "Full Plan",     "All recommended work",            {"must_do", "should_do", "nice_to_do"}),
+        ],
+        "risk_items": risk_items,
+    }
 
 
 @app.post("/properties/{property_id}/roi-snapshots")
