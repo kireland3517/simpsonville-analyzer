@@ -64,7 +64,10 @@ from fastapi.responses import (
 )
 from pydantic import BaseModel
 
-from attom import get_last_sale, get_property_summary
+from attom import get_last_sale, get_property_summary, get_or_refresh_market_snapshot
+from market_summary import get_market_summary, refresh_market_snapshot
+from roi_engine import compute_scenario
+import dataclasses
 from roi import (
     generate_roi_report,
     levels_up_to,
@@ -346,6 +349,83 @@ class TierReportRequest(BaseModel):
     tier: str
     buyer_profile: str = "general"
     property_id: str = WALKTHROUGH_PROPERTY_ID
+
+
+class SellerInputsUpdate(BaseModel):
+    listing_price:      Optional[float] = None
+    mortgage_payoff:    Optional[float] = None
+    commission_pct:     Optional[float] = None
+    closing_costs:      Optional[float] = None
+    seller_credits:     Optional[float] = None
+    other_seller_costs: Optional[float] = None
+
+
+class RoiOverrideUpdate(BaseModel):
+    roi_bucket_override: Optional[str]  = None
+    include_override:    Optional[bool] = None
+
+
+class RoiComputeRequest(BaseModel):
+    scenario: str = "full-recommended"
+
+
+class RoiSnapshotRequest(BaseModel):
+    scenario_name: str
+    result:        dict
+
+
+class MarketRefreshRequest(BaseModel):
+    force_live: bool = False
+
+
+_KNOWN_PROPERTY_IDS = {WALKTHROUGH_PROPERTY_ID}
+
+
+def _require_property(property_id: str) -> None:
+    if property_id not in _KNOWN_PROPERTY_IDS:
+        raise HTTPException(status_code=404, detail=f"Unknown property_id: {property_id}")
+
+
+def _load_seller_inputs_or_defaults(sb, property_id: str, snapshot: dict) -> dict:
+    if sb:
+        try:
+            resp = (
+                sb.table("roi_seller_inputs")
+                .select("*")
+                .eq("property_id", property_id)
+                .limit(1)
+                .execute()
+            )
+            rows = resp.data or []
+            if rows:
+                return rows[0]
+        except Exception:
+            pass
+    ceiling = float(snapshot.get("improved_listing_ceiling") or 305_000)
+    return {
+        "property_id":        property_id,
+        "listing_price":      ceiling,
+        "mortgage_payoff":    0.0,
+        "commission_pct":     5.5,
+        "closing_costs":      3_500.0,
+        "seller_credits":     0.0,
+        "other_seller_costs": 0.0,
+    }
+
+
+def _load_roi_overrides(sb, property_id: str) -> list[dict]:
+    if not sb:
+        return []
+    try:
+        resp = (
+            sb.table("roi_item_overrides")
+            .select("*")
+            .eq("property_id", property_id)
+            .execute()
+        )
+        return resp.data or []
+    except Exception:
+        return []
 
 
 # ─── Core endpoints ───────────────────────────────────────────────────────────
@@ -1752,6 +1832,122 @@ def notes_save(body: NotesSaveRequest):
             "updated_at": "now()",
         }).execute()
         return {"saved": True}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+# ─── Property-scoped market + ROI routes ─────────────────────────────────────
+
+@app.get("/properties/{property_id}/market-summary")
+def market_summary_get(property_id: str):
+    _require_property(property_id)
+    return get_market_summary(property_id, _sb())
+
+
+@app.post("/properties/{property_id}/market-refresh")
+def market_refresh_post(property_id: str, body: MarketRefreshRequest):
+    _require_property(property_id)
+    snapshot = refresh_market_snapshot(property_id, _sb(), force_live=body.force_live)
+    return {"snapshot": snapshot}
+
+
+@app.get("/properties/{property_id}/seller-inputs")
+def seller_inputs_get(property_id: str):
+    _require_property(property_id)
+    sb   = _sb()
+    snap = get_or_refresh_market_snapshot(property_id, sb)
+    return _load_seller_inputs_or_defaults(sb, property_id, snap)
+
+
+@app.patch("/properties/{property_id}/seller-inputs")
+def seller_inputs_patch(property_id: str, body: SellerInputsUpdate):
+    _require_property(property_id)
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    updates["property_id"] = property_id
+    updates["updated_at"]  = datetime.now(timezone.utc).isoformat()
+    try:
+        resp = (
+            sb.table("roi_seller_inputs")
+            .upsert(updates, on_conflict="property_id")
+            .execute()
+        )
+        return (resp.data or [updates])[0]
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.get("/properties/{property_id}/roi-overrides")
+def roi_overrides_get(property_id: str):
+    _require_property(property_id)
+    return {"overrides": _load_roi_overrides(_sb(), property_id)}
+
+
+@app.patch("/properties/{property_id}/roi-overrides/{matrix_row_id}")
+def roi_override_patch(property_id: str, matrix_row_id: str, body: RoiOverrideUpdate):
+    _require_property(property_id)
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    record = {
+        "property_id":         property_id,
+        "matrix_row_id":       matrix_row_id,
+        "roi_bucket_override": body.roi_bucket_override,
+        "include_override":    body.include_override,
+        "updated_at":          datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        resp = (
+            sb.table("roi_item_overrides")
+            .upsert(record, on_conflict="property_id,matrix_row_id")
+            .execute()
+        )
+        return (resp.data or [record])[0]
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
+
+
+@app.post("/properties/{property_id}/roi-compute")
+def roi_compute_post(property_id: str, body: RoiComputeRequest):
+    _require_property(property_id)
+    sb = _sb()
+
+    snapshot      = get_or_refresh_market_snapshot(property_id, sb)
+    seller_inputs = _load_seller_inputs_or_defaults(sb, property_id, snapshot)
+
+    matrix_ctx = _matrix_rows_for_property(sb, property_id)
+    if not matrix_ctx:
+        raise HTTPException(
+            status_code=422,
+            detail="No decision matrix found — rebuild the matrix first.",
+        )
+    _, rows = matrix_ctx
+
+    overrides = _load_roi_overrides(sb, property_id)
+    result    = compute_scenario(body.scenario, rows, overrides, seller_inputs, snapshot)
+    return dataclasses.asdict(result)
+
+
+@app.post("/properties/{property_id}/roi-snapshots")
+def roi_snapshot_post(property_id: str, body: RoiSnapshotRequest):
+    _require_property(property_id)
+    sb = _sb()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    record = {
+        "property_id":              property_id,
+        "scenario_name":            body.scenario_name,
+        "seller_inputs_snapshot":   body.result.get("seller_inputs_used") or {},
+        "item_overrides_snapshot":  [],
+        "result_snapshot":          body.result,
+        "created_at":               datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        resp = sb.table("roi_report_snapshots").insert(record).execute()
+        row  = (resp.data or [record])[0]
+        return {"snapshot_id": row.get("id")}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Supabase error: {exc}")
 

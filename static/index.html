@@ -1885,6 +1885,28 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
 .nav-item.secondary.active { color: #fff; }
 .nav-item.secondary svg { opacity: 0.5; }
 .nav-item.secondary.active svg { opacity: 1; }
+
+/* ── Scenario Planner ────────────────────────────────────────────── */
+.sp-tab {
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--gray-300);
+  background: var(--white); color: var(--gray-600); font-size: 13px;
+  cursor: pointer; transition: all 0.15s;
+}
+.sp-tab:hover { border-color: var(--blue-500); color: var(--blue-500); }
+.sp-tab--active { background: var(--blue-500); border-color: var(--blue-500); color: #fff; font-weight: 600; }
+.sp-field-label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--gray-600); font-weight:500; }
+.sp-input { padding: 6px 8px; border: 1px solid var(--gray-300); border-radius:4px; font-size:13px; width:100%; box-sizing:border-box; }
+.sp-input:focus { outline:none; border-color:var(--blue-500); box-shadow:0 0 0 2px rgba(37,99,235,0.15); }
+.sp-bucket-pill {
+  display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600;
+  cursor:pointer; white-space:nowrap;
+}
+.sp-bucket-pill.must_do   { background:#fef2f2; color:#dc2626; border:1px solid #fca5a5; }
+.sp-bucket-pill.should_do { background:#fffbeb; color:#d97706; border:1px solid #fcd34d; }
+.sp-bucket-pill.nice_to_do{ background:#f0fdf4; color:#16a34a; border:1px solid #86efac; }
+.sp-bucket-pill.exclude   { background:var(--gray-100); color:var(--gray-500); border:1px solid var(--gray-300); }
+.sp-include-toggle { width:15px; height:15px; cursor:pointer; accent-color:var(--blue-500); }
+.sp-row-excluded td { opacity:0.45; }
 </style>
 </head>
 <body>
@@ -1996,7 +2018,62 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <!-- ROI Report Tab -->
       <div id="tab-roi" class="tab-pane">
 
-        <!-- 1. Summary Cards -->
+        <!-- ═══ SCENARIO PLANNER (deterministic backend math) ═══ -->
+        <div class="section" id="sp-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <h2 style="margin:0;font-size:15px;font-weight:700;color:var(--gray-800)">ROI Scenario Planner</h2>
+            <div id="sp-market-badge" style="font-size:11px;color:var(--gray-500)">—</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap" id="sp-scenario-tabs">
+            <button class="sp-tab sp-tab--active" data-scenario="full-recommended" onclick="spSetScenario('full-recommended')">Full Plan</button>
+            <button class="sp-tab" data-scenario="must-do-only" onclick="spSetScenario('must-do-only')">Must Do Only</button>
+            <button class="sp-tab" data-scenario="highest-roi" onclick="spSetScenario('highest-roi')">Highest ROI</button>
+            <button class="sp-tab" data-scenario="custom" onclick="spSetScenario('custom')">Custom</button>
+          </div>
+          <details id="sp-inputs-details" style="margin-bottom:16px;border:1px solid var(--gray-200);border-radius:6px;padding:0">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--gray-700);list-style:none;display:flex;align-items:center;gap:6px">
+              <span>⚙ Seller Inputs</span>
+              <span id="sp-inputs-summary" style="font-size:11px;font-weight:400;color:var(--gray-500);margin-left:auto"></span>
+            </summary>
+            <div style="padding:12px 14px 14px;border-top:1px solid var(--gray-200);display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+              <label class="sp-field-label">Listing Price<input type="number" id="sp-listing-price" class="sp-input" placeholder="305000" oninput="spDebouncedSave()"></label>
+              <label class="sp-field-label">Mortgage Payoff<input type="number" id="sp-mortgage-payoff" class="sp-input" placeholder="0" oninput="spDebouncedSave()"></label>
+              <label class="sp-field-label">Commission %<input type="number" id="sp-commission-pct" class="sp-input" placeholder="5.5" step="0.1" oninput="spDebouncedSave()"></label>
+              <label class="sp-field-label">Closing Costs<input type="number" id="sp-closing-costs" class="sp-input" placeholder="3500" oninput="spDebouncedSave()"></label>
+              <label class="sp-field-label">Seller Credits<input type="number" id="sp-seller-credits" class="sp-input" placeholder="0" oninput="spDebouncedSave()"></label>
+              <label class="sp-field-label">Other Costs<input type="number" id="sp-other-costs" class="sp-input" placeholder="0" oninput="spDebouncedSave()"></label>
+            </div>
+          </details>
+          <div class="summary-cards" style="margin-bottom:16px">
+            <div class="summary-card"><div class="card-label">Net Proceeds</div><div class="card-value accent" id="sp-card-net-proceeds">—</div><div class="card-sub">After all costs &amp; payoff</div></div>
+            <div class="summary-card"><div class="card-label">Total Work Cost</div><div class="card-value" id="sp-card-work-cost">—</div><div class="card-sub" id="sp-card-work-cost-range"></div></div>
+            <div class="summary-card"><div class="card-label">Value Lift (capped)</div><div class="card-value green" id="sp-card-lift">—</div><div class="card-sub" id="sp-card-lift-cap"></div></div>
+            <div class="summary-card"><div class="card-label">ROI %</div><div class="card-value" id="sp-card-roi-pct">—</div><div class="card-sub">On selected work</div></div>
+          </div>
+          <div id="sp-market-bar" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gray-600);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 12px;margin-bottom:16px">
+            <span>As-Is: <strong id="sp-as-is">—</strong></span>
+            <span>Listing Ceiling: <strong id="sp-ceiling">—</strong></span>
+            <span>Max Supported Lift: <strong id="sp-max-lift">—</strong></span>
+            <span id="sp-freshness-badge" style="margin-left:auto;font-style:italic"></span>
+          </div>
+          <div id="sp-items-wrap" style="overflow-x:auto;margin-bottom:14px">
+            <table id="sp-items-table" class="data-table" style="min-width:680px">
+              <thead><tr>
+                <th style="width:36px">Include</th><th>Component</th><th>Zone</th>
+                <th>Option</th><th style="text-align:right">Cost</th>
+                <th style="text-align:right">Value Add</th><th style="text-align:right">Item ROI</th><th>Bucket</th>
+              </tr></thead>
+              <tbody id="sp-items-body"><tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Loading scenario…</td></tr></tbody>
+            </table>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn-primary" onclick="spSaveSnapshot()" id="sp-save-btn">Save Snapshot</button>
+            <span id="sp-save-status" style="font-size:12px;color:var(--gray-500)"></span>
+          </div>
+        </div>
+        <!-- END SCENARIO PLANNER -->
+
+        <!-- 1. Summary Cards (LLM-based report) -->
         <div class="section">
           <div class="summary-cards">
             <div class="summary-card">
@@ -2403,6 +2480,14 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
       <!-- Property Data Tab -->
       <div id="tab-property" class="tab-pane">
 
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+          <div>
+            <span id="pd-freshness" style="font-size:12px;color:var(--gray-500)"></span>
+            <span id="pd-confidence" style="font-size:12px;color:var(--gray-500);margin-left:8px"></span>
+          </div>
+          <button class="btn-secondary" id="pd-refresh-btn" onclick="pdRefreshMarket()" style="font-size:12px;padding:5px 12px">↻ Refresh Market Data</button>
+        </div>
+
         <div class="prop-two-col">
           <div class="prop-card">
             <div class="prop-card-title">Property Details</div>
@@ -2411,18 +2496,18 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <div class="prop-row"><span class="prop-key">Subdivision</span><span class="prop-val">River Ridge</span></div>
             <div class="prop-row"><span class="prop-key">County</span><span class="prop-val">Greenville County</span></div>
             <div class="prop-row"><span class="prop-key">Property Type</span><span class="prop-val">Single Family</span></div>
-            <div class="prop-row"><span class="prop-key">Year Built</span><span class="prop-val">1999</span></div>
-            <div class="prop-row"><span class="prop-key">Living Area</span><span class="prop-val">2,019 sqft</span></div>
-            <div class="prop-row"><span class="prop-key">Bedrooms / Baths</span><span class="prop-val">3 bed / 2 bath</span></div>
+            <div class="prop-row"><span class="prop-key">Year Built</span><span class="prop-val" id="pd-year-built">1999</span></div>
+            <div class="prop-row"><span class="prop-key">Living Area</span><span class="prop-val" id="pd-sqft">2,019 sqft</span></div>
+            <div class="prop-row"><span class="prop-key">Bedrooms / Baths</span><span class="prop-val" id="pd-beds-baths">3 bed / 2 bath</span></div>
             <div class="prop-row"><span class="prop-key">Garage</span><span class="prop-val">2-car attached</span></div>
             <div class="prop-row"><span class="prop-key">Lot Size</span><span class="prop-val">0.35 acres (15,377 sqft)</span></div>
-            <div class="prop-row"><span class="prop-key">Annual Tax</span><span class="prop-val">$3,446</span></div>
+            <div class="prop-row"><span class="prop-key">Annual Tax</span><span class="prop-val" id="pd-tax">$3,446</span></div>
           </div>
           <div class="prop-card">
             <div class="prop-card-title">Value Estimates</div>
             <div class="prop-row">
               <span class="prop-key">ATTOM AVM <span style="font-size:10px;color:var(--gray-400)">(primary)</span></span>
-              <span class="prop-val highlight">$276,810</span>
+              <span class="prop-val highlight" id="pd-attom-avm">$276,810</span>
             </div>
             <div style="margin: 10px 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-400);">Other Estimates</div>
             <div class="avm-row"><span class="avm-source">Redfin</span><span class="avm-value">$282,986</span></div>
@@ -2434,11 +2519,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
             <div style="margin: 14px 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gray-400); border-top: 1px solid var(--gray-100); padding-top: 12px;">Market Context</div>
             <div class="prop-row"><span class="prop-key">Avg. Days on Market</span><span class="prop-val">58 days</span></div>
             <div class="prop-row"><span class="prop-key">Avg. List-to-Sale</span><span class="prop-val">~99%</span></div>
-            <div class="prop-row"><span class="prop-key">Realistic ARV Ceiling</span><span class="prop-val">$295,000 – $305,000</span></div>
+            <div class="prop-row"><span class="prop-key">Listing Range</span><span class="prop-val" id="pd-listing-range">$295,000 – $305,000</span></div>
           </div>
         </div>
 
-        <!-- Comps Table -->
+        <!-- Comps Table (dynamic) -->
         <div class="section">
           <div class="section-header">
             <span class="section-title">Comparable Sales — River Ridge</span>
@@ -2452,11 +2537,11 @@ tr.row-unchecked .disc-yes, tr.row-unchecked .roi-value { opacity: 0.4; }
                   <th>Sold</th><th>Sale Price</th><th>$/Sqft</th><th>List%</th><th>Notes</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="pd-comps-tbody">
                 <tr class="subject-row">
                   <td>130 Kingfisher Dr <span style="font-size:10px;background:var(--accent);color:white;padding:1px 5px;border-radius:4px;margin-left:4px;">SUBJECT</span></td>
                   <td>3/2</td><td>2,019</td><td>1999</td><td>—</td>
-                  <td>$276,810 <span style="font-size:10px;font-weight:400;opacity:.7">(AVM)</span></td>
+                  <td id="pd-subject-avm">$276,810 <span style="font-size:10px;font-weight:400;opacity:.7">(AVM)</span></td>
                   <td>$137</td><td>—</td><td></td>
                 </tr>
                 <tr><td>4 Kingfisher Dr</td><td>3/2</td><td>1,891</td><td>1996</td><td>Apr 2026</td><td>$289,000</td><td>$153</td><td>100%</td><td></td></tr>
@@ -5828,6 +5913,312 @@ async function loadDecisionMatrix(force) {
     dmShowState('dm-error');
   }
 }
+
+// ─── Scenario Planner (sp*) ──────────────────────────────────────────────────
+const SP_PROPERTY_ID = '130_kingfisher';
+let spCurrentScenario = 'full-recommended';
+let spSaveTimer = null;
+let spLastResult = null;
+
+function spFmt(n) {
+  if (n == null) return '—';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function spFmtPct(n) {
+  if (n == null) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function spSetScenario(scenario) {
+  spCurrentScenario = scenario;
+  document.querySelectorAll('#sp-scenario-tabs .sp-tab').forEach(btn => {
+    btn.classList.toggle('sp-tab--active', btn.dataset.scenario === scenario);
+  });
+  spCompute();
+}
+
+async function spLoadSellerInputs() {
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/seller-inputs`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const si = data.seller_inputs || {};
+    if (si.listing_price != null) $('sp-listing-price').value = si.listing_price;
+    if (si.mortgage_payoff != null) $('sp-mortgage-payoff').value = si.mortgage_payoff;
+    if (si.commission_pct != null) $('sp-commission-pct').value = si.commission_pct;
+    if (si.closing_costs != null) $('sp-closing-costs').value = si.closing_costs;
+    if (si.seller_credits != null) $('sp-seller-credits').value = si.seller_credits;
+    if (si.other_seller_costs != null) $('sp-other-costs').value = si.other_seller_costs;
+    spUpdateInputsSummary(si);
+  } catch (_) {}
+}
+
+function spUpdateInputsSummary(si) {
+  const el = $('sp-inputs-summary');
+  if (!el) return;
+  const price = si.listing_price;
+  const pct = si.commission_pct || 5.5;
+  el.textContent = price ? `Listing ${spFmt(price)} · ${pct}% commission` : '';
+}
+
+function spDebouncedSave() {
+  clearTimeout(spSaveTimer);
+  spSaveTimer = setTimeout(() => spSaveInputs(), 600);
+}
+
+async function spSaveInputs() {
+  const payload = {
+    listing_price: parseFloat($('sp-listing-price').value) || null,
+    mortgage_payoff: parseFloat($('sp-mortgage-payoff').value) || 0,
+    commission_pct: parseFloat($('sp-commission-pct').value) || 5.5,
+    closing_costs: parseFloat($('sp-closing-costs').value) || 0,
+    seller_credits: parseFloat($('sp-seller-credits').value) || 0,
+    other_seller_costs: parseFloat($('sp-other-costs').value) || 0,
+  };
+  try {
+    await fetch(`/properties/${SP_PROPERTY_ID}/seller-inputs`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (_) {}
+  spCompute();
+}
+
+async function spLoadMarketSummary() {
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/market-summary`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const snap = data.snapshot || {};
+    $('sp-as-is').textContent = spFmt(snap.as_is_market_estimate);
+    $('sp-ceiling').textContent = spFmt(snap.improved_listing_ceiling);
+    const lift = (snap.improved_listing_ceiling || 0) - (snap.as_is_market_estimate || 0);
+    $('sp-max-lift').textContent = lift > 0 ? spFmt(lift) : '—';
+    const badge = $('sp-freshness-badge');
+    if (badge) badge.textContent = [snap.freshness_label, snap.confidence_label].filter(Boolean).join(' · ');
+    const mktBadge = $('sp-market-badge');
+    if (mktBadge) mktBadge.textContent = snap.freshness_label || '';
+  } catch (_) {}
+}
+
+async function spCompute() {
+  const tbody = $('sp-items-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Computing…</td></tr>';
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/roi-compute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: spCurrentScenario }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:24px">${escHtml(err.detail || 'Compute failed')}</td></tr>`;
+      return;
+    }
+    const data = await res.json();
+    spLastResult = data;
+    spRenderResult(data);
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:24px">${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+function spRenderResult(result) {
+  $('sp-card-net-proceeds').textContent = spFmt(result.net_proceeds);
+  $('sp-card-work-cost').textContent = spFmt(result.total_cost_midpoint);
+  const rangeEl = $('sp-card-work-cost-range');
+  if (rangeEl && result.total_cost_low != null) {
+    rangeEl.textContent = `${spFmt(result.total_cost_low)} – ${spFmt(result.total_cost_high)}`;
+  }
+  $('sp-card-lift').textContent = spFmt(result.value_lift_capped);
+  const capEl = $('sp-card-lift-cap');
+  if (capEl) capEl.textContent = result.max_supported_lift != null ? `Cap: ${spFmt(result.max_supported_lift)}` : '';
+  const roiEl = $('sp-card-roi-pct');
+  if (roiEl) {
+    roiEl.textContent = result.roi_pct != null ? spFmtPct(result.roi_pct) : '—';
+    roiEl.style.color = (result.roi_pct != null && result.roi_pct >= 0) ? 'var(--green-700, #15803d)' : '#dc2626';
+  }
+  spUpdateInputsSummary(result.seller_inputs_used || {});
+
+  const tbody = $('sp-items-body');
+  if (!tbody) return;
+  const items = result.items || [];
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">No items for this scenario.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(item => {
+    const excluded = !item.include_final;
+    const itemRoi = (item.estimated_value_add && item.cost_midpoint && item.cost_midpoint > 0)
+      ? spFmtPct(((item.estimated_value_add - item.cost_midpoint) / item.cost_midpoint) * 100)
+      : '—';
+    return `<tr class="${excluded ? 'sp-row-excluded' : ''}">
+      <td><input type="checkbox" class="sp-include-toggle" ${item.include_final ? 'checked' : ''} onchange="spToggleInclude('${escHtml(item.matrix_row_id)}', this.checked)"></td>
+      <td>${escHtml(item.component || '')}</td>
+      <td style="color:var(--gray-500);font-size:11px">${escHtml(item.zone || '')}</td>
+      <td style="font-size:11px">${escHtml(item.option_key || '—')}</td>
+      <td>${spFmt(item.cost_midpoint)}</td>
+      <td>${spFmt(item.estimated_value_add)}</td>
+      <td style="font-size:12px">${itemRoi}</td>
+      <td><span class="sp-bucket-pill ${escHtml(item.roi_bucket_final || 'exclude')}" style="cursor:pointer" onclick="spShowBucketOverride('${escHtml(item.matrix_row_id)}', '${escHtml(item.roi_bucket_final || '')}')">${escHtml((item.roi_bucket_final || 'exclude').replace(/_/g,' '))}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function spToggleInclude(rowId, checked) {
+  try {
+    await fetch(`/properties/${SP_PROPERTY_ID}/roi-overrides/${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ include_override: checked }),
+    });
+  } catch (_) {}
+  spCompute();
+}
+
+function spShowBucketOverride(rowId, current) {
+  const buckets = ['must_do', 'should_do', 'nice_to_do', 'exclude'];
+  const labels = { must_do: 'Must Do', should_do: 'Should Do', nice_to_do: 'Nice to Do', exclude: 'Exclude' };
+  const chosen = prompt(
+    `Set ROI bucket for this item:\n1. Must Do\n2. Should Do\n3. Nice to Do\n4. Exclude\n\nCurrent: ${current}\nEnter 1-4, or leave blank to clear override:`
+  );
+  if (chosen === null) return;
+  const idx = parseInt(chosen, 10);
+  const override = (idx >= 1 && idx <= 4) ? buckets[idx - 1] : null;
+  fetch(`/properties/${SP_PROPERTY_ID}/roi-overrides/${rowId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roi_bucket_override: override }),
+  }).then(() => spCompute()).catch(() => {});
+}
+
+async function spSaveSnapshot() {
+  const btn = $('sp-save-btn');
+  const status = $('sp-save-status');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Saving…';
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/roi-snapshots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: spCurrentScenario }),
+    });
+    if (res.ok) {
+      if (status) status.textContent = '✓ Snapshot saved';
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (status) status.textContent = `Error: ${err.detail || 'Save failed'}`;
+    }
+  } catch (err) {
+    if (status) status.textContent = `Error: ${err.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+    setTimeout(() => { if (status) status.textContent = ''; }, 4000);
+  }
+}
+
+let spInitialized = false;
+function spInit() {
+  if (spInitialized) { spCompute(); return; }
+  spInitialized = true;
+  spLoadSellerInputs();
+  spLoadMarketSummary();
+  spCompute();
+}
+
+// ─── Property Data (pd*) ─────────────────────────────────────────────────────
+let pdLoaded = false;
+
+function pdFmt(n) {
+  if (n == null) return null;
+  return '$' + Math.round(n).toLocaleString();
+}
+
+async function pdLoadMarketSummary() {
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/market-summary`);
+    if (!res.ok) return;
+    const data = await res.json();
+    pdRender(data);
+    pdLoaded = true;
+  } catch (_) {}
+}
+
+function pdRender(data) {
+  const snap = data.snapshot || {};
+
+  if (snap.attom_avm != null) {
+    const avmEl = $('pd-attom-avm');
+    if (avmEl) avmEl.textContent = pdFmt(snap.attom_avm) || '$276,810';
+    const subjectEl = $('pd-subject-avm');
+    if (subjectEl) subjectEl.innerHTML = `${pdFmt(snap.attom_avm) || '$276,810'} <span style="font-size:10px;font-weight:400;opacity:.7">(AVM)</span>`;
+  }
+
+  const low = snap.as_is_market_estimate;
+  const high = snap.improved_listing_ceiling;
+  const rangeEl = $('pd-listing-range');
+  if (rangeEl && low && high) rangeEl.textContent = `${pdFmt(low)} – ${pdFmt(high)}`;
+
+  const freshnessEl = $('pd-freshness');
+  if (freshnessEl) freshnessEl.textContent = snap.freshness_label ? `Source: ${snap.source || '—'} · ${snap.freshness_label}` : '';
+  const confEl = $('pd-confidence');
+  if (confEl) confEl.textContent = snap.confidence_label ? `Confidence: ${snap.confidence_label}` : '';
+
+  if (snap.comp_data) {
+    try {
+      const comps = typeof snap.comp_data === 'string' ? JSON.parse(snap.comp_data) : snap.comp_data;
+      if (Array.isArray(comps) && comps.length) pdRenderComps(comps);
+    } catch (_) {}
+  }
+}
+
+function pdRenderComps(comps) {
+  const tbody = $('pd-comps-tbody');
+  if (!tbody) return;
+  const subjectRow = tbody.querySelector('.subject-row');
+  const newRows = comps.map(c => `<tr>
+    <td>${escHtml(c.address || '')}</td>
+    <td>${c.beds || ''}/${c.baths || ''}</td>
+    <td>${c.sqft ? c.sqft.toLocaleString() : '—'}</td>
+    <td>${c.year_built || '—'}</td>
+    <td>${escHtml(c.sale_date || '—')}</td>
+    <td>${pdFmt(c.sale_price) || '—'}</td>
+    <td>${c.price_per_sqft ? '$' + Math.round(c.price_per_sqft) : '—'}</td>
+    <td>${c.list_pct ? c.list_pct + '%' : '—'}</td>
+    <td>${c.notes ? `<span class="outlier-tag">${escHtml(c.notes)}</span>` : ''}</td>
+  </tr>`).join('');
+  tbody.innerHTML = (subjectRow ? subjectRow.outerHTML : '') + newRows;
+}
+
+async function pdRefreshMarket() {
+  const btn = $('pd-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Refreshing…'; }
+  try {
+    const res = await fetch(`/properties/${SP_PROPERTY_ID}/market-refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force_live: true }),
+    });
+    if (res.ok) pdRender(await res.json());
+  } catch (_) {}
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh Market Data'; }
+}
+
+// ─── Tab switch hooks ─────────────────────────────────────────────────────────
+(function() {
+  const _orig = switchToMainTab;
+  switchToMainTab = function(tab) {
+    _orig(tab);
+    if (tab === 'roi') spInit();
+    if (tab === 'property' && !pdLoaded) pdLoadMarketSummary();
+  };
+})();
 </script>
 </body>
 </html>
